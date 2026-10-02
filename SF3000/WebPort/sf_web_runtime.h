@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define SF_WEB_MOUSE_FIRE ((uint32_t)0x00010000)
+#define SF_WEB_MOUSE_BOOST ((uint32_t)0x00020000)
+
 void sf_web_runtime_initialise(void);
 void sf_web_runtime_set_status(const char *status);
 void sf_web_runtime_set_backdrop(const void *pixels);
@@ -61,6 +64,10 @@ int32_t sf_web_runtime_load_backdrop(const char *name);
 void sf_web_runtime_set_backdrop_name(const char *name);
 void sf_web_runtime_reset_textures(void);
 uint32_t sf_web_runtime_control_pad_state(void);
+uint32_t sf_web_runtime_mouse_state(void);
+int32_t sf_web_runtime_take_mouse_weapon_steps(void);
+int32_t sf_web_runtime_take_menu_click(int32_t *x, int32_t *y);
+void sf_web_runtime_set_mouse_gameplay(int32_t active);
 void sf_web_runtime_wait_vbl(int32_t fields);
 void sf_web_runtime_reset_frame_clock(void);
 uint32_t sf_web_runtime_take_elapsed_microseconds(void);

@@ -109,6 +109,7 @@ if (mission.starting_docked == 0)
 	docked.ship = 0 ;
 	docked.counter = 0 ;
 	docked.status = DOCKING_OUT ;
+	docked.launch_cooldown = 0 ;
 }
 else
 {
@@ -116,6 +117,7 @@ else
 	docked.ship = status.docked ;
 	docked.counter = 0 ;
 	docked.status = DOCKING_FIXED ;
+	docked.launch_cooldown = 0 ;
 }
 
 

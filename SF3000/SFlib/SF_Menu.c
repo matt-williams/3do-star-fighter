@@ -18,6 +18,10 @@
 #include "SF_Sound.h"
 #include "SF_Pyramid.h"
 #include "SF_Joystick.h"
+
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
 #include "SF_Video.h"
 #include "Setup_Tables.h"
 #include "Sound_Control.h"
@@ -945,6 +949,35 @@ menu_item	*item_update;
 	
 	// GET CURRENT MENU
 	current_menu = & menus [menu_status.current_menu];
+
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_mouse_gameplay (0);
+	{
+	int32_t	mouse_x,
+			mouse_y;
+
+	sf_web_runtime_take_mouse_weapon_steps ();	// Ignore wheel input while using menus.
+
+	if (sf_web_runtime_take_menu_click (&mouse_x, &mouse_y) != 0 &&
+		mouse_x >= 40 && mouse_x <= 279)
+		{
+		for (long option = 0; option <= current_menu->max_option; option++)
+			{
+			menu_item *item = &current_menu->items [option];
+			long item_y = current_menu->ypos + MENU_YOFFS +
+				(MENU_YSIZE * item->y_position);
+
+			if (mouse_y >= item_y - 7 && mouse_y <= item_y + 17 &&
+				item->selectable == ITEM_OK)
+				{
+				current_menu->cur_option = option;
+				keypad |= ControlA;
+				break;
+				}
+			}
+		}
+	}
+	#endif
 	
 	// DEBOUNCE SELECTOR ?
 	if (menu_status.selected == 1 && (keypad & ControlA) == 0)

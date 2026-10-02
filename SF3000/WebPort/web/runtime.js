@@ -617,7 +617,7 @@ function createCinematicPlayer(mixer, renderer, status) {
     renderer.stopCinematic();
     if (message !== undefined) status.textContent = message;
     else if (playback.awaitingAudioActivation) {
-      status.textContent = "Controls: arrows/WASD move, Z/X/C act, Enter starts";
+      status.textContent = "Controls: arrows/WASD or mouse steer; left-click fires, right-click boosts, wheel changes weapons";
     }
     playback.resolve(result);
   }
@@ -749,6 +749,11 @@ const KEY_CONTROLS = new Map([
   ["ShiftLeft", CONTROL.leftShift],
   ["ShiftRight", CONTROL.rightShift]
 ]);
+
+const MOUSE_ACTION = {
+  fire: 0x00010000,
+  boost: 0x00020000
+};
 
 function createTextureAtlas(gl) {
   const pages = [];
@@ -1212,6 +1217,14 @@ function gamepadControls() {
 
 export function createStarFighterRuntime(canvas, status) {
   let keyboardControls = 0;
+  let mouseSteering = 0;
+  let mouseSteeringX = 0;
+  let mouseSteeringY = 0;
+  let mouseSteeringUntil = 0;
+  let mouseActions = 0;
+  let mouseWeaponSteps = 0;
+  let pendingMenuClick;
+  let mouseGameplay = false;
   let module;
   let fallbackTexture;
   let textFont;
@@ -1655,6 +1668,10 @@ export function createStarFighterRuntime(canvas, status) {
   });
   window.addEventListener("blur", () => {
     keyboardControls = 0;
+    mouseSteering = 0;
+    mouseSteeringX = 0;
+    mouseSteeringY = 0;
+    mouseActions = 0;
   });
   window.addEventListener("pointerdown", (event) => {
     audioMixer.resume();
@@ -1663,8 +1680,56 @@ export function createStarFighterRuntime(canvas, status) {
       event.stopPropagation();
     }
   }, true);
-  canvas.addEventListener("pointerdown", () => {
+  function mousePosition(event) {
+    return renderer.logicalPosition(event.clientX, event.clientY);
+  }
+  function updateMouseSteering(event) {
+    if (!mouseGameplay) return mousePosition(event);
+    mouseSteeringX += event.movementX;
+    mouseSteeringY += event.movementY;
+    const threshold = 12;
+    let controls = 0;
+    if (mouseSteeringX <= -threshold) controls |= CONTROL.left;
+    if (mouseSteeringX >= threshold) controls |= CONTROL.right;
+    if (mouseSteeringY <= -threshold) controls |= CONTROL.up;
+    if (mouseSteeringY >= threshold) controls |= CONTROL.down;
+    if (controls !== 0) {
+      mouseSteering = controls;
+      mouseSteeringX = 0;
+      mouseSteeringY = 0;
+      mouseSteeringUntil = performance.now() + 40;
+    }
+    return mousePosition(event);
+  }
+  canvas.addEventListener("pointermove", updateMouseSteering);
+  canvas.addEventListener("pointerleave", () => {
+    if (!mouseGameplay) mouseSteering = 0;
+  });
+  canvas.addEventListener("pointerdown", (event) => {
     audioMixer.resume();
+    const position = mousePosition(event);
+    if (event.button === 0) {
+      mouseActions |= MOUSE_ACTION.fire;
+      if (position !== undefined) pendingMenuClick = position;
+      if (mouseGameplay && document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock();
+      }
+    } else if (event.button === 2) {
+      mouseActions |= MOUSE_ACTION.boost;
+      event.preventDefault();
+    }
+  });
+  window.addEventListener("pointerup", (event) => {
+    if (event.button === 0) mouseActions &= ~MOUSE_ACTION.fire;
+    if (event.button === 2) mouseActions &= ~MOUSE_ACTION.boost;
+  });
+  canvas.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+  canvas.addEventListener("wheel", (event) => {
+    mouseWeaponSteps = Math.max(-8, Math.min(8,
+      mouseWeaponSteps + (event.deltaY > 0 ? 1 : -1)));
+    event.preventDefault();
   });
 
   return {
@@ -1698,6 +1763,39 @@ export function createStarFighterRuntime(canvas, status) {
     },
     controlPadState() {
       return keyboardControls | gamepadControls();
+    },
+    mouseState() {
+      const steering = performance.now() < mouseSteeringUntil ? mouseSteering : 0;
+      return steering | mouseActions;
+    },
+    takeMouseWeaponSteps() {
+      const steps = mouseWeaponSteps;
+      mouseWeaponSteps = 0;
+      return steps;
+    },
+    takeMenuClick(xAddress, yAddress) {
+      if (pendingMenuClick === undefined || module === undefined ||
+          !Number.isInteger(xAddress) || !Number.isInteger(yAddress) ||
+          xAddress < 0 || yAddress < 0 ||
+          xAddress + Int32Array.BYTES_PER_ELEMENT > module.HEAPU8.length ||
+          yAddress + Int32Array.BYTES_PER_ELEMENT > module.HEAPU8.length) {
+        return 0;
+      }
+      const memory = new DataView(module.HEAPU8.buffer);
+      memory.setInt32(xAddress, pendingMenuClick.x, true);
+      memory.setInt32(yAddress, pendingMenuClick.y, true);
+      pendingMenuClick = undefined;
+      return 1;
+    },
+    setMouseGameplay(active) {
+      if (mouseGameplay === active) return;
+      mouseGameplay = active;
+      mouseSteering = 0;
+      mouseSteeringX = 0;
+      mouseSteeringY = 0;
+      if (!active && document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
     },
     soundLoadSamples() {
       soundEffects.load();

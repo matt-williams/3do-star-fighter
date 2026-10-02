@@ -29,7 +29,8 @@ typedef struct docking_struct
 						ship_stack* ship ;
 						long counter ;
 						long status ;
-					} docking_struct
+						long launch_cooldown ;
+					} docking_struct ;
 					;
 
 #define		DOCKING_OUT		0

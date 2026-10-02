@@ -2353,6 +2353,25 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand,
   }
 
   return {
+    logicalPosition(clientX, clientY) {
+      const bounds = canvas.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) return undefined;
+      const canvasX = (clientX - bounds.left) * canvasWidth / bounds.width;
+      const canvasY = (clientY - bounds.top) * canvasHeight / bounds.height;
+      const viewportTop = canvasHeight - logicalViewport.y - logicalViewport.height;
+      if (canvasX < logicalViewport.x ||
+          canvasX >= logicalViewport.x + logicalViewport.width ||
+          canvasY < viewportTop ||
+          canvasY >= viewportTop + logicalViewport.height) {
+        return undefined;
+      }
+      return {
+        x: Math.floor((canvasX - logicalViewport.x) * displayWidth /
+                      logicalViewport.width),
+        y: Math.floor((canvasY - viewportTop) * displayHeight /
+                      logicalViewport.height)
+      };
+    },
     setTextFont(memory, source, size) {
       const nextFont = createTextFontAtlas(gl, memory, source, size);
 

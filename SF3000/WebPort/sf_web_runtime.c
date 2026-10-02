@@ -258,6 +258,29 @@ EM_JS(uint32_t, sf_web_runtime_control_pad_state_js, (), {
     return runtime === undefined ? 0 : runtime.controlPadState();
 });
 
+EM_JS(uint32_t, sf_web_runtime_mouse_state_js, (), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : runtime.mouseState();
+});
+
+EM_JS(int32_t, sf_web_runtime_take_mouse_weapon_steps_js, (), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : runtime.takeMouseWeaponSteps();
+});
+
+EM_JS(int32_t, sf_web_runtime_take_menu_click_js,
+      (int32_t *x, int32_t *y), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : runtime.takeMenuClick(x, y);
+});
+
+EM_JS(void, sf_web_runtime_set_mouse_gameplay_js, (int32_t active), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime !== undefined) {
+    runtime.setMouseGameplay(active !== 0);
+    }
+});
+
 EM_JS(int32_t, sf_web_runtime_nvram_size_js, (const char *name), {
     const runtime = globalThis.SF3000WebPort;
     return runtime === undefined ? -1 : runtime.nvramSize(UTF8ToString(name));
@@ -856,6 +879,44 @@ uint32_t sf_web_runtime_control_pad_state(void)
     return sf_web_runtime_control_pad_state_js();
 #else
     return 0u;
+#endif
+}
+
+uint32_t sf_web_runtime_mouse_state(void)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_mouse_state_js();
+#else
+    return 0u;
+#endif
+}
+
+int32_t sf_web_runtime_take_mouse_weapon_steps(void)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_take_mouse_weapon_steps_js();
+#else
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_take_menu_click(int32_t *x, int32_t *y)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_take_menu_click_js(x, y);
+#else
+    (void)x;
+    (void)y;
+    return 0;
+#endif
+}
+
+void sf_web_runtime_set_mouse_gameplay(int32_t active)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_set_mouse_gameplay_js(active);
+#else
+    (void)active;
 #endif
 }
 

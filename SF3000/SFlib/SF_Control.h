@@ -58,6 +58,7 @@ void	control_searchcamera (long, long);				// Set camera to an instance of a shi
 void	control_changecamera (long);					// Change current camera
 void	control_recheckcamera (ship_stack*);			// Recheck cameras when a ship is added
 void	control_selectweapon (void);					// Select a new weapon for the player
+void	control_selectpreviousweapon (void);			// Select the previous available weapon
 void	control_gameover (void);						// Set gameover - display message etc.
 void	control_retrack (void);							// Reset nearest / tracking objects if free format
 

@@ -246,18 +246,21 @@ long	sublevel_loop,
 	if (cheat_feature1 == 1)
 		{
 		if ((keypad & ControlUp) && selector_y < 4)					selector_y+=1;		// Moving up ?
-		if ((keypad & ControlDown) && selector_y > 0)									// Moving down ?
-			{
-			selector_y-=1;
-			if (selector_x > selector_y)
-				selector_x = selector_y;
-			}
 		
 		if (keypad & ControlLeftShift)
 			{
 			pyramid_registercompleted();
 			pyramid_initialiseselect(parameters.level);
 			}
+		}
+
+	// Completed campaigns retain access to every lower mission tier.  Moving
+	// upwards remains gated by progression (or the developer cheat) above.
+	if ((keypad & ControlDown) && selector_y > 0)
+		{
+		selector_y--;
+		if (selector_x > selector_y)
+			selector_x = selector_y;
 		}
 		
 	// ARE WE MOVING CURSOR ?

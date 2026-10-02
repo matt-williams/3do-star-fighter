@@ -628,6 +628,32 @@ char	weapon_string [20];
 
 /**************************************/
 
+void control_selectpreviousweapon (void)
+
+// Purpose : Selects the previous available weapon for the player
+// Accepts : Nothing
+// Returns : Nothing
+
+{
+char	weapon_string [20];
+
+	players_ship->counter = 2;
+
+	do
+		{
+		if (--status.weapon < WEAPON_LASER)
+			status.weapon = WEAPON_MINE;
+		}
+	while (players_ship->performance->weapons [status.weapon] <= 0 &&
+		   status.weapon != WEAPON_LASER);
+
+	sprintf (weapon_string, ">%s", message_decode (weapon_names [status.weapon], 0));
+	message_text (MESSAGE_BOTTOM, weapon_string, ORANGE_15, MESSAGE_SCROLL, 32, MESSAGE_CURSOR1);
+	message_addweapon();
+}
+
+/**************************************/
+
 void control_gameover (void)
 
 // Purpose : Display game over message, set status etc.

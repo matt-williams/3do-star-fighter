@@ -241,7 +241,7 @@ long	selection,
 	#endif
 	game_intro ();												// Do initial intro
 	#if defined(SF_WEB_PORT)
-	sf_web_runtime_set_status("Controls: arrows/WASD move, Z/X/C act, Enter starts");
+	sf_web_runtime_set_status("Controls: arrows/WASD or mouse steer; left-click fires, right-click boosts, wheel changes weapons");
 	#endif
 
 	// TO INITIALISE CHEATS - DO IT HERE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -573,10 +573,34 @@ static void game_begin_mission_tick(long *debounced_keypad,
 	cel_quad.temp_cels =0;
 	*debounced_keypad = controlpad_debounce ();
 	*constant_keypad = controlpad_constant ();
+#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_mouse_gameplay (menu_status.current_menu == NO_MENU);
+	if (menu_status.current_menu == NO_MENU)
+		{
+		uint32_t mouse = sf_web_runtime_mouse_state ();
+		int32_t discard_mouse_x,
+				discard_mouse_y;
+
+		sf_web_runtime_take_menu_click (&discard_mouse_x, &discard_mouse_y);
+
+		*constant_keypad |= mouse & (ControlUp | ControlDown |
+			ControlLeft | ControlRight);
+		if (mouse & SF_WEB_MOUSE_FIRE)
+			*constant_keypad |= keypad_iomap [
+				configuration.flight_controls [FLIGHT_FIRE_WEAPON]];
+		if (mouse & SF_WEB_MOUSE_BOOST)
+			*constant_keypad |= keypad_iomap [
+				configuration.flight_controls [FLIGHT_THRUST]];
+		}
+#endif
 }
 
 static void game_handle_mission_controls(long *debounced_keypad)
 {
+#if defined(SF_WEB_PORT)
+	long mouse_weapon_steps = sf_web_runtime_take_mouse_weapon_steps ();
+#endif
+
 	if (menu_status.current_menu == NO_MENU)
 		{
 		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_VIEW_MAP]])
@@ -591,6 +615,19 @@ static void game_handle_mission_controls(long *debounced_keypad)
 
 		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_SELECT_WEAPON]])
 			control_selectweapon();
+
+#if defined(SF_WEB_PORT)
+		while (mouse_weapon_steps > 0)
+			{
+			control_selectweapon ();
+			mouse_weapon_steps--;
+			}
+		while (mouse_weapon_steps < 0)
+			{
+			control_selectpreviousweapon ();
+			mouse_weapon_steps++;
+			}
+#endif
 
 		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_MENU]])
 			{

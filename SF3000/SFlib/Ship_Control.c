@@ -131,6 +131,7 @@ if (docked.counter >= 16)
 	docked.counter = 0 ;
 	docked.status = DOCKING_OUT ;
 	status.docked = 0 ;
+	docked.launch_cooldown = 64;
 }
 
 docked.counter += SF_SIMULATION_DELTA(2) ;
@@ -228,8 +229,17 @@ laser_details *laser_data ;
 if ( ship->what_hit_me != 0 ) small_ship_collision( ship );
 
 // Update the docking details for the players ship
+if (((ship->type)>>4) == PLAYERS_SHIP &&
+	docked.status == DOCKING_OUT && docked.launch_cooldown > 0)
+{
+	docked.launch_cooldown += SF_SIMULATION_DELTA(-1);
+	if (docked.launch_cooldown < 0) docked.launch_cooldown = 0;
+	docked.docked_this_frame = 0;
+}
+
 if ( ((ship->type)>>4) == PLAYERS_SHIP &&
-	( docked.docked_this_frame == 1 || docked.status != DOCKING_OUT ) )
+	( (docked.docked_this_frame == 1 && docked.launch_cooldown == 0) ||
+	  docked.status != DOCKING_OUT ) )
 {
 	update_docking( ship );
 	ship->fire_request = WEAPON_NOTHING ;
