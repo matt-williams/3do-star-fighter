@@ -212,9 +212,9 @@ long	width,
 
 /**************************************/
 
-void	message_update (void)
+void	message_advance (void)
 
-// Purpose : Updates all in game messages (top, bottom and big)
+// Purpose : Advances in-game message timers and animation state
 // Accepts : Nothing
 // Returns : Nothing
 
@@ -247,17 +247,6 @@ long	message_type,
 					messages[message_type].textcel->tc_CCB->ccb_PRE1 |= message_xlength;
 					}
 				
-				// IS THE MESSAGE FLASHING A CURSOR ? - IF SO AND TIMER>>1&1 THEN PUT CURSOR ON SCREEN
-				
-				if (messages [message_type].cursor != 0)
-					if (messages [message_type].timer & 2)
-						{
-						cel_quad.x_pos0 = (((messages[message_type].textcel->tc_CCB->ccb_XPos)>>16)-156) + (messages[message_type].textcel->tc_CCB->ccb_PRE1 & 1023);
-						cel_quad.y_pos0 = ((messages[message_type].textcel->tc_CCB->ccb_YPos)>>16)-117;
-						cel_quad.shade = 10;
-						arm_addgamecel (&cel_quad, BASECEL_CURSOR + messages [message_type].cursor, 1024, 1024);
-						}
-					
 				// IS THE MESSAGE FLASHING ON THE SCREEN ?
 				
 				if (messages [message_type].flags & MESSAGE_FLASH)
@@ -284,6 +273,44 @@ long	message_type,
 				}
 			}
 }		
+
+void	message_render (void)
+
+// Purpose : Queues frame-dependent cursor graphics for active messages
+// Accepts : Nothing
+// Returns : Nothing
+
+{
+
+long	message_type;
+
+	for (message_type=3; message_type < FONT_MAXMESSAGE; message_type++)
+		if (messages[message_type].delay == 0 &&
+			messages[message_type].timer > 0 &&
+			messages[message_type].cursor != 0 &&
+			(messages[message_type].timer & 2))
+			{
+			cel_quad.x_pos0 = (((messages[message_type].textcel->tc_CCB->ccb_XPos)>>16)-156) +
+				(messages[message_type].textcel->tc_CCB->ccb_PRE1 & 1023);
+			cel_quad.y_pos0 =
+				((messages[message_type].textcel->tc_CCB->ccb_YPos)>>16)-117;
+			cel_quad.shade = 10;
+			arm_addgamecel (&cel_quad, BASECEL_CURSOR + messages [message_type].cursor,
+				1024, 1024);
+			}
+}
+
+void	message_update (void)
+
+// Purpose : Updates message state and queues its frame-dependent graphics
+// Accepts : Nothing
+// Returns : Nothing
+
+{
+
+	message_advance ();
+	message_render ();
+}
 
 /************************************************************************************************************************************
 *								ROUTINES TO DISPLAY SCORE, WEAPON COUNT, MISSION TINER AND CAMERA									*

@@ -214,7 +214,8 @@ void	message_add	(long,	long, long, long, long, long);									// Display a game
 void	message_text (long,	char*, long, long, long, long);									// Display game text
 void	message_addxy (long, char*, long, long, long, long, long, long, long, long, long);	// Display a game message at X,Y
 void	message_update (void);																// Updates all messages & timers
-
+void	message_advance (void);															// Advances message timers and animation state
+void	message_render (void);															// Queues frame-dependent message graphics
 void	message_addscore (long);															// Adds to players score & updates score cel
 void	message_addtimer (void);															// Sets mission time left message
 void	message_addweapon (void);															// Sets weapons left message
@@ -226,4 +227,3 @@ void	message_initialiselanguagefiles (long);												// Load in language mess
 long	message_decodetextfile (char *, char **, long);										// Decode a text file
 
 #endif
-

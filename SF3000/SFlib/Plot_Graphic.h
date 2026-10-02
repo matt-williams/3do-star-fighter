@@ -29,6 +29,13 @@ extern void plot_bit(void*);
 extern void rotate_sky_node(void*);
 extern void plot_planets(void);
 
+#if defined(SF_WEB_PORT)
+extern void sf3000_webport_advance_world_animation_state(void);
+extern void sf3000_webport_begin_target_selection(void);
+extern void sf3000_webport_consider_static_target(void *);
+extern void sf3000_webport_consider_ship_target(void *);
+#endif
+
 #ifndef __GRAPHIC_STUFF_H
 #define __GRAPHIC_STUFF_H
 
@@ -44,7 +51,3 @@ typedef struct rotate_node
 					;
 
 #endif
-
-
-
-

@@ -9,6 +9,15 @@
 #include "Plot_Graphic.h"
 #include "Stdio.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 /**************************************/
 
 // Global variables
@@ -332,14 +341,16 @@ long		player_st;														// Player increase shields timer
 					{
 					if (ship != players_ship)										// UPDATE SHIELDS FOR FRIEND ?
 						{
-						if ((status.clock2 & 3) == 3)							
+						if (SF_SIMULATION_REFERENCE_TICK() &&
+							(status.clock2 & 3) == 3)
 							if (ship->shields < (ship->performance->shields << 5) && ship->shields >0)
 								ship->shields+=1;
 						}
 					else
 						{
 						player_st = (status.docked == NULL) ? 7 : 1;				// UPDATE SHIELDS FOR PLAYER ?
-						if ((status.clock2 & player_st) == player_st)
+						if (SF_SIMULATION_REFERENCE_TICK() &&
+							(status.clock2 & player_st) == player_st)
 							if (ship->shields < (ship->performance->shields << 5) && ship->shields >0)
 								ship->shields+=1;
 						}
@@ -483,16 +494,19 @@ performance_data	*performance;			// Pointer to a ship's performance datablock
 			
 	// FIRE A WEAPON ? (SINGLE TARGET REQUESTS)
 
-	weapon_firerequest = arm_random() & 2047;				
-	performance = ship->performance;
-	
-	if (weapon_firerequest < performance->laser_rate)		// FIRE LASER ?
-		ship->fire_request = WEAPON_LASER;
-
-	if (weapon_firerequest < performance->missile_rate)		// FIRE A-T-A MISSILE ?
+	if (SF_SIMULATION_REFERENCE_TICK())
 		{
-		ship->fire_request = WEAPON_ATA;
-		ship->target = (ship_stack*) ship_sdb_ptr->command_address;
+		weapon_firerequest = arm_random() & 2047;
+		performance = ship->performance;
+
+		if (weapon_firerequest < performance->laser_rate)		// FIRE LASER ?
+			ship->fire_request = WEAPON_LASER;
+
+		if (weapon_firerequest < performance->missile_rate)		// FIRE A-T-A MISSILE ?
+			{
+			ship->fire_request = WEAPON_ATA;
+			ship->target = (ship_stack*) ship_sdb_ptr->command_address;
+			}
 		}
 }
 
@@ -545,7 +559,8 @@ ship_stack	*ship_following = (ship_stack*) ship_sdb_ptr->command_address;			// G
 	// MAKE OUR SHIP FIRE (IF IT WAS FOLLOWING THE PLAYER WHO FIRED & THE PLAYER WASN'T DOCKED) or something like that anyway
 	// CAN ONLY FIRE EVERY OTHER FRAME TO CUT DOWN ON LASERS IN STACK
 	
-	if (ship_following->last_fire_request == WEAPON_LASER)
+	if (SF_SIMULATION_REFERENCE_TICK() &&
+		ship_following->last_fire_request == WEAPON_LASER)
 		if (ship_following == players_ship && docked.status == DOCKING_OUT)
 			if (status.clock1 & 1)
 				ship->fire_request = WEAPON_LASER;
@@ -599,12 +614,14 @@ flight_path	*ship_flight_ptr;
 	// IS THIS SHIP DROPPING SOME BOMBS ?
 	
 	if (ship_sdb_ptr->bomb_todrop > 0)											// Any bombs to drop ?
-		if (ship_sdb_ptr->bomb_timer-- == 0)									// Yes - is timer 0 ?
+		if (ship_sdb_ptr->bomb_timer == 0)									// Yes - is timer 0 ?
 			{																	// Yes - reset timer, --bombs & drop bomb
 			ship_sdb_ptr->bomb_timer = 15;
 			ship_sdb_ptr->bomb_todrop-=1;
 			ship->fire_request = WEAPON_MEGA_BOMB;
 			}
+		else
+			ship_sdb_ptr->bomb_timer += SF_SIMULATION_DELTA(-1);
 				
 	// HAS SHIP / VEHICLE REACHED IT'S FLIGHTPATH POINT ?
 	
@@ -934,37 +951,42 @@ void	war_update_multipleattackrequests (ship_stack *ship, ship_sdb *ship_sdb_ptr
 unsigned long 		weapon_firerequest;					// Random fire value
 performance_data	*performance;						// Pointer to a ship's performance datablock
 
-	if ((ship_sdb_ptr->target_counter--) == 0)									// Dec target counter - Realloc targets ?
+	if (ship_sdb_ptr->target_counter == 0)									// Realloc targets ?
 		{
 		ship_sdb_ptr->target_counter = __WAR_TC;								// Reset target counter
 		ship_setmultipletargets (ship, __WAR_SR_LOCAL, ship_sdb_ptr->side);		// Re-allocatate new targets
 		}
+	else
+		ship_sdb_ptr->target_counter += SF_SIMULATION_DELTA(-1);
 	
 	if (ship->target == NULL)													// Nothing to fire at !
 		return;
 		
 	// FIRE A WEAPON ? (MULTIPLE TARGET REQUESTS)
 	
-	weapon_firerequest = arm_random() & 4095;									// Get random fire value	
-	performance = ship->performance;
-	
-	if (weapon_firerequest < performance->laser_rate)							// FIRE LASER ?
+	if (SF_SIMULATION_REFERENCE_TICK())
 		{
-		ship->fire_request = WEAPON_LASER;
-		//printf ("BIGSHIP FIRE REQUEST - LASER\n");
-		}
-		
-	if (weapon_firerequest < performance->missile_rate)							// FIRE A-T-A MISSILE ?
-		{
-		ship->fire_request = WEAPON_ATA;
-		//printf ("BIGSHIP FIRE REQUEST - ATA MISSILE\n");
-		}	
-	
-	if (ship_sdb_ptr->side == SDB_SIDE_ENEMY)
-		if (weapon_firerequest < performance->launch_rate)						// LAUNCH PLEB ? ONLY IF ENEMY !
+		weapon_firerequest = arm_random() & 4095;								// Get random fire value
+		performance = ship->performance;
+
+		if (weapon_firerequest < performance->laser_rate)						// FIRE LASER ?
 			{
-			ship->fire_request = WEAPON_LAUNCH_SHIP;
-			//printf ("BIGSHIP FIRE REQUEST - LAUNCH SHIP\n");
+			ship->fire_request = WEAPON_LASER;
+			//printf ("BIGSHIP FIRE REQUEST - LASER\n");
+			}
+
+		if (weapon_firerequest < performance->missile_rate)						// FIRE A-T-A MISSILE ?
+			{
+			ship->fire_request = WEAPON_ATA;
+			//printf ("BIGSHIP FIRE REQUEST - ATA MISSILE\n");
+			}
+
+		if (ship_sdb_ptr->side == SDB_SIDE_ENEMY)
+			if (weapon_firerequest < performance->launch_rate)					// LAUNCH PLEB ? ONLY IF ENEMY !
+				{
+				ship->fire_request = WEAPON_LAUNCH_SHIP;
+				//printf ("BIGSHIP FIRE REQUEST - LAUNCH SHIP\n");
+				}
 			}
 }
 

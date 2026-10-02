@@ -93,7 +93,9 @@ $webSources = @(
     "sf3000_webport_sky.c",
     "sf3000_webport_smoke.c",
     "sf_web_port_renderer.c",
-    "sf_web_runtime.c"
+    "sf_web_runtime.c",
+    "sf_web_fixed_step.c",
+    "sf_web_world_renderer.c"
 )
 $legacySources = @(
     "Star3000.c",

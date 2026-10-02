@@ -35,6 +35,15 @@
 #include "SF_Status.h"
 #include "SF_Message.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 extern game_status status ;
 
 void update_frame (long keypad )
@@ -84,7 +93,8 @@ else
 	key_press = 0 ;
 }
 
-if ( (keypad & ControlRightShift) && (keypad & ControlLeftShift) )
+if ( SF_SIMULATION_REFERENCE_TICK() &&
+	(keypad & ControlRightShift) && (keypad & ControlLeftShift) )
 {
 	view_wot = 1-view_wot ;
 	test_graphic = 1 ;
@@ -92,23 +102,24 @@ if ( (keypad & ControlRightShift) && (keypad & ControlLeftShift) )
 
 if (keypad & ControlRightShift)
 {
-	camera_y_position += (1<<22) ;
+	camera_y_position += SF_SIMULATION_DELTA(1<<22) ;
 }
 
 if (keypad & ControlLeftShift)
 {
-	camera_y_position -= (1<<22) ;
+	camera_y_position += SF_SIMULATION_DELTA(-(1<<22)) ;
 }
 
 if (keypad & ControlDown)
 {
 	if ( keypad & ControlC )
 	{
-		camera_z_position += (1<<22) ;
+		camera_z_position += SF_SIMULATION_DELTA(1<<22) ;
 	}
 	else
 	{
-		players_ship->y_rot = (players_ship->y_rot-(16*1024))&ROT_LIMIT ;
+		players_ship->y_rot = (players_ship->y_rot+
+			SF_SIMULATION_DELTA(-(16*1024)))&ROT_LIMIT ;
 	}
 }
 
@@ -116,11 +127,12 @@ if (keypad & ControlUp)
 {
 	if ( keypad & ControlC )
 	{
-		camera_z_position -= (1<<22) ;
+		camera_z_position += SF_SIMULATION_DELTA(-(1<<22)) ;
 	}
 	else
 	{
-		players_ship->y_rot = (players_ship->y_rot+(16*1024))&ROT_LIMIT ;
+		players_ship->y_rot = (players_ship->y_rot+
+			SF_SIMULATION_DELTA(16*1024))&ROT_LIMIT ;
 	}
 }
 
@@ -128,11 +140,12 @@ if (keypad & ControlRight)
 {
 	if ( keypad & ControlC )
 	{
-		camera_x_position -= (1<<22) ;
+		camera_x_position += SF_SIMULATION_DELTA(-(1<<22)) ;
 	}
 	else
 	{
-		players_ship->x_rot = (players_ship->x_rot-(16*1024))&ROT_LIMIT ;
+		players_ship->x_rot = (players_ship->x_rot+
+			SF_SIMULATION_DELTA(-(16*1024)))&ROT_LIMIT ;
 	}
 }
 
@@ -140,11 +153,12 @@ if (keypad & ControlLeft)
 {
 	if ( keypad & ControlC )
 	{
-		camera_x_position += (1<<22) ;
+		camera_x_position += SF_SIMULATION_DELTA(1<<22) ;
 	}
 	else
 	{
-		players_ship->x_rot = (players_ship->x_rot+(16*1024))&ROT_LIMIT ;
+		players_ship->x_rot = (players_ship->x_rot+
+			SF_SIMULATION_DELTA(16*1024))&ROT_LIMIT ;
 	}
 }
 
@@ -279,7 +293,8 @@ return;
 
 
 // Toggle this counter between 0 n 1 - used by ground laser bases
-laser_counter = (1-laser_counter) ;
+if (SF_SIMULATION_REFERENCE_TICK())
+	laser_counter = (1-laser_counter) ;
 
 if (players_ship->shields > 0)
 {
@@ -297,14 +312,15 @@ if (players_ship->shields > 0)
 		if ( keypad & keypad_iomap[configuration.flight_controls[FLIGHT_THRUST]] )
 		{
 			// If the thruster is on then increase engine power and limit to max val.
-			players_thrust_control += 256 ;
+			players_thrust_control += SF_SIMULATION_DELTA(256) ;
 			if (players_thrust_control>1024) players_thrust_control = 1024 ;
 		}
 		else
 		{
 			// If the thruster is off then decrease power to min
-			players_thrust_control -= ((players_thrust_control)>>2) ;
-			players_thrust_control -= 128 ;
+			players_thrust_control += SF_SIMULATION_DELTA(
+				-((players_thrust_control)>>2)) ;
+			players_thrust_control += SF_SIMULATION_DELTA(-128) ;
 			if (players_thrust_control<0) players_thrust_control = 0 ;
 		}
 	
@@ -314,13 +330,15 @@ if (players_ship->shields > 0)
 			// and auto centre the controls quicker
 			if ((players_x_control)>0)
 			{
-				players_x_control -= 64 ;
-				players_x_control -= ((players_x_control)>>1) ;
+				players_x_control += SF_SIMULATION_DELTA(-64) ;
+				players_x_control += SF_SIMULATION_DELTA(
+					-((players_x_control)>>1)) ;
 			}
 			else
 			{
-				players_x_control -= 64 ;
-				players_x_control += ((players_x_control)>>2) ;
+				players_x_control += SF_SIMULATION_DELTA(-64) ;
+				players_x_control += SF_SIMULATION_DELTA(
+					(players_x_control)>>2) ;
 			}
 		}
 	
@@ -328,13 +346,15 @@ if (players_ship->shields > 0)
 		{
 			if (players_x_control<0)
 			{
-				players_x_control += 64 ;
-				players_x_control -= ((players_x_control)>>1) ;
+				players_x_control += SF_SIMULATION_DELTA(64) ;
+				players_x_control += SF_SIMULATION_DELTA(
+					-((players_x_control)>>1)) ;
 			}
 			else
 			{
-				players_x_control += 64 ;
-				players_x_control += ((players_x_control)>>2) ;
+				players_x_control += SF_SIMULATION_DELTA(64) ;
+				players_x_control += SF_SIMULATION_DELTA(
+					(players_x_control)>>2) ;
 			}
 		}
 	
@@ -342,13 +362,15 @@ if (players_ship->shields > 0)
 		{
 			if ((players_y_control)>0)
 			{
-				players_y_control -= 64 ;
-				players_y_control -= ((players_y_control)>>1) ;
+				players_y_control += SF_SIMULATION_DELTA(-64) ;
+				players_y_control += SF_SIMULATION_DELTA(
+					-((players_y_control)>>1)) ;
 			}
 			else
 			{
-				players_y_control -= 64 ;
-				players_y_control += ((players_y_control)>>2) ;
+				players_y_control += SF_SIMULATION_DELTA(-64) ;
+				players_y_control += SF_SIMULATION_DELTA(
+					(players_y_control)>>2) ;
 			}
 		}
 	
@@ -357,21 +379,26 @@ if (players_ship->shields > 0)
 		{
 			if ((players_y_control)<0)
 			{
-				players_y_control += 64 ;
-				players_y_control -= ((players_y_control)>>1) ;
+				players_y_control += SF_SIMULATION_DELTA(64) ;
+				players_y_control += SF_SIMULATION_DELTA(
+					-((players_y_control)>>1)) ;
 			}
 			else
 			{
-				players_y_control += 64 ;
-				players_y_control += ((players_y_control)>>2) ;
+				players_y_control += SF_SIMULATION_DELTA(64) ;
+				players_y_control += SF_SIMULATION_DELTA(
+					(players_y_control)>>2) ;
 			}
 		}
 	
 		// auto centre control positions
 		// Max dec (based on 1024) = 128
-		players_x_control -= ((players_x_control)>>3) ;
-		players_y_control -= ((players_y_control)>>3) ;
-		players_z_control -= ((players_z_control)>>3) ;
+		players_x_control += SF_SIMULATION_DELTA(
+			-((players_x_control)>>3)) ;
+		players_y_control += SF_SIMULATION_DELTA(
+			-((players_y_control)>>3)) ;
+		players_z_control += SF_SIMULATION_DELTA(
+			-((players_z_control)>>3)) ;
 	
 		// Limit the control rates to max (+/-ve 1024)
 		if (players_x_control>1024) players_x_control = 1024 ;
@@ -397,7 +424,7 @@ if (players_ship->shields > 0)
 		if ( temp_long > 256 ) temp_long = 256 ;
 		if ( temp_long < -128 ) temp_long = -128 ;
 		
-		players_thrust_control += temp_long ;
+		players_thrust_control += SF_SIMULATION_DELTA(temp_long) ;
 		
 		if (players_thrust_control>1024) players_thrust_control = 1024 ;
 		if (players_thrust_control<0) players_thrust_control = 0 ;
@@ -407,14 +434,14 @@ if (players_ship->shields > 0)
 		if ( temp_long > 128 ) temp_long = 128 ;
 		if ( temp_long < -128 ) temp_long = -128 ;
 	
-		players_x_control += temp_long ;
+		players_x_control += SF_SIMULATION_DELTA(temp_long) ;
 	
 		// Update up and down
 		temp_long = (9 * (pro_stick.y - 120) ) - players_y_control ;
 		if ( temp_long > 128 ) temp_long = 128 ;
 		if ( temp_long < -128 ) temp_long = -128 ;
 	
-		players_y_control += temp_long ;
+		players_y_control += SF_SIMULATION_DELTA(temp_long) ;
 	
 		// Limit the control rates to max (+/-ve 1024)
 		if (players_x_control>1024) players_x_control = 1024 ;
@@ -425,7 +452,9 @@ if (players_ship->shields > 0)
 	
 	
 		// Check the player fire key and set selected weapon to fire if required
-		if (pro_stick.b & StickFire)
+		if ((pro_stick.b & StickFire) &&
+			(status.weapon == WEAPON_BEAM_LASER ||
+				SF_SIMULATION_REFERENCE_TICK()))
 		{
 			players_ship->fire_request = status.weapon ;
 			players_ship->last_fire_request = status.weapon ; 
@@ -434,14 +463,17 @@ if (players_ship->shields > 0)
 	}
 
 	// Check the player fire key and set selected weapon to fire if required
-	if ( keypad & keypad_iomap[configuration.flight_controls[FLIGHT_FIRE_WEAPON]] )
+	if ((keypad & keypad_iomap[configuration.flight_controls[FLIGHT_FIRE_WEAPON]]) &&
+		(status.weapon == WEAPON_BEAM_LASER ||
+			SF_SIMULATION_REFERENCE_TICK()))
 	{
 		players_ship->fire_request = status.weapon ;
 		players_ship->last_fire_request = status.weapon ; 
 	}
 
 	// Check the player ecm and set to fire if required
-	if ( keypad & keypad_iomap[configuration.flight_controls[FLIGHT_FIRE_ECM]] )
+	if ((keypad & keypad_iomap[configuration.flight_controls[FLIGHT_FIRE_ECM]]) &&
+		SF_SIMULATION_REFERENCE_TICK())
 	{
 		players_ship->fire_request = WEAPON_ECM ;
 		players_ship->last_fire_request = WEAPON_ECM ; 
@@ -525,7 +557,8 @@ players_ship->thrust_control = players_thrust_control ;
 
 
 // Do the movement of these items
-if (bonus_collision_this_frame>0) bonus_collision_this_frame -= 1 ;
+if (bonus_collision_this_frame>0)
+	bonus_collision_this_frame += SF_SIMULATION_DELTA(-1) ;
 update_bonus_crystal_adder();
 
 smoke_update();
@@ -544,7 +577,7 @@ ground_update();
 // bugggggg fix
 if ( laser_sound_counter > 0 ) 
 {
-	laser_sound_counter -= 1 ;
+	laser_sound_counter += SF_SIMULATION_DELTA(-1) ;
 }
 
 // Update the players ship first if it's alive
@@ -565,13 +598,13 @@ else
 	if (beam_laser.on_last_frame != 0) stop_beam_lasers() ;
 	
 	// Update the players dead movement for the benifit of the cameras
-	players_ship->x_pos += players_ship->x_vel ;
-	players_ship->y_pos += players_ship->y_vel ;
-	players_ship->z_pos += players_ship->z_vel ;
+	players_ship->x_pos += SF_SIMULATION_DELTA(players_ship->x_vel) ;
+	players_ship->y_pos += SF_SIMULATION_DELTA(players_ship->y_vel) ;
+	players_ship->z_pos += SF_SIMULATION_DELTA(players_ship->z_vel) ;
 	
 	if ( which_graphics_set != SPACE_GRAPHICS )
 	{
-		players_ship->z_vel -= (1<<17) ;
+		players_ship->z_vel += SF_SIMULATION_DELTA(-(1<<17)) ;
 		if ( players_ship->z_pos < find_ground_height( players_ship->x_pos , players_ship->y_pos ) )
 		{
 			players_ship->z_pos = find_ground_height( players_ship->x_pos , players_ship->y_pos ) ;
@@ -582,7 +615,7 @@ else
 		}
 	}
 	
-	if ( dead_player_counter < 16 )
+	if (SF_SIMULATION_REFERENCE_TICK() && dead_player_counter < 16 )
 	{
 		explode_ship_from_collision_box(	players_ship ,
 											8 ,
@@ -592,7 +625,8 @@ else
 	}
 	else
 	{
-		if ( dead_player_counter < 32 && (dead_player_counter&1) == 0 )
+		if (SF_SIMULATION_REFERENCE_TICK() && dead_player_counter < 32 &&
+			(dead_player_counter&1) == 0 )
 		{
 			explode_ship_from_collision_box(	players_ship ,
 												8 ,
@@ -602,11 +636,14 @@ else
 		}
 	}
 
-	dead_player_counter += 1 ;
+	dead_player_counter += SF_SIMULATION_DELTA(1) ;
 
-	players_ship->x_vel -= (players_ship->x_vel>>6) ;
-	players_ship->y_vel -= (players_ship->y_vel>>6) ;
-	players_ship->z_vel -= (players_ship->z_vel>>6) ;
+	players_ship->x_vel += SF_SIMULATION_DELTA(
+		-(players_ship->x_vel>>6)) ;
+	players_ship->y_vel += SF_SIMULATION_DELTA(
+		-(players_ship->y_vel>>6)) ;
+	players_ship->z_vel += SF_SIMULATION_DELTA(
+		-(players_ship->z_vel>>6)) ;
 }
 
 //if (arm_random()&255 == 1)
@@ -614,7 +651,7 @@ else
 //add_wing_pod( players_ship ) ;
 //}
 
-pod_counter = ((pod_counter+1)&3) ;
+pod_counter = ((pod_counter+SF_SIMULATION_DELTA(1))&3) ;
 
 
 // Test add loads of parachutes
@@ -697,7 +734,8 @@ collision_update() ;
 if ( which_graphics_set != DEATH_STAR_GRAPHICS ) temp_long = (64<<24) ; else temp_long = 0 ;
 
 
-if (	((arm_random())&1023) < planet_info.comet_rate &&
+if (	SF_SIMULATION_REFERENCE_TICK() &&
+	((arm_random())&1023) < planet_info.comet_rate &&
 		camera_z_position > temp_long )
 {
 

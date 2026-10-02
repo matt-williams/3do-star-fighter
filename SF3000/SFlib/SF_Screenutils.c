@@ -9,13 +9,19 @@
 #include "SF_ARMCell.h"
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_runtime.h"
+#include "../WebPort/sf_web_fixed_step.h"
 #endif
 
 
 // Defines
 
-#define DISPLAY_FRAMERATE		3				// Max speed of frame update
-#define DISPLAY_FRAMERATESPACE	4				// Max speed of frame update for space
+#if defined(SF_WEB_PORT)
+#define DISPLAY_FRAMERATE		1
+#define DISPLAY_FRAMERATESPACE	1
+#else
+#define DISPLAY_FRAMERATE		3
+#define DISPLAY_FRAMERATESPACE	4
+#endif
 
 
 // Global variables

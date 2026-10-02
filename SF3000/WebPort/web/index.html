@@ -5,18 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Star Fighter Web Port</title>
   <style>
-    body { background: #000; margin: 0; min-height: 100vh; display: grid; place-items: center; }
-    main { color: #ddd; font: 14px system-ui, sans-serif; text-align: center; }
-    .display { margin: auto; position: relative; width: min(100vw, 960px); }
-    canvas { display: block; image-rendering: pixelated; width: 100%; height: auto; }
-    p { margin: 0.75rem 0 0; }
+    html, body { height: 100%; margin: 0; width: 100%; }
+    body { background: #000; overflow: hidden; }
+    main { inset: 0; position: fixed; }
+    canvas { display: block; height: 100vh; image-rendering: pixelated; inset: 0; position: absolute; width: 100vw; }
+    #status {
+      background: rgb(0 0 0 / 75%);
+      bottom: 1rem;
+      color: #ddd;
+      font: 14px system-ui, sans-serif;
+      left: 50%;
+      margin: 0;
+      max-width: calc(100% - 2rem);
+      padding: 0.4rem 0.75rem;
+      pointer-events: none;
+      position: absolute;
+      text-align: center;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
   <main>
-    <div class="display">
-      <canvas id="screen" width="320" height="240" aria-label="Star Fighter display"></canvas>
-    </div>
+    <canvas id="screen" width="320" height="240" aria-label="Star Fighter display"></canvas>
     <p id="status">Loading Star Fighter...</p>
   </main>
   <script type="module">

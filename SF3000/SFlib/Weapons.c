@@ -17,6 +17,15 @@
 #include "String.h"
 #include "Graphics_Set.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void weapon_control( ship_stack * weapon )
 {
 
@@ -174,23 +183,26 @@ if (x_aim < -64*1024) x_aim = -64*1024 ;
 if (y_aim < -64*1024) y_aim = -64*1024 ;
 
 // Add these values onto the rate of change
-ata->x_control += x_aim ;
-ata->y_control += y_aim ;
+ata->x_control += SF_SIMULATION_DELTA(x_aim) ;
+ata->y_control += SF_SIMULATION_DELTA(y_aim) ;
 
 // Auto centre the rates of change
-ata->x_control -= ((ata->x_control)>>2) ;
-ata->y_control -= ((ata->y_control)>>2) ;
+ata->x_control += SF_SIMULATION_DELTA(-((ata->x_control)>>2)) ;
+ata->y_control += SF_SIMULATION_DELTA(-((ata->y_control)>>2)) ;
 
 // Turn the missile
-ata->x_rot = ((ata->x_rot)+((ata->x_control)>>4) )&ROT_LIMIT ;
-ata->y_rot = ((ata->y_rot)+((ata->y_control)>>4) )&ROT_LIMIT ;
-ata->z_rot = ((ata->z_rot)+ (32*1024) )&ROT_LIMIT ;
+ata->x_rot = ((ata->x_rot)+
+	SF_SIMULATION_DELTA((ata->x_control)>>4) )&ROT_LIMIT ;
+ata->y_rot = ((ata->y_rot)+
+	SF_SIMULATION_DELTA((ata->y_control)>>4) )&ROT_LIMIT ;
+ata->z_rot = ((ata->z_rot)+
+	SF_SIMULATION_DELTA(32*1024) )&ROT_LIMIT ;
 
 // Missiles always have their engines on
-ata->speed += 48 ;
+ata->speed += SF_SIMULATION_DELTA(48) ;
 
 // Friction on speed
-ata->speed -= ((ata->speed)>>7) ;
+ata->speed += SF_SIMULATION_DELTA(-((ata->speed)>>7)) ;
 
 ata->x_vel =	-(
 				(( sine_table [ (ata->x_rot)>>10 ] * 
@@ -207,12 +219,12 @@ ata->y_vel =	-(
 ata->z_vel =	( sine_table [ (ata->y_rot)>>10 ] * (ata->speed) ) ;
 
 // add velocity onto x ,y ,z positions
-ata->x_pos += ata->x_vel ;
-ata->y_pos += ata->y_vel ;
-ata->z_pos += ata->z_vel ;
+ata->x_pos += SF_SIMULATION_DELTA(ata->x_vel) ;
+ata->y_pos += SF_SIMULATION_DELTA(ata->y_vel) ;
+ata->z_pos += SF_SIMULATION_DELTA(ata->z_vel) ;
 
 // Dec shields so missile has a limited lifespan
-ata->shields -= 1 ;
+ata->shields += SF_SIMULATION_DELTA(-1) ;
 
 // Check this missile for collisions with ground objects / hills
 coll_check = check_collision( 	ata->x_pos ,
@@ -242,10 +254,11 @@ if (coll_check != 0 && coll_check != ata->who_owns_me )
 // Check for air hits
 if (ata->what_hit_me != 0) missile_collision( ata ) ;
 
-add_smoke( 	ata->x_pos , ata->y_pos , ata->z_pos ,
-			ata->x_vel , ata->y_vel , ata->z_vel ,
-			MISSILE_SMOKE ,
-			0 ) ;
+if (SF_SIMULATION_REFERENCE_TICK())
+	add_smoke( 	ata->x_pos , ata->y_pos , ata->z_pos ,
+				ata->x_vel , ata->y_vel , ata->z_vel ,
+				MISSILE_SMOKE ,
+				0 ) ;
 
 }
 
@@ -342,25 +355,26 @@ void mega_bomb_control( ship_stack * mega_bomb )
 long coll_check ;
 
 //Dec shields
-mega_bomb->shields -= 1;
+mega_bomb->shields += SF_SIMULATION_DELTA(-1);
 
 //Add on velocities
-mega_bomb->x_pos += mega_bomb->x_vel ;
-mega_bomb->y_pos += mega_bomb->y_vel ;
-mega_bomb->z_pos += mega_bomb->z_vel ;
+mega_bomb->x_pos += SF_SIMULATION_DELTA(mega_bomb->x_vel) ;
+mega_bomb->y_pos += SF_SIMULATION_DELTA(mega_bomb->y_vel) ;
+mega_bomb->z_pos += SF_SIMULATION_DELTA(mega_bomb->z_vel) ;
 
 if (which_graphics_set != SPACE_GRAPHICS)
 {
 	//Friction on speed
-	mega_bomb->x_vel -= ((mega_bomb->x_vel)>>7) ;
-	mega_bomb->y_vel -= ((mega_bomb->y_vel)>>7) ;
-	mega_bomb->z_vel -= ((mega_bomb->z_vel)>>7) ;
+	mega_bomb->x_vel += SF_SIMULATION_DELTA(-((mega_bomb->x_vel)>>7)) ;
+	mega_bomb->y_vel += SF_SIMULATION_DELTA(-((mega_bomb->y_vel)>>7)) ;
+	mega_bomb->z_vel += SF_SIMULATION_DELTA(-((mega_bomb->z_vel)>>7)) ;
 
 	//Gravity
-	mega_bomb->z_vel -= (1<<17) ;
+	mega_bomb->z_vel += SF_SIMULATION_DELTA(-(1<<17)) ;
 
 	//Nose down
-	mega_bomb->y_rot = ( (mega_bomb->y_rot) - cosine_table [ (mega_bomb->y_rot)>>10 ] )&ROT_LIMIT ;
+	mega_bomb->y_rot = ( (mega_bomb->y_rot) +
+		SF_SIMULATION_DELTA(-cosine_table [ (mega_bomb->y_rot)>>10 ]))&ROT_LIMIT ;
 }
 
 coll_check = check_collision( 	mega_bomb->x_pos ,
@@ -447,20 +461,21 @@ if ( z_dist < -(8*(1<<24)) ) z_dist = -(8*(1<<24)) ;
 if ( z_dist > (8*(1<<24)) ) z_dist = (8*(1<<24)) ;
 
 
-mine->x_pos += mine->x_vel ;
-mine->y_pos += mine->y_vel ;
-mine->z_pos += mine->z_vel ;
-mine->z_rot = ((mine->z_rot)+64*1024)&ROT_LIMIT ;
+mine->x_pos += SF_SIMULATION_DELTA(mine->x_vel) ;
+mine->y_pos += SF_SIMULATION_DELTA(mine->y_vel) ;
+mine->z_pos += SF_SIMULATION_DELTA(mine->z_vel) ;
+mine->z_rot = ((mine->z_rot)+
+	SF_SIMULATION_DELTA(64*1024))&ROT_LIMIT ;
 
 // Head towards target
-mine->x_vel -= (x_dist>>6) ;
-mine->y_vel -= (y_dist>>6) ;
-mine->z_vel -= (z_dist>>6) ;
+mine->x_vel += SF_SIMULATION_DELTA(-(x_dist>>6)) ;
+mine->y_vel += SF_SIMULATION_DELTA(-(y_dist>>6)) ;
+mine->z_vel += SF_SIMULATION_DELTA(-(z_dist>>6)) ;
 
-mine->x_vel -= ((mine->x_vel)>>4) ;
-mine->y_vel -= ((mine->y_vel)>>4) ;
-mine->z_vel -= ((mine->z_vel)>>4) ;
-mine->shields -= 1 ;
+mine->x_vel += SF_SIMULATION_DELTA(-((mine->x_vel)>>4)) ;
+mine->y_vel += SF_SIMULATION_DELTA(-((mine->y_vel)>>4)) ;
+mine->z_vel += SF_SIMULATION_DELTA(-((mine->z_vel)>>4)) ;
+mine->shields += SF_SIMULATION_DELTA(-1) ;
 
 coll_check = check_collision( 	mine->x_pos ,
 								mine->y_pos ,
@@ -544,10 +559,11 @@ long laser_type ;
 rotate_node node_data ;
 static long pod_shield_adder = 7 ;
 
-pod_shield_adder -= 1 ;
+pod_shield_adder += SF_SIMULATION_DELTA(-1) ;
 if ( pod_shield_adder <= 0 )
 {
-	if ( pod->shields < 120 ) pod->shields += 1 ;
+	if ( pod->shields < 120 )
+		pod->shields += SF_SIMULATION_DELTA(1) ;
 	pod_shield_adder = 7 ;
 }
 
@@ -603,11 +619,11 @@ pod->z_vel = ship->z_vel ;
 
 pod->speed = ship->speed ;
 
-pod->goto_y -= ((pod->goto_y)>>2) ;
+pod->goto_y += SF_SIMULATION_DELTA(-((pod->goto_y)>>2)) ;
 
 
 // Is the pod being used as a laser
-if (ship->fire_request == WEAPON_LASER 
+if (SF_SIMULATION_REFERENCE_TICK() && ship->fire_request == WEAPON_LASER
 	&& pod->ref == (1<<pod_counter) )
 {
 
@@ -631,7 +647,7 @@ if (ship->fire_request == WEAPON_LASER
 }
 
 // Is the pod being used as a engine
-if (ship->thrust_control != 0)
+if (SF_SIMULATION_REFERENCE_TICK() && ship->thrust_control != 0)
 {
 	add_smoke( 	(pod->x_pos) ,//+(temp_data[0]<<11) ,
 				(pod->y_pos) ,//-(temp_data[1]<<11) ,

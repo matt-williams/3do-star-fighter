@@ -24,27 +24,49 @@
 #include "Sound_Control.h"
 #include "Graphic_Struct.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#endif
+
 long test_cam = 0 ;
 
-void draw_frame( long camera_number )
+static long engine_zoom = 0 ;
+static long last_camera = 0 ;
+static long dead_cam_rot = 0 ;
+static long previous_camera_x_position ;
+static long previous_camera_y_position ;
+static long previous_camera_z_position ;
+#if defined(SF_WEB_PORT)
+static long camera_velocity_state_initialized;
+#endif
+
+void draw_frame_update_camera_state( long camera_number )
 {
 long temp_long ;
 long coll_check ;
-static long engine_zoom = 0 ;
-static long last_camera = 0 ;
 ship_stack *view_ship = camera[camera_number].view_ship ;
-long x_dist , y_dist , z_dist , x_y_dist ;
 target_struct tracking_camera ;
 rotate_node node_data ;
 graphics_details *details = (graphics_details*) ships_adr ;
 
-static long dead_cam_rot = 0 ;
-
 long ship_size = ( (1<<22) + ((details+view_ship->type)->clip_size) )>>12 ;
 
-long old_camera_x_position = camera_x_position ;
-long old_camera_y_position = camera_y_position ;
-long old_camera_z_position = camera_z_position ;
+#if defined(SF_WEB_PORT)
+if (camera_velocity_state_initialized == 0)
+{
+	previous_camera_x_position = camera_x_position ;
+	previous_camera_y_position = camera_y_position ;
+	previous_camera_z_position = camera_z_position ;
+	camera_velocity_state_initialized = 1;
+}
+#else
+previous_camera_x_position = camera_x_position ;
+previous_camera_y_position = camera_y_position ;
+previous_camera_z_position = camera_z_position ;
+#endif
 
 long docked_camera = 0 ;
 
@@ -263,6 +285,12 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 				camera_z_position = (view_ship->z_pos)+((view_ship->z_vel)<<4)+temp_long ;
 				camera[camera_number].counter = 32 ;
 			}			
+#if defined(SF_WEB_PORT)
+			/* Camera state now advances five times per legacy update, so
+			   remember this selection immediately rather than re-rolling
+			   the flyby location on each fixed substep. */
+			last_camera = camera[camera_number].type;
+#endif
 		}
 	}
 
@@ -286,7 +314,7 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 
 	if ( camera[camera_number].counter2 > 0 )
 	{
-		dead_cam_rot += 16 ;
+		dead_cam_rot += SF_SIMULATION_DELTA(16) ;
 		if (dead_cam_rot >= 1024) dead_cam_rot -= 1024 ;
 
 		camera_x_position =  camera[camera_number].x_pos + (cosine_table [ dead_cam_rot ]<<15) ;
@@ -386,9 +414,9 @@ else
 	ship_being_viewed = 0 ;
 }
 
-engine_zoom += ((view_ship->thrust_control)>>6) ;
+engine_zoom += SF_SIMULATION_DELTA((view_ship->thrust_control)>>6) ;
 
-engine_zoom -= (engine_zoom>>4) ;
+engine_zoom += SF_SIMULATION_DELTA(-(engine_zoom>>4)) ;
 
 
 
@@ -402,19 +430,25 @@ else
 }
 
 
-if (planet_info.space_mission != 1)
-{
-	// Prepare the rotations and nodes for the landscape
-	rotate_land () ;	
 }
 
-	// Plot all landscape sections and all graphics
-	draw_land () ;
+void draw_frame_advance_wave_state(void)
+{
+draw_frame_advance_wave_state_by(16);
+}
 
+void draw_frame_advance_wave_state_by(long phase_delta)
+{
+wave_counter = (wave_counter+phase_delta)&1023 ;
+wave_counter2 = (wave_counter2+phase_delta)&1023 ;
+wave_counter3 = (wave_counter3+phase_delta)&1023 ;
+}
 
-wave_counter = (wave_counter+16)&1023 ;
-wave_counter2 = (wave_counter2+16)&1023 ;
-wave_counter3 = (wave_counter3+16)&1023 ;
+void draw_frame_advance_visual_state(long camera_number)
+{
+#if !defined(SF_WEB_PORT)
+draw_frame_advance_wave_state();
+#endif
 
 // Cycle the collision box atg/ata highlight thingy colour
 collision_box_colour_adder -= 1;
@@ -425,11 +459,43 @@ last_camera = camera[camera_number].type ;
 //update camera counter
 camera[camera_number].counter -= 1 ;
 
-camera_x_velocity = old_camera_x_position - camera_x_position ;
-camera_y_velocity = old_camera_y_position - camera_y_position ;
-camera_z_velocity = old_camera_z_position - camera_z_position ;
+camera_x_velocity = previous_camera_x_position - camera_x_position ;
+camera_y_velocity = previous_camera_y_position - camera_y_position ;
+camera_z_velocity = previous_camera_z_position - camera_z_position ;
+#if defined(SF_WEB_PORT)
+previous_camera_x_position = camera_x_position ;
+previous_camera_y_position = camera_y_position ;
+previous_camera_z_position = camera_z_position ;
+#endif
 
 // Update the engine sounds for the 2 near by ships
 update_engine_sounds() ;
 
+}
+
+void draw_frame_render(void)
+{
+	if (planet_info.space_mission != 1)
+		rotate_land();
+
+	// Plot all landscape sections and all graphics.
+	draw_land();
+}
+
+void draw_frame(long camera_number)
+{
+	draw_frame_update_camera_state(camera_number);
+	draw_land_update_state();
+	#if defined(SF_WEB_PORT)
+		/*
+		 * The attract-mode path does not run Star3000's authoritative mission
+		 * tick, so it owns one visual wave phase advance per demo frame.
+		 */
+		draw_frame_advance_wave_state();
+		draw_frame_advance_visual_state(camera_number);
+		draw_frame_render();
+#else
+	draw_frame_render();
+	draw_frame_advance_visual_state(camera_number);
+#endif
 }

@@ -66,6 +66,7 @@ _Static_assert(offsetof(SFArmCellData, cel_codedpalette) == 100,
 
 /* Legacy SF_ARMCell.s ABI. */
 void arm_addpolycel16(void *, long);
+int32_t sf_armcell_terrain_material(void *, long, SFWebRenderQuad *);
 void arm_addpolycel32(void *, long);
 void arm_setpolycel32palette(void *, long);
 void arm_add4cel4(void *, void *, long, long);

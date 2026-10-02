@@ -26,6 +26,13 @@
 
 #include <debug.h>
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void collision_update (void)
 {
 long loop , coll_check ;
@@ -100,6 +107,12 @@ while (start_of_collision_stack < end_of_collision_stack )
 
 	laser = (laser_stack*) start_of_collision_stack[0] ;
 	ship = (ship_stack*) start_of_collision_stack[1] ;
+
+	if (laser->counter < 0 && laser->type != BEAM_LASER)
+	{
+		start_of_collision_stack += 2;
+		continue;
+	}
 		
 	// Bonus crystals can't be hit by laser fire
 	if ( ((ship->type)>>4) != BONUS )
@@ -118,9 +131,10 @@ while (start_of_collision_stack < end_of_collision_stack )
 		
 		// This has changed !!!!!!!!!!!!!!
 		//###########################################################
-		if ( coll_check != 0 && ( (ship->type>>4) != PLAYERS_SHIP || docked.status == DOCKING_OUT ) )
+		if ( coll_check != 0 && ( (ship->type>>4) != PLAYERS_SHIP || docked.status == DOCKING_OUT ) &&
+			(laser->type != BEAM_LASER || SF_SIMULATION_REFERENCE_TICK()) )
 		{
-			laser->counter = 0 ;
+			laser->counter = laser->type == BEAM_LASER ? 0 : -1 ;
 			ship->shields -= laser->type ;
 			ship->z_roller = 32 * ( (arm_random()&2047) -1024 ) ;
 			ship->who_hit_me = (long) laser->who_owns_me ;
@@ -171,6 +185,17 @@ while (start_of_collision_stack < end_of_collision_stack )
 
 	start_of_collision_stack += 2 ;
 
+}
+
+if (!SF_SIMULATION_REFERENCE_TICK())
+{
+	ship=(ships.info).start_address ;
+
+	while ((ship->header).status==1)
+	{
+		ship->what_hit_me = 0 ;
+		ship=(ship->header).next_address ;
+	}
 }
 
 }
@@ -349,7 +374,6 @@ long coll_check = 0 , temp_long ;
 ship_stack *other_ship = (ship_stack*) ship->what_hit_me ;
 long x_pos , y_pos , z_pos , size ;
 
-
 if ( other_ship->type >= SECTION ) return ;
 
 
@@ -437,4 +461,3 @@ if (coll_check != 0)
 ship->what_hit_me = 0 ;
 
 }
-

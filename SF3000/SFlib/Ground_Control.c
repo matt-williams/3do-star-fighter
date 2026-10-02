@@ -12,6 +12,15 @@
 #include "SF_ArmUtils.h"
 #include "SF_War.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 #define FIND_OBJECT_POSITION \
 x_pos = (unsigned) x_grid<<25 ;\
 y_pos = (unsigned) y_grid<<25 ;\
@@ -57,8 +66,8 @@ y_grid = (((players_ship->y_pos)>>25)-16)&127 ;
 scan_poly_map( x_grid , y_grid , found );
 
 // Count these counters down to zero - only fire when reset
-if (missile_counter > 0) missile_counter -= 1;
-if (hangar_counter > 0) hangar_counter -= 1;
+if (missile_counter > 0) missile_counter += SF_SIMULATION_DELTA(-1);
+if (hangar_counter > 0) hangar_counter += SF_SIMULATION_DELTA(-1);
 
 while (*found  >= 0)
 {
@@ -68,7 +77,8 @@ y_grid = (*found)>>7 ;
 type = poly_map [ y_grid ] [ x_grid ] ;
 
 // Fire a ground laser or not ?
-if (type <= 3 && (arm_random()&1023) < ground_laser_rate && ((*found)&1) == laser_counter )
+if (type <= 3 && SF_SIMULATION_REFERENCE_TICK() &&
+	(arm_random()&1023) < ground_laser_rate && ((*found)&1) == laser_counter )
 {
 
 	FIND_OBJECT_POSITION
@@ -95,7 +105,8 @@ if (type <= 3 && (arm_random()&1023) < ground_laser_rate && ((*found)&1) == lase
 }  
 
 // Launch missiles or wot
-if (type>=4 && type<=6 && (arm_random()&1023) < ground_sam_rate && missile_counter == 0 )
+if (type>=4 && type<=6 && SF_SIMULATION_REFERENCE_TICK() &&
+	(arm_random()&1023) < ground_sam_rate && missile_counter == 0 )
 {
 
 	FIND_OBJECT_POSITION
@@ -120,7 +131,8 @@ if (type>=4 && type<=6 && (arm_random()&1023) < ground_sam_rate && missile_count
 }
 
 // Launch a ship or wot
-if (type>=7 && (arm_random()&1023) < ground_ship_rate && hangar_counter == 0 && 
+if (type>=7 && SF_SIMULATION_REFERENCE_TICK() &&
+	(arm_random()&1023) < ground_ship_rate && hangar_counter == 0 &&
 	collision_map [ y_grid ] [ (x_grid+1)&127 ] > 0 )
 {
 	

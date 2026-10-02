@@ -1,4 +1,5 @@
 #include "sf3000_webport_renderer.h"
+#include "sf_web_world_renderer.h"
 
 #define SF3000_WEBPORT_POLY_CLIP_DISTANCE 1280
 #define SF3000_WEBPORT_LASER_HEADER_BYTES 12
@@ -26,6 +27,7 @@ void plot_laser(void *laser)
 	int32_t start_width_y;
 	int32_t points[8];
 	int32_t type;
+	uint32_t command_count;
 
 	start.x = sf3000_webport_asr32(
 		sf3000_webport_sub32(sf3000_webport_read_i32(data, 0),
@@ -121,6 +123,7 @@ void plot_laser(void *laser)
 	points[6] = sf3000_webport_sub32(end_x, end_width_x);
 	points[7] = sf3000_webport_sub32(end_y, end_width_y);
 
+#if !defined(SF_WEB_PORT)
 	if ((points[1] > 120 && points[3] > 120 && points[5] > 120 &&
 	     points[7] > 120) ||
 	    (points[1] < -120 && points[3] < -120 && points[5] < -120 &&
@@ -131,9 +134,18 @@ void plot_laser(void *laser)
 	     points[6] > 160)) {
 		return;
 	}
+#endif
 
 	quad = &cel_quad;
 	sf3000_webport_set_quad(quad, points, 25);
 	type = sf3000_webport_read_i32(data, 24) & 7;
+	command_count = sf_web_renderer_command_count();
 	arm_addpolycel32(quad, sf3000_webport_long(159 - type));
+	if (sf_web_renderer_command_count() != command_count) {
+		const int32_t view_depth[4] = {
+			end.y, start.y, start.y, end.y
+		};
+
+		sf_web_world_renderer_append_last_projected_quad(view_depth);
+	}
 }

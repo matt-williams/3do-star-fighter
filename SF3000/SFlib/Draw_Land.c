@@ -16,10 +16,214 @@
 #include "SF_War.h"
 #include "Graphics_Set.h"
 #include "Weapons.h"
+#include <stdint.h>
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_world_renderer.h"
+#define SF_WEB_RENDER_CULL_DISTANCE INT32_MAX
+#define SF_WEB_STATIC_MODEL_SCAN_CELLS 64
+#define SF_WEB_STATIC_MODEL_CANDIDATE_CAPACITY \
+	(SF_WEB_STATIC_MODEL_SCAN_CELLS * SF_WEB_STATIC_MODEL_SCAN_CELLS + 1)
+static long sf_web_static_model_candidates[
+	SF_WEB_STATIC_MODEL_CANDIDATE_CAPACITY];
+#else
+#define SF_WEB_RENDER_CULL_DISTANCE (1 << 30)
+#endif
 
 // Test stuff
 //#include "OperaMath.h"
 //#include "Math_Test.h"
+
+void draw_land_update_state()
+{
+long temp_long;
+long size_x, size_y, size_z, size;
+long x_pos, y_pos, z_pos;
+long sound_dist_small_ship = 1<<30;
+long sound_dist_big_ship = 1<<30;
+ship_stack *ship;
+
+if (test_mode == 1)
+	return;
+
+// The audio candidates and visibility flags are simulation state.  Keep their
+// legacy camera-distance rules, but determine them before output is queued.
+sound_big_ship = NULL;
+sound_small_ship = NULL;
+
+#if defined(SF_WEB_PORT)
+{
+long x_grid = (((camera_x_position)>>25) -
+	(SF_WEB_STATIC_MODEL_SCAN_CELLS / 2)) & 127;
+long y_grid = (((camera_y_position)>>25) -
+	(SF_WEB_STATIC_MODEL_SCAN_CELLS / 2)) & 127;
+long *found = sf_web_static_model_candidates;
+
+setup_rotations();
+sf3000_webport_begin_target_selection();
+scan_poly_map_3(x_grid, y_grid, found);
+while (*found >= 0)
+{
+	sf3000_webport_consider_static_target((void *)*found);
+	found += 1;
+}
+}
+#endif
+
+ship=(ships.info).start_address;
+while ((ship->header).status==1)
+{
+	if (ship_being_viewed != ship)
+	{
+		if ( (ship->type>>4) == BIG_SHIP || (ship->type>>4) == SMALL_SHIP )
+		{
+			x_pos = ship->x_pos;
+			y_pos = ship->y_pos;
+			z_pos = ship->z_pos;
+
+			if ( ship->special_data->cloaking_device == SDB_CLOAKING_OFF ||
+				ship->who_hit_me > 0 )
+				temp_long = SF_WEB_RENDER_CULL_DISTANCE;
+			else
+				temp_long = 0;
+		}
+		else if ( ship->type >= SECTION )
+		{
+			x_pos = ship->goto_x;
+			y_pos = ship->goto_y;
+			z_pos = ship->goto_z;
+			temp_long = SF_WEB_RENDER_CULL_DISTANCE;
+		}
+		else
+		{
+			x_pos = ship->x_pos;
+			y_pos = ship->y_pos;
+			z_pos = ship->z_pos;
+#if defined(SF_WEB_PORT)
+			temp_long = SF_WEB_RENDER_CULL_DISTANCE;
+#else
+			if ((ship->type>>4) == PARACHUTE ||
+				(ship->type>>4) == SATELLITE)
+				temp_long = (1<<30);
+			else
+				temp_long = (1<<29);
+#endif
+		}
+
+		if (	(x_pos - camera_x_position) < temp_long &&
+				(x_pos - camera_x_position) > -temp_long &&
+				(y_pos - camera_y_position) < temp_long &&
+				(y_pos - camera_y_position) > -temp_long &&
+				(z_pos - camera_z_position) < temp_long &&
+				(z_pos - camera_z_position) > -temp_long )
+		{
+			size_x = x_pos - camera_x_position;
+			if (size_x<0) size_x = -size_x;
+			size_y = y_pos - camera_y_position;
+			if (size_y<0) size_y = -size_y;
+			size_z = z_pos - camera_z_position;
+			if (size_z<0) size_z = -size_z;
+
+			if (size_x>size_y) size = size_x; else size = size_y;
+			if (size_z>size) size = size_z;
+
+			ship->can_see = TRUE;
+
+			if ( (ship->type>>4) == SMALL_SHIP ||
+				(ship->type>>4) == PLAYERS_SHIP )
+			{
+				if ( size < sound_dist_small_ship )
+				{
+					sound_dist_small_ship = size;
+					sound_small_ship = ship;
+				}
+			}
+
+			if ( (ship->type>>4) == SMALL_SHIP ||
+				(ship->type>>4) == WEAPON ||
+				(ship->type>>4) == PARACHUTE )
+			{
+#if !defined(SF_WEB_PORT)
+				if ( size > (temp_long>>1) )
+					ship->can_see = FALSE;
+#endif
+			}
+
+			if ( (ship->type>>4) == BIG_SHIP )
+			{
+				if ( size < sound_dist_big_ship )
+				{
+					sound_dist_big_ship = size;
+					sound_big_ship = ship;
+				}
+			}
+
+#if defined(SF_WEB_PORT)
+			sf3000_webport_consider_ship_target(ship);
+#endif
+		}
+		else if ( temp_long == 0 )
+		{
+			ship->can_see = TRUE;
+		}
+		else
+		{
+			ship->can_see = FALSE;
+		}
+	}
+
+	ship=(ship->header).next_address;
+}
+
+if ( ship_being_viewed != NULL )
+{
+	if ( (ship_being_viewed->type>>4) == SMALL_SHIP ||
+		(ship_being_viewed->type>>4) == PLAYERS_SHIP )
+		sound_small_ship = ship_being_viewed;
+
+	if ( (ship_being_viewed->type>>4) == BIG_SHIP )
+		sound_big_ship = ship_being_viewed;
+}
+
+#if defined(SF_WEB_PORT)
+if (ata_selected != 0 || atg_selected != 0)
+{
+	air_to_ground_scan = air_to_ground_scan_temp;
+	air_to_air_scan = air_to_air_scan_temp;
+
+	if (players_ship->last_fire_request == WEAPON_BEAM_LASER ||
+		atg_selected != 0 ||
+		( which_graphics_set == SPACE_GRAPHICS && ata_selected != 0 ) )
+	{
+		if (air_to_ground_x<0) air_to_ground_x = -air_to_ground_x;
+		if (air_to_air_x<0) air_to_air_x = -air_to_air_x;
+
+		if (air_to_air_x<air_to_ground_x)
+		{
+			players_ship->target = (void*) air_to_air_scan;
+			air_to_ground_scan = (long) NULL;
+		}
+		else
+		{
+			players_ship->target = (void*) air_to_ground_scan;
+			air_to_air_scan = (long) NULL;
+		}
+	}
+	else
+	{
+		players_ship->target = (void*) air_to_air_scan;
+		air_to_ground_scan = (long) NULL;
+	}
+}
+air_to_ground_scan_temp = (long) NULL;
+air_to_air_scan_temp = (long) NULL;
+air_to_ground_x = (1<<30);
+air_to_ground_y = (1<<30);
+air_to_ground_z = (1<<30);
+air_to_air_x = (1<<30);
+air_to_air_y = (1<<30);
+air_to_air_z = (1<<30);
+#endif
+}
 
 
 
@@ -37,10 +241,11 @@ long x_pos , y_pos , z_pos ;
 rotate_node node_data ;
 
 long x_grid , y_grid ;
+#if defined(SF_WEB_PORT)
+long *found = sf_web_static_model_candidates ;
+#else
 long *found = temp_store ;
-
-long sound_dist_small_ship = 1<<30 ;
-long sound_dist_big_ship = 1<<30 ;
+#endif
 
 static char* map_base_adr = (char*) &poly_map [ 0 ] [ 0 ] ;
 
@@ -66,7 +271,9 @@ graphics_details* details ;
 if (test_mode == 1)
 {
 	armzsort_add( size , players_ship , 0) ;
+	#if !defined(SF_WEB_PORT)
 	setup_rotations() ;
+	#endif
 	cel_quad.x_pos0 = -160 ;
 	cel_quad.y_pos0 = -120 ;
 	cel_quad.x_pos1 = 160 ;
@@ -77,6 +284,9 @@ if (test_mode == 1)
 	cel_quad.y_pos3 = 120 ;
 	cel_quad.shade = 0 ;
 	arm_addmonocel( &cel_quad , 0 , 55 , 0);
+#if defined(SF_WEB_PORT)
+	sf_web_world_renderer_suppress_last_legacy_quad();
+#endif
 	machine_code_flat_land_plot() ;
 	machine_code_land_plot() ;
 	return;
@@ -90,18 +300,28 @@ if (test_mode == 1)
 //############################################################################
 
 
-// Reset the sound ship pointers
-sound_big_ship = NULL ;
-sound_small_ship = NULL ;
-
 // Find any ground objects in the area to plot
-// Only plot the ground objects if you are low
+// The legacy path limits ground-model discovery to a 32-cell low-altitude
+// window. The browser renderer has the depth range to keep the expanded
+// terrain footprint populated with its static geometry.
+#if defined(SF_WEB_PORT)
+{
+#else
 if (camera_z_position < (40<<24) && camera_z_position > -(40<<24) )
 {
+#endif
 	// Find near by ground objects
+#if defined(SF_WEB_PORT)
+	x_grid = (((camera_x_position)>>25) -
+		(SF_WEB_STATIC_MODEL_SCAN_CELLS / 2)) & 127 ;
+	y_grid = (((camera_y_position)>>25) -
+		(SF_WEB_STATIC_MODEL_SCAN_CELLS / 2)) & 127 ;
+	scan_poly_map_3( x_grid , y_grid , found );
+#else
 	x_grid = (((camera_x_position)>>25)-16)&127 ;
 	y_grid = (((camera_y_position)>>25)-16)&127 ;
 	scan_poly_map_2( x_grid , y_grid , found );
+#endif
 	
 	if (camera_z_position < 0)
 	{
@@ -161,7 +381,7 @@ if (ship_being_viewed != ship)
 		
 		if ( ship->special_data->cloaking_device == SDB_CLOAKING_OFF || ship->who_hit_me > 0 )
 		{
-			temp_long = (1<<30) ;
+			temp_long = SF_WEB_RENDER_CULL_DISTANCE ;
 		}
 		else
 		{
@@ -176,7 +396,7 @@ if (ship_being_viewed != ship)
 			x_pos = ship->goto_x ;
 			y_pos = ship->goto_y ;
 			z_pos = ship->goto_z ;
-			temp_long = (1<<30) ;
+			temp_long = SF_WEB_RENDER_CULL_DISTANCE ;
 		}
 		else
 		{
@@ -186,11 +406,15 @@ if (ship_being_viewed != ship)
 			
 			if ( (ship->type>>4) == PARACHUTE || (ship->type>>4) == SATELLITE )
 			{
-				temp_long = (1<<30) ;
+				temp_long = SF_WEB_RENDER_CULL_DISTANCE ;
 			}
 			else
 			{
+#if defined(SF_WEB_PORT)
+				temp_long = SF_WEB_RENDER_CULL_DISTANCE ;
+#else
 				temp_long = (1<<29) ;
+#endif
 			}
 		}
 	}
@@ -213,35 +437,6 @@ if (ship_being_viewed != ship)
 		
 		if (size_x>size_y) size = size_x; else size = size_y; 
 		if (size_z>size) size = size_z ;
-
-		ship->can_see = TRUE ;
-	
-		if ( (ship->type>>4) == SMALL_SHIP || (ship->type>>4) == PLAYERS_SHIP )
-		{
-			if ( size < sound_dist_small_ship )
-			{
-				sound_dist_small_ship = size ;
-				sound_small_ship = ship ;
-			}
-		}
-		
-		if ( (ship->type>>4) == SMALL_SHIP || (ship->type>>4) == WEAPON || (ship->type>>4) == PARACHUTE )		
-		{
-			if ( size > (temp_long>>1) )
-			{
-				ship->can_see = FALSE ;
-			}
-		}
-		
-		if ( (ship->type>>4) == BIG_SHIP )
-		{
-			if ( size < sound_dist_big_ship )
-			{
-				sound_dist_big_ship = size ;
-				sound_big_ship = ship ;
-			}
-		}
-			
 
 		//if ( ship->type < 256 )
 		//{
@@ -275,34 +470,9 @@ if (ship_being_viewed != ship)
 		
 		armzsort_add( size , ship , 0) ;		
 	}
-	else
-	{
-		if ( temp_long == 0 ) 
-		{
-			ship->can_see = TRUE ;		
-		}
-		else
-		{
-			ship->can_see = FALSE ;
-		}
-	}
 }
 
 ship=(ship->header).next_address ;
-}
-
-// Sound for internal viewwwwwww
-if ( ship_being_viewed != NULL )
-{
-	if ( (ship_being_viewed->type>>4) == SMALL_SHIP || (ship_being_viewed->type>>4) == PLAYERS_SHIP )
-	{
-		sound_small_ship = ship_being_viewed ;
-	}
-
-	if ( (ship_being_viewed->type>>4) == BIG_SHIP )
-	{
-		sound_big_ship = ship_being_viewed ;	
-	}
 }
 
 
@@ -314,12 +484,12 @@ while ((smoke->header).status==1)
 {
 
 
-if (	smoke->x_pos - camera_x_position < 1<<30 &&
-		smoke->x_pos - camera_x_position > -1<<30 &&
-		smoke->y_pos - camera_y_position < 1<<30 &&
-		smoke->y_pos - camera_y_position > -1<<30 &&
-		smoke->z_pos - camera_z_position < 1<<30 &&
-		smoke->z_pos - camera_z_position > -1<<30 )
+if (	smoke->x_pos - camera_x_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		smoke->x_pos - camera_x_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		smoke->y_pos - camera_y_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		smoke->y_pos - camera_y_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		smoke->z_pos - camera_z_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		smoke->z_pos - camera_z_position > -SF_WEB_RENDER_CULL_DISTANCE )
 		{
 
 		// find the greatest x,y,z dist
@@ -353,12 +523,12 @@ laser=(lasers.info).start_address ;
 while ((laser->header).status==1)
 {
 
-if (	laser->x_pos - camera_x_position < 1<<30 &&
-		laser->x_pos - camera_x_position > -1<<30 &&
-		laser->y_pos - camera_y_position < 1<<30 &&
-		laser->y_pos - camera_y_position > -1<<30 &&
-		laser->z_pos - camera_z_position < 1<<30 &&
-		laser->z_pos - camera_z_position > -1<<30 )
+if (	laser->x_pos - camera_x_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		laser->x_pos - camera_x_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		laser->y_pos - camera_y_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		laser->y_pos - camera_y_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		laser->z_pos - camera_z_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		laser->z_pos - camera_z_position > -SF_WEB_RENDER_CULL_DISTANCE )
 		{
 
 		// find the greatest x,y,z dist
@@ -387,12 +557,12 @@ bit=(bits.info).start_address ;
 while ((bit->header).status==1)
 {
 
-if (	bit->x_pos - camera_x_position < 1<<30 &&
-		bit->x_pos - camera_x_position > -1<<30 &&
-		bit->y_pos - camera_y_position < 1<<30 &&
-		bit->y_pos - camera_y_position > -1<<30 &&
-		bit->z_pos - camera_z_position < 1<<30 &&
-		bit->z_pos - camera_z_position > -1<<30 )
+if (	bit->x_pos - camera_x_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		bit->x_pos - camera_x_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		bit->y_pos - camera_y_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		bit->y_pos - camera_y_position > -SF_WEB_RENDER_CULL_DISTANCE &&
+		bit->z_pos - camera_z_position < SF_WEB_RENDER_CULL_DISTANCE &&
+		bit->z_pos - camera_z_position > -SF_WEB_RENDER_CULL_DISTANCE )
 		{
 		
 		// find the greatest x,y,z dist
@@ -507,6 +677,9 @@ if (planet_info.space_mission!=1
 		cel_quad.shade = 0 ;
 
 		arm_addmonocel( &cel_quad , 0 , 55 , 0);
+#if defined(SF_WEB_PORT)
+		sf_web_world_renderer_suppress_last_legacy_quad();
+#endif
 }
 
 
@@ -610,6 +783,7 @@ plot_planets();
 //}
 
 
+#if !defined(SF_WEB_PORT)
 if (ata_selected != 0 || atg_selected != 0 )
 {
 
@@ -654,11 +828,10 @@ air_to_ground_z = (1<<30) ;
 air_to_air_x = (1<<30) ;
 air_to_air_y = (1<<30) ;
 air_to_air_z = (1<<30) ;
+#endif
 
 // Plot all hilly land sections and all graphics
 machine_code_land_plot() ;
 	
 // Exit with a big bunch of polys drawn on t' screen
 }
-
-

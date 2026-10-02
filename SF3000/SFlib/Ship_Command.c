@@ -19,6 +19,15 @@
 
 #include "test_prog.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 
 
 
@@ -50,7 +59,7 @@ if (ship->attacker_rating == 197 )
 //ship->command = COMMAND_AVOID_HILLS ;
 
 // Dec the command counter - when 0 then do another command
-ship->command_counter -= 1 ;
+ship->command_counter += SF_SIMULATION_DELTA(-1) ;
 
 switch ( ship->command )
 {
@@ -58,7 +67,8 @@ switch ( ship->command )
 	case COMMAND_TAXI_TURN :
 	
 	// Turn the ship to face south for takeoff
-	ship->x_rot = ((ship->x_rot+ ((256/COMMAND_TAXI_TURN_COUNTER)*1024) )&ROT_LIMIT) ;
+	ship->x_rot = ((ship->x_rot+
+		SF_SIMULATION_DELTA((256/COMMAND_TAXI_TURN_COUNTER)*1024))&ROT_LIMIT) ;
 
 	ship->fire_request = WEAPON_NOTHING ;
 	
@@ -131,7 +141,7 @@ switch ( ship->command )
 void small_ship_damaged( ship_stack* ship )
 {
 
-ship->damage_counter -= 1 ;
+ship->damage_counter += SF_SIMULATION_DELTA(-1) ;
 
 // Check the low bits only - top bits used to signify hill rebounds etc
 switch ( (ship->damage)&127 )
@@ -259,37 +269,46 @@ long temp_long ;
 // roll it about abit
 if (damaged_ship->z_roller >= 0)
 {
-	damaged_ship->z_roller += ( how_bad * ( (arm_random()&4095)-512 )) ;
+	damaged_ship->z_roller += SF_SIMULATION_DELTA(
+		how_bad * ( (arm_random()&4095)-512 )) ;
 }
 else
 {
-	damaged_ship->z_roller -= ( how_bad * ( (arm_random()&4095)-512 )) ;
+	damaged_ship->z_roller += SF_SIMULATION_DELTA(
+		-(how_bad * ( (arm_random()&4095)-512 ))) ;
 }
 
-damaged_ship->thrust_control += ( how_bad * ( (arm_random()&63)-32 )) ;
+damaged_ship->thrust_control += SF_SIMULATION_DELTA(
+	how_bad * ( (arm_random()&63)-32 )) ;
 
-damaged_ship->y_rot += (how_bad*((arm_random()&1023)-512)) ;
+damaged_ship->y_rot += SF_SIMULATION_DELTA(
+	how_bad*((arm_random()&1023)-512)) ;
 
-damaged_ship->x_control -= ( ( (how_bad*(arm_random()&127)) * damaged_ship->x_control )>>10 ) ;
-damaged_ship->y_control -= ( ( (how_bad*(arm_random()&127)) * damaged_ship->y_control )>>10 ) ;
+damaged_ship->x_control += SF_SIMULATION_DELTA(
+	-( ( (how_bad*(arm_random()&127)) * damaged_ship->x_control )>>10 )) ;
+damaged_ship->y_control += SF_SIMULATION_DELTA(
+	-( ( (how_bad*(arm_random()&127)) * damaged_ship->y_control )>>10 )) ;
 
 
-if ( (arm_random()&1) == 0)
+if (SF_SIMULATION_REFERENCE_TICK())
 {
-	temp_long = SMALL_DAMAGE_SMOKE ;
-}
-else
-{
-	temp_long = SMALL_EXPLOSION_SMOKE ;
-}
+	if ( (arm_random()&1) == 0)
+	{
+		temp_long = SMALL_DAMAGE_SMOKE ;
+	}
+	else
+	{
+		temp_long = SMALL_EXPLOSION_SMOKE ;
+	}
 
-add_smoke( 	(damaged_ship->x_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->x_vel ,
-			(damaged_ship->y_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->y_vel ,
-			(damaged_ship->z_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->z_vel ,
-			damaged_ship->x_vel ,
-			damaged_ship->y_vel ,
-			damaged_ship->z_vel ,
-			temp_long ,
-			0 ) ;
+	add_smoke( 	(damaged_ship->x_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->x_vel ,
+				(damaged_ship->y_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->y_vel ,
+				(damaged_ship->z_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damaged_ship->z_vel ,
+				damaged_ship->x_vel ,
+				damaged_ship->y_vel ,
+				damaged_ship->z_vel ,
+				temp_long ,
+				0 ) ;
+}
 
 }

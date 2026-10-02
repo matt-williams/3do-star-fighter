@@ -51,4 +51,5 @@ extern char height_map [ 256 ] [ 256 ] ;
 extern long* temp_store ;
 extern ship_list ships ;
 
+void draw_land_update_state( void ) ;
 void draw_land( void ) ;

@@ -1,4 +1,5 @@
 #include "sf3000_webport_renderer.h"
+#include "sf_web_world_renderer.h"
 
 #define SF3000_WEBPORT_SMOKE_HEADER_BYTES 12
 
@@ -22,6 +23,7 @@ void plot_smoke(void *smoke)
 	int32_t counter;
 	int32_t factor;
 	int32_t points[8];
+	uint32_t command_count;
 
 	if ((uint32_t)type >=
 	    sizeof(smoke_clip_distances) / sizeof(smoke_clip_distances[0])) {
@@ -144,7 +146,10 @@ void plot_smoke(void *smoke)
 	quad->x_pos0 = sf3000_webport_long(points[0]);
 	quad->y_pos0 = sf3000_webport_long(points[1]);
 	quad->shade = sf3000_webport_long(shade);
+	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(quad, sf3000_webport_long(sprite),
 		       sf3000_webport_long(sprite_scale),
 		       sf3000_webport_long(sprite_scale));
+	if (sf_web_renderer_command_count() != command_count)
+		sf_web_world_renderer_append_last_billboard(point.y);
 }

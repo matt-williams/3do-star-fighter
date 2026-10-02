@@ -5,6 +5,10 @@
 #include "../SFlib/Plot_Graphic.h"
 #include "../SFlib/SF_ARMCell.h"
 #include "../SFlib/SF_ARMLink.h"
+#if defined(SF_WEB_PORT)
+#include "SF_ARMCell_portable.h"
+#endif
+#include "sf_web_world_renderer.h"
 
 extern long test_mode;
 extern void plot_static_from_grid(void *);
@@ -64,6 +68,8 @@ typedef enum land_section_kind {
 	LAND_SECTION_LOW,
 	LAND_SECTION_FLAT
 } land_section_kind;
+
+#define WEB_TERRAIN_GRID_OFFSET 96
 
 static land_context land;
 static int32_t plot_list_pointer;
@@ -125,6 +131,7 @@ static int32_t asr32(int32_t value, unsigned int shift)
 	return i32(bits);
 }
 
+#if !defined(SF_WEB_PORT)
 static int32_t neg32(int32_t value)
 {
 	return sub32(0, value);
@@ -134,6 +141,7 @@ static int32_t abs32(int32_t value)
 {
 	return value < 0 ? neg32(value) : value;
 }
+#endif
 
 static int32_t wrap8(int32_t value)
 {
@@ -171,12 +179,6 @@ static int32_t height_at(int32_t x, int32_t y)
 {
 	return (int32_t)land.landscape_heights[(size_t)wrap8(x) +
 		((size_t)wrap8(y) << 8)];
-}
-
-static void set_height_at(int32_t x, int32_t y, int32_t value)
-{
-	land.landscape_heights[(size_t)wrap8(x) + ((size_t)wrap8(y) << 8)] =
-		(uint8_t)value;
 }
 
 static void quick_get(int32_t height, int32_t *x, int32_t *y, int32_t *z)
@@ -425,6 +427,30 @@ void fast_rotation(void *misc_data, long resolution)
 	vertical_y = long_i32(misc[9]);
 	vertical_z = long_i32(misc[10]);
 
+#if defined(SF_WEB_PORT)
+	/*
+	 * The browser owns terrain projection.  Preserve the fixed-point height
+	 * table for the shader, but avoid rotating/projecting legacy terrain grids.
+	 */
+	land.land_x_pos_outer = long_i32(misc[11]);
+	land.land_y_pos_outer = long_i32(misc[12]);
+	sf_web_world_renderer_set_terrain_frame(
+		sub32(land.land_x_pos_outer, WEB_TERRAIN_GRID_OFFSET),
+		sub32(land.land_y_pos_outer, WEB_TERRAIN_GRID_OFFSET),
+		sub32(sub32(long_i32(misc[13]),
+			mul32(WEB_TERRAIN_GRID_OFFSET, horizontal_x)),
+			mul32(WEB_TERRAIN_GRID_OFFSET, vertical_x)),
+		sub32(sub32(long_i32(misc[14]),
+			mul32(WEB_TERRAIN_GRID_OFFSET, horizontal_y)),
+			mul32(WEB_TERRAIN_GRID_OFFSET, vertical_y)),
+		sub32(sub32(long_i32(misc[15]),
+			mul32(WEB_TERRAIN_GRID_OFFSET, horizontal_z)),
+			mul32(WEB_TERRAIN_GRID_OFFSET, vertical_z)),
+		horizontal_x, horizontal_y, horizontal_z,
+		vertical_x, vertical_y, vertical_z, long_i32(wave_counter));
+	return;
+#endif
+
 	land.land_x_pos = long_i32(misc[0]);
 	land.land_y_pos = long_i32(misc[1]);
 	if (res == 0)
@@ -511,10 +537,11 @@ static void load_section_points(land_section_kind kind, int32_t node,
 {
 	if (kind == LAND_SECTION_HIGH)
 	{
-		points[0] = screen_at(node + 33, 0);
-		points[1] = screen_at(node + 33, 1);
-		points[2] = screen_at(node + 34, 0);
-		points[3] = screen_at(node + 34, 1);
+		int32_t stride = 33;
+		points[0] = screen_at(node + stride, 0);
+		points[1] = screen_at(node + stride, 1);
+		points[2] = screen_at(node + stride + 1, 0);
+		points[3] = screen_at(node + stride + 1, 1);
 		points[4] = screen_at(node + 1, 0);
 		points[5] = screen_at(node + 1, 1);
 		points[6] = screen_at(node, 0);
@@ -533,6 +560,26 @@ static void load_section_points(land_section_kind kind, int32_t node,
 	}
 }
 
+static void load_section_view_points(land_section_kind kind, int32_t node,
+	int32_t view_x[4], int32_t view_y[4], int32_t view_z[4])
+{
+	static const int32_t high_offsets[4] = { 33, 34, 1, 0 };
+	static const int32_t other_offsets[4] = { 0, 1, 18, 17 };
+	const int32_t *offsets = kind == LAND_SECTION_HIGH ? high_offsets :
+		other_offsets;
+	int32_t point;
+
+	for (point = 0; point < 4; ++point)
+	{
+		int32_t point_node = node + offsets[point];
+
+		view_x[point] = rotated_at(point_node, 0);
+		view_y[point] = rotated_at(point_node, 1);
+		view_z[point] = rotated_at(point_node, 2);
+	}
+}
+
+#if !defined(SF_WEB_PORT)
 static int coarse_section_visible(land_section_kind kind, int32_t node)
 {
 	int32_t y = rotated_at(node, 1);
@@ -592,6 +639,7 @@ static int coarse_section_visible(land_section_kind kind, int32_t node)
 
 	return 1;
 }
+#endif
 
 static int section_has_projectable_vertices(land_section_kind kind,
 	int32_t node)
@@ -604,6 +652,7 @@ static int section_has_projectable_vertices(land_section_kind kind,
 		rotated_at(node + stride + 1, 1) > 0;
 }
 
+#if !defined(SF_WEB_PORT)
 static int section_is_offscreen(const int32_t points[8])
 {
 	return (points[1] > 120 && points[3] > 120 &&
@@ -640,23 +689,7 @@ static int section_is_backfacing(land_section_kind kind,
 
 	return first >= 0 && vector_sign(points, 0) >= 0;
 }
-
-static void update_waves(int32_t x, int32_t y)
-{
-	int32_t phase;
-	int32_t height;
-
-	phase = add32(long_i32(wave_counter), lsl32(y, 7));
-	phase = add32(phase, lsl32(x, 6));
-	phase = (int32_t)((uint32_t)phase & 1023U);
-	height = add32(asr32(long_i32(land.cosine_table[phase]), 9), 8);
-
-	phase = sub32(long_i32(wave_counter2), lsl32(x, 7));
-	phase = (int32_t)((uint32_t)phase & 1023U);
-	(void)land.cosine_table[phase];
-
-	set_height_at(x, y, height);
-}
+#endif
 
 static int32_t section_shade(land_section_kind kind, int32_t x, int32_t y,
 	int32_t height)
@@ -702,7 +735,13 @@ static void plot_land_section(land_section_kind kind, int32_t node,
 	int32_t points[8];
 	int32_t height;
 	int32_t shade;
+#if !defined(SF_WEB_PORT)
 	int is_backfacing;
+#endif
+	uint32_t command_count;
+	int32_t view_x[4];
+	int32_t view_y[4];
+	int32_t view_z[4];
 
 	/*
 	 * The original ARM path leaves nodes behind the camera unprojected.
@@ -713,16 +752,11 @@ static void plot_land_section(land_section_kind kind, int32_t node,
 	if (!section_has_projectable_vertices(kind, node))
 		return;
 
-	if (!coarse_section_visible(kind, node))
-		return;
-
 	if (kind == LAND_SECTION_HIGH)
 	{
 		grid_x = wrap8(grid_x);
 		grid_y = wrap8(grid_y);
 		height = height_at(grid_x, grid_y);
-		if (height <= 16)
-			update_waves(grid_x, grid_y);
 	}
 	else if (kind == LAND_SECTION_FLAT)
 	{
@@ -737,19 +771,28 @@ static void plot_land_section(land_section_kind kind, int32_t node,
 		height = height_at(grid_x, grid_y);
 	}
 
+#if defined(SF_WEB_PORT)
+	/*
+	 * The browser terrain pass samples this map directly and derives water
+	 * waves in its vertex shader. Do not regenerate a CEL/world quad here.
+	 */
+	return;
+#endif
+
 	load_section_points(kind, node, points);
+#if !defined(SF_WEB_PORT)
 	is_backfacing = kind != LAND_SECTION_FLAT &&
 		section_is_backfacing(kind, points);
-	if (is_backfacing)
+	if (is_backfacing || section_is_offscreen(points))
 		return;
-	if (section_is_offscreen(points))
-		return;
+#endif
 
 	if (kind == LAND_SECTION_FLAT)
 		shade = flat_shade;
 	else
 		shade = section_shade(kind, grid_x, grid_y, height);
 	set_cel_quad(points, shade);
+	command_count = sf_web_renderer_command_count();
 
 	if (kind == LAND_SECTION_HIGH)
 	{
@@ -781,7 +824,53 @@ static void plot_land_section(land_section_kind kind, int32_t node,
 		arm_addcelfrom512map(land.cel_quad,
 			(long)grid_x, (long)grid_y, (long)low_land_size);
 	}
+
+	if (sf_web_renderer_command_count() != command_count)
+	{
+		load_section_view_points(kind, node, view_x, view_y, view_z);
+		sf_web_world_renderer_append_last_quad(view_x, view_y, view_z);
+	}
 }
+
+#if defined(SF_WEB_PORT)
+static void prepare_web_terrain_materials(void)
+{
+	SFWebRenderQuad material;
+	uint8_t collected[SF_WEB_TERRAIN_TILE_COUNT] = { 0 };
+	int32_t full_collection;
+	size_t map_offset;
+	uint32_t tile;
+
+	if (!sf_web_world_renderer_terrain_material_collection_required() ||
+		land.sprite_map == NULL)
+		return;
+
+	full_collection =
+		sf_web_world_renderer_terrain_material_full_collection_required();
+	if (full_collection != 0)
+	{
+		for (map_offset = 0; map_offset <
+			SF_WEB_TERRAIN_HEIGHT_MAP_DIMENSION *
+			SF_WEB_TERRAIN_HEIGHT_MAP_DIMENSION; ++map_offset)
+		{
+			tile = land.sprite_map[map_offset];
+			collected[tile] = 1;
+		}
+	}
+	for (tile = 0; tile < SF_WEB_TERRAIN_TILE_COUNT; ++tile)
+	{
+		if (collected[tile] == 0 &&
+			!sf_web_world_renderer_terrain_tile_material_required(tile))
+			continue;
+		material = (SFWebRenderQuad){ 0 };
+		if (sf_armcell_terrain_material(land.cel_quad, (long)tile,
+			&material) == 0)
+			(void)sf_web_world_renderer_set_terrain_tile_material(tile,
+				&material);
+	}
+	sf_web_world_renderer_finish_terrain_material_collection();
+}
+#endif
 
 static void plot_sorted_graphics(int32_t search_to)
 {
@@ -833,13 +922,20 @@ static void plot_sorted_land_grid(land_section_kind kind, int32_t first_node,
 	int skip_middle)
 {
 	int32_t top_left = first_node;
-	int32_t top_right = first_node + (kind == LAND_SECTION_HIGH ? 31 : 15);
-	int32_t bottom_left = kind == LAND_SECTION_HIGH ? top_right + 992 :
+	int32_t high_detail = kind == LAND_SECTION_HIGH;
+	int32_t top_right;
+	int32_t bottom_left;
+	int32_t bottom_right;
+	int32_t outer;
+	int32_t stride;
+
+	top_right = first_node + (high_detail ? 31 : 15);
+	bottom_left = high_detail ? top_right +
+		992 :
 		first_node + 255;
-	int32_t bottom_right = bottom_left +
-		(kind == LAND_SECTION_HIGH ? 31 : 15);
-	int32_t outer = kind == LAND_SECTION_HIGH ? 31 : 15;
-	int32_t stride = kind == LAND_SECTION_HIGH ? 33 : 17;
+	bottom_right = bottom_left + (high_detail ? 31 : 15);
+	outer = high_detail ? 31 : 15;
+	stride = high_detail ? 33 : 17;
 	int32_t x = start_x;
 	int32_t y = start_y;
 	int32_t offset;
@@ -877,7 +973,7 @@ static void plot_sorted_land_grid(land_section_kind kind, int32_t first_node,
 				sub32(add32(y, mul32(outer, step)), mul32(offset, step)), 0, 0);
 		}
 
-		if (kind == LAND_SECTION_HIGH)
+		if (high_detail)
 			plot_sorted_graphics(asr32(outer, 1));
 		else if (kind == LAND_SECTION_MID)
 			plot_sorted_graphics(lsl32(outer, 1));
@@ -885,7 +981,7 @@ static void plot_sorted_land_grid(land_section_kind kind, int32_t first_node,
 			plot_sorted_graphics(lsl32(outer, 2));
 
 		outer -= 2;
-		if (kind == LAND_SECTION_HIGH)
+		if (high_detail)
 		{
 			if (outer < 0)
 				return;
@@ -911,6 +1007,7 @@ static void plot_sorted_land_grid(land_section_kind kind, int32_t first_node,
 	}
 }
 
+#if !defined(SF_WEB_PORT)
 static void plot_flat_grid(int32_t first_node, int32_t start_x, int32_t start_y,
 	int32_t step, int32_t shade, int32_t flat_res, int skip_middle)
 {
@@ -965,11 +1062,16 @@ static void flat_low_res_sorted_land_plotter(void)
 	plot_flat_grid(2823, land.land_x_pos_outer_7, land.land_y_pos_outer_7,
 		256, 0, 0, plot_res_skip_middle);
 }
+#endif
 
 void machine_code_flat_land_plot(void)
 {
+#if defined(SF_WEB_PORT)
+	return;
+#else
 	if (land.space_mission != 1U)
 		flat_low_res_sorted_land_plotter();
+#endif
 }
 
 void machine_code_land_plot(void)
@@ -978,6 +1080,18 @@ void machine_code_land_plot(void)
 
 	if (long_i32(test_mode) == 1)
 		land.space_mission = 1U;
+
+#if defined(SF_WEB_PORT)
+	if (land.space_mission == 1U)
+	{
+		sf_web_world_renderer_disable_terrain();
+		plot_sorted_graphics(-257);
+		return;
+	}
+	prepare_web_terrain_materials();
+	plot_sorted_graphics(-257);
+	return;
+#endif
 
 	if (land.space_mission != 1U)
 		plot_sorted_graphics(64);
@@ -1035,10 +1149,17 @@ void plot_land_constants(void *constants)
 	land.rotated_coords = (long *)values[0];
 	land.screen_coords = (long *)values[1];
 	land.landscape_heights = (uint8_t *)values[2];
+#if defined(SF_WEB_PORT)
+	sf_web_world_renderer_set_terrain_height_map(land.landscape_heights);
+#endif
 	land.perspective_table = (long *)values[3];
 	land.quick_height_table = (long *)values[4];
 	land.sprite_map = (uint8_t *)values[6];
 	land.cel_quad = values[7];
 	land.cosine_table = (long *)values[8];
 	land.space_mission = (uintptr_t)values[9];
+#if defined(SF_WEB_PORT)
+	sf_web_world_renderer_set_terrain_static_data(land.sprite_map,
+		(const int32_t *)land.quick_height_table);
+#endif
 }

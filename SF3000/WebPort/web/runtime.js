@@ -18,6 +18,7 @@ const P_MODE_0_ALPHA = 255;
 const P_MODE_1_ALPHA = 128;
 const TEXTURE_ATLAS_SIZE = 2048;
 const TEXTURE_ATLAS_PADDING = 1;
+const RENDER_TRACE_CAPACITY = 240;
 const NVRAM_STORAGE_PREFIX = "starfighter:nvram:";
 const MAX_SOUND_VOICES = 6;
 const SOUND_EFFECT_SOURCES = [
@@ -1134,8 +1135,16 @@ export function createStarFighterRuntime(canvas, status) {
   let module;
   let fallbackTexture;
   let textFont;
+  let renderedFrameCount = 0;
+  let lastPresentationTimestamp = performance.now();
+  let elapsedPresentationMicroseconds = 0;
+  const renderTrace = [];
   const textures = new Map();
-  const gl = canvas.getContext("webgl2");
+  const gl = canvas.getContext("webgl2", {
+    alpha: false,
+    antialias: false,
+    depth: true
+  });
   const textureAtlas = createTextureAtlas(gl);
   const frameTextureAtlas = createTextureAtlas(gl);
   const audioMixer = createAudioMixer();
@@ -1162,7 +1171,8 @@ export function createStarFighterRuntime(canvas, status) {
     if (region === null) return fallbackTexture;
     textures.set(key, region);
     return region;
-  }, (command) => module.UTF8ToString(command.source));
+  }, (command) => module.UTF8ToString(command.source),
+  (command, memory) => createIndexedTexture(gl, memory, command));
   const cinematics = createCinematicPlayer(audioMixer, renderer, status);
 
   window.addEventListener("keydown", (event) => {
@@ -1196,6 +1206,27 @@ export function createStarFighterRuntime(canvas, status) {
   });
 
   return {
+    waitForVbl(fields) {
+      if (fields <= 0) return Promise.resolve();
+
+      return new Promise((resolve) => {
+        requestAnimationFrame((timestamp) => {
+          elapsedPresentationMicroseconds += Math.max(0,
+            Math.round((timestamp - lastPresentationTimestamp) * 1000));
+          lastPresentationTimestamp = timestamp;
+          resolve();
+        });
+      });
+    },
+    resetFrameClock() {
+      lastPresentationTimestamp = performance.now();
+      elapsedPresentationMicroseconds = 0;
+    },
+    takeElapsedMicroseconds() {
+      const elapsed = Math.min(elapsedPresentationMicroseconds, 0xffffffff);
+      elapsedPresentationMicroseconds = 0;
+      return elapsed;
+    },
     attachModule(nextModule) {
       module = nextModule;
       if (textFont !== undefined) {
@@ -1383,10 +1414,30 @@ export function createStarFighterRuntime(canvas, status) {
     setFade(opacity) {
       renderer.setFade(opacity);
     },
-    present(commandAddress, commandCount, bank) {
+    present(commandAddress, commandCount, worldCommandAddress, worldCommandCount,
+            bank, terrainFrameAddress, terrainHeightAddress, terrainTileAddress,
+            terrainX, terrainY, terrainWidth, terrainHeight, terrainFull) {
       if (module === undefined) return;
+      if (terrainHeightAddress !== 0) {
+        renderer.updateTerrainState(
+          module.HEAPU8, terrainHeightAddress, terrainTileAddress, terrainX, terrainY,
+          terrainWidth, terrainHeight, terrainFull
+        );
+      }
+      renderer.updateTerrainFrame(module.HEAPU8, terrainFrameAddress);
       frameTextureAtlas.clear();
-      renderer.present(module.HEAPU8, commandAddress, commandCount, bank);
+      renderer.present(module.HEAPU8, commandAddress, commandCount,
+                       worldCommandAddress, worldCommandCount, bank);
+      renderTrace.push({
+        frame: ++renderedFrameCount,
+        ...renderer.worldStats()
+      });
+      if (renderTrace.length > RENDER_TRACE_CAPACITY) {
+        renderTrace.shift();
+      }
+    },
+    getRenderTrace() {
+      return renderTrace.map((entry) => ({ ...entry }));
     }
   };
 }

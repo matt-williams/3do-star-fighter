@@ -1,4 +1,6 @@
 #include "sf_arm_port.h"
+#include "sf_web_fixed_step.h"
+#include "sf_web_world_renderer.h"
 
 #include <stddef.h>
 
@@ -90,7 +92,16 @@ void armburn_resetexplosions(void)
 
 void armburn_initialise(void *planet_info)
 {
+    unsigned int sprite_index;
+
     memcpy(sf_armburn_sprites, planet_info, sizeof(sf_armburn_sprites));
+    for (sprite_index = 0; sprite_index < 16U;
+         ++sprite_index) {
+        if (sf_armburn_sprites[sprite_index] != 255U) {
+            sf_web_world_renderer_require_terrain_tile_material(
+                sf_armburn_sprites[sprite_index]);
+        }
+    }
 }
 
 void armburn_addexplosion(long x_position, long y_position, long size)
@@ -166,6 +177,11 @@ void armburn_updateexplosions(void *current_sprite_map, void *cel_quad)
     if (sf_armburn_current == 0U) {
         return;
     }
+#if defined(SF_WEB_PORT)
+    if (sf_web_fixed_step_scale_legacy_delta(1) == 0) {
+        return;
+    }
+#endif
 
 #if UINTPTR_MAX > UINT32_MAX
     sprites4x4 = sf_armburn_quad_pointer(cel_quad, 52U, sf_armburn_host_sprites);
@@ -236,7 +252,10 @@ void armburn_updateexplosions(void *current_sprite_map, void *cel_quad)
         if (sprite == 255U) {
             sprite = piece->previous_sprite;
         }
-        map[offset] = sprite;
+        if (map[offset] != sprite) {
+            map[offset] = sprite;
+            sf_web_world_renderer_mark_terrain_tile_change(x, y, sprite);
+        }
 
         sprite_data = sprites4x4 + (size_t)sprite * 16U;
         destination = map512 + ((sf_arm_u32)mapped_position >> 3U);
@@ -265,4 +284,5 @@ void armburn_updateexplosions(void *current_sprite_map, void *cel_quad)
             }
         }
     }
+
 }

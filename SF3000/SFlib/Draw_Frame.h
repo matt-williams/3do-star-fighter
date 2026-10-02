@@ -48,5 +48,9 @@ extern ship_stack *players_ship ;
 
 /* Local Function prototypes */
 
+void draw_frame_update_camera_state ( long ) ;
+void draw_frame_advance_wave_state ( void ) ;
+void draw_frame_advance_wave_state_by ( long ) ;
+void draw_frame_advance_visual_state ( long ) ;
+void draw_frame_render ( void ) ;
 void draw_frame ( long ) ;
-

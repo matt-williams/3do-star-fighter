@@ -10,6 +10,7 @@
 #include "SF_ARMUtils.h"
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_runtime.h"
+#include "../WebPort/sf_web_world_renderer.h"
 #endif
 #include "varargs.h"
 #include "types.h"
@@ -161,6 +162,9 @@ char		graphics_asset [sizeof(mission.planettype)];
 			{		
 			if (load_fileat(cel_list16, "%s%s.16",CEL_ROOT,mission.planettype) == NULL)
 				return (0);
+#if defined(SF_WEB_PORT)
+			sf_web_world_renderer_invalidate_terrain_materials();
+#endif
 	
 			if (load_fileat(cels4x4, "%s%s.4",CEL_ROOT,mission.planettype) == NULL)
 				return (0);	
@@ -196,9 +200,15 @@ char		graphics_asset [sizeof(mission.planettype)];
 	
 		if (load_fileat(*sprite_map, "%sMaps/%s/%s/S_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
+#if defined(SF_WEB_PORT)
+		sf_web_world_renderer_invalidate_terrain_tiles();
+#endif
 
 		if (load_fileat(*height_map, "%sMaps/%s/%s/H_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
+#if defined(SF_WEB_PORT)
+		sf_web_world_renderer_invalidate_terrain_height_map();
+#endif
 
 		// Only load in sky file if it is different from last time
 	

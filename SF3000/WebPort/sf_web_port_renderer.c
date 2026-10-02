@@ -1,5 +1,6 @@
 #include "sf_web_port_renderer.h"
 #include "sf_3do_compat.h"
+#include "sf_web_world_renderer.h"
 
 static SFWebRenderQuad sf_web_port_commands[SF_WEB_PORT_COMMAND_CAPACITY];
 
@@ -10,12 +11,14 @@ void sf_web_port_renderer_initialise(void)
 		sf_web_port_commands,
 		SF_WEB_PORT_COMMAND_CAPACITY
 	);
+	sf_web_world_renderer_initialise();
 }
 
 void sf_web_port_renderer_begin_frame(void)
 {
 	sf3do_release_queued_text();
 	sf_web_renderer_reset();
+	sf_web_world_renderer_reset();
 }
 
 const SFWebRenderQuad *sf_web_port_renderer_command_buffer(void)

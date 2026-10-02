@@ -13,6 +13,15 @@
 #include "explosion.h"
 #include "bonus_control.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 /**************************************/
 
 void	status_register	(long status_type, long status_set, long status_dec)
@@ -55,40 +64,42 @@ ship_stack	*ship;
 	// ARE WE DISPLAYING LIVES ON SCREEN ?
 	
 	if (status.display_lives > 0)
-		status.display_lives-=1;
+		status.display_lives += SF_SIMULATION_DELTA(-1);
 		
 	// CHECK FOR DEAD CAM EXPIRY
 	
 	for (camloop = 1; camloop < MAX_CAMERAS; camloop++)	
 		if (camera [camloop].counter2 > 0)
-			if (--camera [camloop].counter2 == 0)
+			if ((camera [camloop].counter2 +=
+				SF_SIMULATION_DELTA(-1)) == 0)
 				control_searchcamera (camloop, camera [camloop].instance);
 				
 	// DECREMENT GAME STATUS COUNTERS
 	
 	if (status.status_count >= 0)						// Game status counter
-		status.status_count-=status.status_decrement;
+		status.status_count += SF_SIMULATION_DELTA(
+			-status.status_decrement);
 
 	// PICKUP COUNTER ?
 	
 	if (status.pickup_count > 0)
-		status.pickup_count-=4;							// Crystal status counter
+		status.pickup_count += SF_SIMULATION_DELTA(-4);	// Crystal status counter
 	
 	// CHAIN REACTION ?
 	
 	if (status.chain_timer > 0)
-		if (--status.chain_timer == 0)
+		if ((status.chain_timer += SF_SIMULATION_DELTA(-1)) == 0)
 			static_explode ((mission.groundlist [status.chain_next].xpos >> 1) + ((mission.groundlist [status.chain_next].ypos >> 1)<<7), 256);
 		
-	status.clock1 = (++status.clock1) & 3;				// Fast clock
-	status.clock2 = (++status.clock2) & 31;				// Slow clock
+	status.clock1 = (status.clock1 + SF_SIMULATION_DELTA(1)) & 3; // Fast clock
+	status.clock2 = (status.clock2 + SF_SIMULATION_DELTA(1)) & 31; // Slow clock
 	
 	if (status.clock3 < 1023)
-		status.clock3+=1;								// Frame clock upto 1023
+		status.clock3 += SF_SIMULATION_DELTA(1);		// Frame clock upto 1023
 		
 	// DO ANY CHECKS ON 3FRAME COUNTER ?
 	
-	if (status.clock1 == 0)
+	if (SF_SIMULATION_REFERENCE_TICK() && status.clock1 == 0)
 		{
 		if (status.fast_crystals > 0)					// Add a fast-adder crystal ?
 			{
@@ -99,12 +110,12 @@ ship_stack	*ship;
 		
 	// DO ANY CHECKS ON 15FRAME COUNTER ?
 	
-	if (status.clock2 == 0)
+	if (SF_SIMULATION_REFERENCE_TICK() && status.clock2 == 0)
 		{
 		
 		if (mission.mission_timer >0)					// Has mission timer expired (and was previously set)
 			{
-			if (--mission.mission_timer <=0)
+			if ((mission.mission_timer += SF_SIMULATION_DELTA(-1)) <=0)
 				{
 				message_add (MESSAGE_TOP, (MTXT__YOU_HAVE_RUN_OUT_OF_TIME), WHITE_15, MESSAGE_FLASH, 32, MESSAGE_NOCURSOR);
 				control_gameover();
@@ -113,14 +124,15 @@ ship_stack	*ship;
 			}
 			
 		if (status.mega_ship > 0)						// Putting a ship back to normal after megasetup ?
-			if (--status.mega_ship <=0)
+			if ((status.mega_ship += SF_SIMULATION_DELTA(-1)) <=0)
 				bonus_megasetup_cancel ();
 		}		
 
 	
 	// ADD A RANDOM PARACHUTE ?
 	
-	if (((arm_random() & 2047) == 2047) && planet_info.space_mission == 0)
+	if (SF_SIMULATION_REFERENCE_TICK() &&
+		((arm_random() & 2047) == 2047) && planet_info.space_mission == 0)
 		{
 		message_add (MESSAGE_TOP, (MTXT__PARACHUTE_DROP_DETECTED), WHITE_15, MESSAGE_FLASH, 48, MESSAGE_NOCURSOR);
 		ship = add_ship (	arm_random(),	// Xpos
@@ -161,7 +173,7 @@ ship_stack	*ship;
 				
 			// HAS DEFENCE TIMER EXPIRED (AND WAS PREVIOUSLY SET)
 			if (mission.defence_timer >0)
-				if (--mission.defence_timer <=0)
+				if ((mission.defence_timer += SF_SIMULATION_DELTA(-1)) <=0)
 					message_add (MESSAGE_BOTTOM, (MTXT__DEFENCES_ACTIVE), WHITE_15, MESSAGE_FLASH, 32, MESSAGE_NOCURSOR);
 			
 			// IS 'WAITING TO DOCK' FLAG SET - IF SO, CHECK FOR DOCKED, IF SO, MISSION IS FINISHED

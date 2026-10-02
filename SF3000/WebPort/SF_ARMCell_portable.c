@@ -157,6 +157,13 @@ uint32_t sf_web_renderer_command_capacity(void)
     return sf_web_renderer_queue_capacity;
 }
 
+SFWebRenderQuad *sf_web_renderer_last_command(void)
+{
+    if (sf_web_renderer_queue_count == 0u)
+        return NULL;
+    return &sf_web_renderer_queue[sf_web_renderer_queue_count - 1u];
+}
+
 static SFArmCellCommandState *sf_command_state(const SFArmCellData *cel,
                                                 int create)
 {
@@ -370,6 +377,40 @@ static SFWebRenderQuad *sf_last_command(SFArmCellData *cel,
     return &sf_web_renderer_queue[state->queue_index];
 }
 
+int32_t sf_armcell_terrain_material(void *cel_data, long texture,
+                                    SFWebRenderQuad *material)
+{
+    SFArmCellData *cel = (SFArmCellData *)cel_data;
+    const uint8_t *resource;
+    const uint8_t *source;
+    uint32_t preamble0;
+    uint32_t preamble1;
+
+    if (cel == NULL || material == NULL)
+        return -1;
+    resource = sf_indexed_resource(cel->cel_list16, sf_i32(texture));
+    if (resource == NULL)
+        return -1;
+
+    /* The flags load advances r3 before SF_ARMCell.s adds its 32-byte offset. */
+    source = resource + 36u;
+    preamble0 = sf_load_be32(source);
+    preamble1 = sf_load_be32(source + 4u);
+    material->source = sf_pointer32(source);
+    material->palette = sf_pointer32(resource + 4u);
+    material->shade = sf_clamp_shade(cel->shade, 31);
+    material->width = 16u;
+    material->height = 16u;
+    material->blend = SF_WEB_RENDER_BLEND_OPAQUE;
+    material->encoding = SF_WEB_RENDER_ENCODING_INDEXED_4 |
+                         SF_WEB_RENDER_ENCODING_TERRAIN;
+    material->pixc = sf_pixc_type1[material->shade];
+    material->ccb_flags = sf_load_be32(resource);
+    (void)preamble0;
+    (void)preamble1;
+    return 0;
+}
+
 void arm_addpolycel16(void *cel_data, long texture)
 {
     SFArmCellData *cel = (SFArmCellData *)cel_data;
@@ -379,26 +420,14 @@ void arm_addpolycel16(void *cel_data, long texture)
     uint32_t preamble0;
     uint32_t preamble1;
 
-    if (cel == NULL)
+    if (sf_armcell_terrain_material(cel_data, texture, &command) != 0)
         return;
     resource = sf_indexed_resource(cel->cel_list16, sf_i32(texture));
     if (resource == NULL)
         return;
-
-    /* The flags load advances r3 before SF_ARMCell.s adds its 32-byte offset. */
     source = resource + 36u;
     preamble0 = sf_load_be32(source);
     preamble1 = sf_load_be32(source + 4u);
-    command.source = sf_pointer32(source);
-    command.palette = sf_pointer32(resource + 4u);
-    command.shade = sf_clamp_shade(cel->shade, 31);
-    command.width = 16u;
-    command.height = 16u;
-    command.blend = SF_WEB_RENDER_BLEND_OPAQUE;
-    command.encoding = SF_WEB_RENDER_ENCODING_INDEXED_4 |
-                       SF_WEB_RENDER_ENCODING_TERRAIN;
-    command.pixc = sf_pixc_type1[command.shade];
-    command.ccb_flags = sf_load_be32(resource);
     sf_set_polygon_vertices(&command, cel);
     sf_emit(cel, &command, (uint8_t *)source, preamble0, preamble1, 0, 0,
             1, 0);

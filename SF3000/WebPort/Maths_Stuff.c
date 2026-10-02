@@ -1,5 +1,12 @@
 #include "sf_arm_port.h"
 
+#if defined(SF_WEB_PORT)
+#include "sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#endif
+
 /*
  * These globals retain their original ARM/3DO storage formats.  In
  * particular tangent_table is a byte array containing 1,025 little-endian
@@ -346,18 +353,22 @@ int mc_smoke_mover(void *data)
      */
     sf_arm_i32 *smoke = (sf_arm_i32 *)((unsigned char *)data + 12);
 
-    smoke[3] = sf_arm_sub(smoke[3], sf_arm_asr(smoke[3], 6));
-    smoke[4] = sf_arm_sub(smoke[4], sf_arm_asr(smoke[4], 6));
-    smoke[5] = sf_arm_sub(smoke[5], sf_arm_asr(smoke[5], 6));
-    smoke[0] = sf_arm_add(smoke[0], smoke[3]);
-    smoke[1] = sf_arm_add(smoke[1], smoke[4]);
-    smoke[2] = sf_arm_add(smoke[2], smoke[5]);
-    smoke[6] = sf_arm_sub(smoke[6], 1);
+    smoke[3] = sf_arm_add(smoke[3], (sf_arm_i32)SF_SIMULATION_DELTA(
+        -sf_arm_asr(smoke[3], 6)));
+    smoke[4] = sf_arm_add(smoke[4], (sf_arm_i32)SF_SIMULATION_DELTA(
+        -sf_arm_asr(smoke[4], 6)));
+    smoke[5] = sf_arm_add(smoke[5], (sf_arm_i32)SF_SIMULATION_DELTA(
+        -sf_arm_asr(smoke[5], 6)));
+    smoke[0] = sf_arm_add(smoke[0], (sf_arm_i32)SF_SIMULATION_DELTA(smoke[3]));
+    smoke[1] = sf_arm_add(smoke[1], (sf_arm_i32)SF_SIMULATION_DELTA(smoke[4]));
+    smoke[2] = sf_arm_add(smoke[2], (sf_arm_i32)SF_SIMULATION_DELTA(smoke[5]));
+    smoke[6] = sf_arm_add(smoke[6], (sf_arm_i32)SF_SIMULATION_DELTA(-1));
     return 0;
 }
 
 static int sf_arm_scan_poly_map(long x_value, long y_value, void *results,
-                                unsigned int maximum_type)
+                                unsigned int maximum_type,
+                                unsigned int span)
 {
     unsigned int start_x = (unsigned int)x_value & ~3U;
     unsigned int start_y = (unsigned int)y_value & 127U;
@@ -365,9 +376,9 @@ static int sf_arm_scan_poly_map(long x_value, long y_value, void *results,
     unsigned int row;
     unsigned int column;
 
-    for (row = 0; row < 32U; ++row) {
+    for (row = 0; row < span; ++row) {
         unsigned int y = (start_y + row) & 127U;
-        for (column = 0; column < 32U; ++column) {
+        for (column = 0; column < span; ++column) {
             unsigned int x = (start_x + column) & 127U;
             unsigned int reference = y * 128U + x;
             unsigned int type = poly_map[y][x];
@@ -383,10 +394,15 @@ static int sf_arm_scan_poly_map(long x_value, long y_value, void *results,
 
 int scan_poly_map(long x, long y, void *results)
 {
-    return sf_arm_scan_poly_map(x, y, results, 8U);
+    return sf_arm_scan_poly_map(x, y, results, 8U, 32U);
 }
 
 int scan_poly_map_2(long x, long y, void *results)
 {
-    return sf_arm_scan_poly_map(x, y, results, 247U);
+    return sf_arm_scan_poly_map(x, y, results, 247U, 32U);
+}
+
+int scan_poly_map_3(long x, long y, void *results)
+{
+    return sf_arm_scan_poly_map(x, y, results, 247U, 64U);
 }

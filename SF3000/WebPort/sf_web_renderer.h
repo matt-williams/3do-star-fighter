@@ -9,6 +9,8 @@
 #define SF_WEB_RENDER_ENCODING_TRANSPARENT_ZERO UINT32_C(0x80000000)
 #define SF_WEB_RENDER_ENCODING_TERRAIN UINT32_C(0x40000000)
 #define SF_WEB_RENDER_ENCODING_GAME_CEL UINT32_C(0x20000000)
+#define SF_WEB_RENDER_ENCODING_WORLD UINT32_C(0x10000000)
+#define SF_WEB_RENDER_ENCODING_WORLD_BACKGROUND UINT32_C(0x08000000)
 
 typedef enum SFWebRenderBlend {
 	SF_WEB_RENDER_BLEND_OPAQUE,
@@ -52,5 +54,6 @@ int32_t sf_web_renderer_append(const SFWebRenderQuad *command);
 const SFWebRenderQuad *sf_web_renderer_commands(void);
 uint32_t sf_web_renderer_command_count(void);
 uint32_t sf_web_renderer_command_capacity(void);
+SFWebRenderQuad *sf_web_renderer_last_command(void);
 
 #endif

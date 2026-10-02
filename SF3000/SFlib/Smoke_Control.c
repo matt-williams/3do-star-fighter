@@ -8,6 +8,15 @@
 #include "SF_ArmUtils.h"
 #include "Graphics_Set.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void smoke_update(void)
 
 {
@@ -39,9 +48,10 @@ while ((smoke->header).status==1)
 
 
 // Certain types of smoke add more smoke
-if (	smoke->type==BIG_MUSHROOM_CLOUD ||
+if (	SF_SIMULATION_REFERENCE_TICK() &&
+	(smoke->type==BIG_MUSHROOM_CLOUD ||
 		smoke->type == SMALL_MUSHROOM_CLOUD
-	) update_mushroom( smoke ) ;
+	)) update_mushroom( smoke ) ;
 
 
  // Get the adr of the next before any deleting is done
@@ -392,7 +402,8 @@ thruster_data = (thruster_details*) ( thruster_header + 1 ) ;
 for (loop = 0 ; loop <= thruster_header->counter ; loop += 1)
 {
 	// Thruster smoke is arm_randomom based on power
-	if (ship->thrust_control > (arm_random()&1023) )
+	if (SF_SIMULATION_REFERENCE_TICK() &&
+		ship->thrust_control > (arm_random()&1023) )
 	{
 		node_data.x_pos = (thruster_data->x_pos) ;
 		node_data.y_pos = (thruster_data->y_pos) ;
@@ -413,8 +424,8 @@ for (loop = 0 ; loop <= thruster_header->counter ; loop += 1)
 
 // Inc smoke counter
 //if (ship->misc_counter < ((ship->thrust_control)>>7) ) ship->misc_counter += 1 ;
-if (ship->misc_counter < 31 ) ship->misc_counter += 1 ;
+if (ship->misc_counter < 31 )
+	ship->misc_counter += SF_SIMULATION_DELTA(1) ;
 
 }
-
 

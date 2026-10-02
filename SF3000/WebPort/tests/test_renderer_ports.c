@@ -1,4 +1,6 @@
 #include "../sf3000_webport_renderer.h"
+#include "../sf_web_fixed_step.h"
+#include "../sf_web_world_renderer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +10,12 @@ long pex_table_near[2048];
 sf3000_webport_celdata cel_quad;
 extern char skyfile[1024];
 void plot_static_graphic(long x, long y, long z, long type);
+extern long planet_1_x_pos;
+extern long planet_1_y_pos;
+extern long planet_1_z_pos;
+extern long planet_2_x_pos;
+extern long planet_2_y_pos;
+extern long planet_2_z_pos;
 
 static long game_calls;
 static long polygon_calls;
@@ -18,6 +26,13 @@ static long last_shade;
 static uint8_t *resolved_graphic;
 static SFWebRenderQuad sky_command;
 static long sky_commands;
+static uint32_t renderer_command_count;
+static long world_quad_calls;
+static long world_billboard_calls;
+static long world_projected_calls;
+static int32_t world_view_y[4];
+static int32_t world_projected_depths[4];
+static int32_t world_billboard_depth;
 
 static void *resolve_graphic_address(uint32_t address)
 {
@@ -55,6 +70,7 @@ void arm_addgamecel(void *quad, long sprite, long scale_x, long scale_y)
 	last_scale_x = scale_x;
 	last_scale_y = scale_y;
 	last_shade = data->shade;
+	++renderer_command_count;
 }
 
 void arm_addpolycel32(void *quad, long sprite)
@@ -62,6 +78,7 @@ void arm_addpolycel32(void *quad, long sprite)
 	sf3000_webport_celdata *data = quad;
 
 	++polygon_calls;
+	++renderer_command_count;
 	last_sprite = sprite;
 	last_shade = data->shade;
 }
@@ -89,6 +106,38 @@ int32_t sf_web_renderer_append(const SFWebRenderQuad *command)
 {
 	sky_command = *command;
 	++sky_commands;
+	return 0;
+}
+
+uint32_t sf_web_renderer_command_count(void)
+{
+	return renderer_command_count;
+}
+
+int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
+	const int32_t view_y[4], const int32_t view_z[4])
+{
+	(void)view_x;
+	(void)view_z;
+	memcpy(world_view_y, view_y, sizeof(world_view_y));
+	++world_quad_calls;
+	return 0;
+}
+
+int32_t sf_web_world_renderer_append_last_billboard(int32_t view_depth)
+{
+	world_billboard_depth = view_depth;
+	++world_quad_calls;
+	++world_billboard_calls;
+	return 0;
+}
+
+int32_t sf_web_world_renderer_append_last_projected_quad(
+	const int32_t view_depth[4])
+{
+	memcpy(world_projected_depths, view_depth, sizeof(world_projected_depths));
+	++world_quad_calls;
+	++world_projected_calls;
 	return 0;
 }
 
@@ -167,23 +216,31 @@ static void test_smoke_and_laser(void)
 	camera_y_position = 0;
 	camera_z_position = 0;
 	game_calls = 0;
+	renderer_command_count = 0;
+	world_billboard_calls = 0;
+	world_projected_calls = 0;
 	set_word(smoke, 12 + 4, 9000 << 12);
 	set_word(smoke, 12 + 24, 2);
 	set_word(smoke, 12 + 28, 78);
 	set_word(smoke, 12 + 32, 0);
 	plot_smoke(smoke);
 	if (game_calls != 1 || last_sprite != 78 || last_scale_x != 32768 ||
-	    last_scale_y != 32768 || last_shade != 2) {
+	    last_scale_y != 32768 || last_shade != 2 ||
+	    world_billboard_calls != 1) {
 		fail("plot_smoke did not select the small-thruster cel and shade");
 	}
 
 	polygon_calls = 0;
 	set_word(laser, 12 + 4, 9000 << 12);
 	set_word(laser, 12 + 12, 100 << 12);
-	set_word(laser, 12 + 16, 9000 << 12);
+	set_word(laser, 12 + 16, 10000 << 12);
 	set_word(laser, 12 + 24, 1);
 	plot_laser(laser);
-	if (polygon_calls != 1 || last_sprite != 158 || last_shade != 25) {
+	if (polygon_calls != 1 || last_sprite != 158 || last_shade != 25 ||
+	    world_projected_calls != 1 || world_projected_depths[0] != 10000 ||
+	    world_projected_depths[1] != 9000 ||
+	    world_projected_depths[2] != 9000 ||
+	    world_projected_depths[3] != 10000) {
 		fail("plot_laser did not generate the expected laser polygon");
 	}
 }
@@ -212,9 +269,52 @@ static void test_stars(void)
 	setup_rotations();
 
 	game_calls = 0;
+	renderer_command_count = 0;
+	world_billboard_calls = 0;
 	plot_stars();
-	if (game_calls != 1 || last_sprite != 1 || last_shade != 2) {
+	if (game_calls != 1 || last_sprite != 1 || last_shade != 2 ||
+	    world_billboard_calls != 1) {
 		fail("plot_stars did not project the visible star with its shade");
+	}
+
+	stars[0][0] = 1 << 15;
+	stars[0][1] = 1 << 15;
+	stars[0][2] = 1 << 15;
+	camera_x_velocity = 1 << 14;
+	camera_y_velocity = 0;
+	camera_z_velocity = 1 << 14;
+	sf_web_fixed_step_simulation_reset();
+	for (int step = 0; step < 4; ++step) {
+		sf_web_fixed_step_begin_simulation_step();
+		sf3000_webport_advance_world_animation_state();
+	}
+	if (stars[0][0] != (1 << 15) || stars[0][1] != (1 << 15) ||
+	    stars[0][2] != (1 << 15)) {
+		fail("space stars advanced before the reference simulation step");
+	}
+	sf_web_fixed_step_begin_simulation_step();
+	sf3000_webport_advance_world_animation_state();
+	if (stars[0][0] != 1 || stars[0][1] != 0 || stars[0][2] != -1) {
+		fail("world animation update did not advance space stars");
+	}
+	plot_space_stars();
+	if (stars[0][0] != 1 || stars[0][1] != 0 || stars[0][2] != -1) {
+		fail("plot_space_stars advanced simulation state");
+	}
+
+	game_calls = 0;
+	renderer_command_count = 0;
+	world_billboard_calls = 0;
+	planet_1_x_pos = 200;
+	planet_1_y_pos = 8192;
+	planet_1_z_pos = 0;
+	planet_2_x_pos = 0;
+	planet_2_y_pos = 8192;
+	planet_2_z_pos = 0;
+	plot_planets();
+	if (game_calls != 2 || last_sprite != 15 || world_billboard_calls != 2 ||
+	    world_billboard_depth != SF_WEB_WORLD_FAR_DEPTH) {
+		fail("plot_planets did not emit celestial sprites at world far depth");
 	}
 }
 
@@ -272,16 +372,20 @@ static void test_static_graphic(void)
 	setup_rotations();
 
 	polygon_calls = 0;
+	renderer_command_count = 0;
+	world_quad_calls = 0;
 	plot_static_graphic(0, 8192, 0, 0);
-	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17) {
-		fail("plot_static_graphic did not project and cull the front-facing quad");
+	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17 ||
+	    world_quad_calls != 1 || world_view_y[0] <= 0) {
+		fail("plot_static_graphic did not emit its visible face to the world queue");
 	}
 
 	heights[512] = 145;
 	polygon_calls = 0;
 	plot_static_from_grid((void *)(uintptr_t)128);
-	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17) {
-		fail("plot_static_from_grid did not map the terrain grid to its static graphic");
+	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17 ||
+	    world_quad_calls != 2) {
+		fail("plot_static_from_grid did not emit its visible face to the world queue");
 	}
 
 	set_be_word(graphic, 56, 0);
@@ -290,8 +394,8 @@ static void test_static_graphic(void)
 	set_be_word(graphic, 68, 1);
 	polygon_calls = 0;
 	plot_static_graphic(0, 8192, 0, 0);
-	if (polygon_calls != 0) {
-		fail("plot_static_graphic did not reject a back-facing quad");
+	if (polygon_calls != 0 || world_quad_calls != 2) {
+		fail("plot_static_graphic did not reject a back-facing world face");
 	}
 }
 

@@ -9,6 +9,15 @@
 #include "SF_ArmUtils.h"
 #include "Graphics_Set.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void bit_update(void)
 
 {
@@ -28,33 +37,34 @@ while ((bit->header).status==1)
 //Bit types 0 - 11 0 = smallest 11 = biggest
 
 // add on bit position velocitys
-bit->x_pos += bit->x_vel ; 
-bit->y_pos += bit->y_vel ;
-bit->z_pos += bit->z_vel ;
+bit->x_pos += SF_SIMULATION_DELTA(bit->x_vel) ;
+bit->y_pos += SF_SIMULATION_DELTA(bit->y_vel) ;
+bit->z_pos += SF_SIMULATION_DELTA(bit->z_vel) ;
 
 // add on bit rotation velocitys
-bit->x_rot = (bit->x_rot + bit->x_r_vel)&ROT_LIMIT ; 
-bit->y_rot = (bit->y_rot + bit->y_r_vel)&ROT_LIMIT ;
-bit->z_rot = (bit->z_rot + bit->z_r_vel)&ROT_LIMIT ;
+bit->x_rot = (bit->x_rot + SF_SIMULATION_DELTA(bit->x_r_vel))&ROT_LIMIT ;
+bit->y_rot = (bit->y_rot + SF_SIMULATION_DELTA(bit->y_r_vel))&ROT_LIMIT ;
+bit->z_rot = (bit->z_rot + SF_SIMULATION_DELTA(bit->z_r_vel))&ROT_LIMIT ;
 
 // Slow down position and rotation velocitys
-bit->x_vel -= ((bit->x_vel)>>6) ;
-bit->y_vel -= ((bit->y_vel)>>6) ;
-bit->z_vel -= ((bit->z_vel)>>6) ;
+bit->x_vel += SF_SIMULATION_DELTA(-((bit->x_vel)>>6)) ;
+bit->y_vel += SF_SIMULATION_DELTA(-((bit->y_vel)>>6)) ;
+bit->z_vel += SF_SIMULATION_DELTA(-((bit->z_vel)>>6)) ;
 
-bit->x_r_vel -= ((bit->x_r_vel)>>6) ;
-bit->y_r_vel -= ((bit->y_r_vel)>>6) ;
-bit->z_r_vel -= ((bit->z_r_vel)>>6) ;
+bit->x_r_vel += SF_SIMULATION_DELTA(-((bit->x_r_vel)>>6)) ;
+bit->y_r_vel += SF_SIMULATION_DELTA(-((bit->y_r_vel)>>6)) ;
+bit->z_r_vel += SF_SIMULATION_DELTA(-((bit->z_r_vel)>>6)) ;
 
 // No gravity if in space
 if ( which_graphics_set != SPACE_GRAPHICS )
 {
 	// Gravity on bits - the bigger the bit the bigger the gravity
-	bit->z_vel -= ( (1<<19) + ( ((bit->type)>>2)<<18 ) ) ;
+	bit->z_vel += SF_SIMULATION_DELTA(
+		-((1<<19) + ( ((bit->type)>>2)<<18 ))) ;
 }
 
 // Smoke from explosion bits
-if ( ((bit->type)&3)==1 )
+if (SF_SIMULATION_REFERENCE_TICK() && ((bit->type)&3)==1 )
 {
 	add_smoke (	bit->x_pos , bit->y_pos , bit->z_pos ,
 				((bit->x_vel)>>3) , ((bit->y_vel)>>3) , ((bit->z_vel)>>3) ,
@@ -121,7 +131,7 @@ if ( coll_check != 0 )
 
 
 // update the counter for the bit when <0 then delete
-bit->counter -= 3 ;
+bit->counter += SF_SIMULATION_DELTA(-3) ;
 
 // Get the adr of the next before any deleting is done
 bit_temp=(bit->header).next_address ;

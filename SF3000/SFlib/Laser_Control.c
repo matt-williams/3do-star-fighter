@@ -15,6 +15,15 @@
 #include "SF_Sound.h"
 #include "Bonus_Control.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void laser_update(void)
 
 {
@@ -27,26 +36,44 @@ laser=(lasers.info).start_address ;
 
 while ((laser->header).status==1)
 {
+	laser_temp=(laser->header).next_address ;
+
+	/* A non-beam laser consumed by ship collision is retired before it can
+	   process another terrain collision on the following fixed substep. */
+	if (laser->counter < 0 && laser->type != BEAM_LASER)
+	{
+		armlink_deleteitem(laser,&lasers);
+		laser=laser_temp;
+		continue;
+	}
 
  // add on laser velocitys to start and end points of laser
- laser->x_pos += laser->x_vel ; 
- laser->y_pos += laser->y_vel ;
- laser->z_pos += laser->z_vel ;
+ laser->x_pos += SF_SIMULATION_DELTA(laser->x_vel) ;
+ laser->y_pos += SF_SIMULATION_DELTA(laser->y_vel) ;
+ laser->z_pos += SF_SIMULATION_DELTA(laser->z_vel) ;
 
- laser->x_pos2 += laser->x_vel ;
- laser->y_pos2 += laser->y_vel ;
- laser->z_pos2 += laser->z_vel ;
+ laser->x_pos2 += SF_SIMULATION_DELTA(laser->x_vel) ;
+ laser->y_pos2 += SF_SIMULATION_DELTA(laser->y_vel) ;
+ laser->z_pos2 += SF_SIMULATION_DELTA(laser->z_vel) ;
 
  // Check for any ground / object collisions	
  temp_long = check_collision ( laser->x_pos , laser->y_pos , laser->z_pos ) ;
 
- if ( temp_long != 0 && laser->who_owns_me != temp_long )
+ if ( temp_long != 0 && laser->who_owns_me != temp_long &&
+		(laser->type != BEAM_LASER || SF_SIMULATION_REFERENCE_TICK()) )
  {
 	 add_smoke( 	laser->x_pos , laser->y_pos , laser->z_pos ,
 					0 , 0 , 0 ,
 					LASER_HIT_SMOKE ,
 					0 );
-	 laser->counter = 0 ;
+	 if (laser->type == BEAM_LASER)
+	 {
+		 laser->counter = 0 ;
+	 }
+	 else
+	 {
+		 laser->counter = -1 ;
+	 }
 
 	if (	bonus_collision_ref >= 2 && laser->who_owns_me == (long) players_ship &&
 			(temp_long&16383) == temp_long ) 
@@ -78,10 +105,7 @@ while ((laser->header).status==1)
 
 
  // update the counter for the laser when <0 then delete
- laser->counter -= 1 ;
-
- // Get the adr of the next before any deleting is done
- laser_temp=(laser->header).next_address ;
+ laser->counter += SF_SIMULATION_DELTA(-1) ;
 
 	if ( (laser->counter) < 0 && laser->type != BEAM_LASER )
 	{
@@ -389,11 +413,11 @@ if (laser->z_pos2 < 0) laser->z_pos2 = -laser->z_pos2 ;
 }
 
 // Change the x and y benders by arm_randomom amount and limit check 'em
-beam_laser.x_rot_bend += ((arm_random()&16383)-8192) ;
+beam_laser.x_rot_bend += SF_SIMULATION_DELTA((arm_random()&16383)-8192) ;
 if ( beam_laser.x_rot_bend > (128*1024) ) beam_laser.x_rot_bend = (128*1024) ;
 if ( beam_laser.x_rot_bend < -(128*1024) ) beam_laser.x_rot_bend = -(128*1024) ;
 
-beam_laser.y_rot_bend += ((arm_random()&16383)-8192) ;
+beam_laser.y_rot_bend += SF_SIMULATION_DELTA((arm_random()&16383)-8192) ;
 if ( beam_laser.y_rot_bend > (128*1024) ) beam_laser.y_rot_bend = (128*1024) ;
 if ( beam_laser.y_rot_bend < -(128*1024) ) beam_laser.y_rot_bend = -(128*1024) ;
 

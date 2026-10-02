@@ -20,6 +20,8 @@ void sf_web_runtime_set_text_font(const uint8_t *data, uint32_t size);
 void sf_web_runtime_reset_textures(void);
 uint32_t sf_web_runtime_control_pad_state(void);
 void sf_web_runtime_wait_vbl(int32_t fields);
+void sf_web_runtime_reset_frame_clock(void);
+uint32_t sf_web_runtime_take_elapsed_microseconds(void);
 int32_t sf_web_runtime_nvram_size(const char *name);
 int32_t sf_web_runtime_nvram_load(const char *name, uint8_t *data,
                                   uint32_t capacity);

@@ -1,4 +1,6 @@
 #include "sf3000_webport_renderer.h"
+#include "sf_web_world_renderer.h"
+#include "sf_web_fixed_step.h"
 
 #define SF3000_WEBPORT_CLIP_DISTANCE 1280
 #define SF3000_WEBPORT_SHIP_HEADER_BYTES 12
@@ -70,6 +72,11 @@ static int32_t bit_palette = 3;
 static int32_t i_am_a_ship;
 static int32_t i_am_an_object;
 static int32_t atg_truck_target;
+static int render_world_geometry;
+static long air_to_ground_render_scan;
+static long air_to_air_render_scan;
+static long collision_box_render_colour_adder;
+static int32_t static_graphic_radar_phase;
 
 static void *sf3000_webport_pointer(uint32_t address)
 {
@@ -314,6 +321,10 @@ static void sf3000_webport_project(sf3000_webport_vec3 *point,
 
 static int sf3000_webport_outside_quad(const int32_t points[8])
 {
+#if defined(SF_WEB_PORT)
+	(void)points;
+	return 0;
+#else
 	return (points[1] > 120 && points[3] > 120 && points[5] > 120 &&
 		points[7] > 120) ||
 	       (points[1] < -120 && points[3] < -120 && points[5] < -120 &&
@@ -322,6 +333,7 @@ static int sf3000_webport_outside_quad(const int32_t points[8])
 		points[6] < -160) ||
 	       (points[0] > 160 && points[2] > 160 && points[4] > 160 &&
 		points[6] > 160);
+#endif
 }
 
 static int32_t sf3000_webport_vector_check(const int32_t points[8])
@@ -562,6 +574,7 @@ static void sf3000_webport_render_fluffy(const uint8_t *link)
 	int32_t sprite_scale;
 	int32_t shade;
 	int32_t node = sf3000_webport_read_be_i32(link, 0);
+	uint32_t command_count;
 
 	if (quad == NULL || node < 0 || node >= 256) {
 		return;
@@ -592,11 +605,15 @@ static void sf3000_webport_render_fluffy(const uint8_t *link)
 		sf3000_webport_mul32(sf3000_webport_sub32(point.z, corner), scale),
 		16));
 	quad->shade = sf3000_webport_long(shade);
+	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(quad,
 		       sf3000_webport_long(type - 248 +
 					    SF3000_WEBPORT_FLUFFY_CLOUD),
 		       sf3000_webport_long(sprite_scale),
 		       sf3000_webport_long(sprite_scale));
+	if (render_world_geometry != 0 &&
+	    sf_web_renderer_command_count() != command_count)
+		sf_web_world_renderer_append_last_billboard(point.y);
 }
 
 static void sf3000_webport_render_links(const uint8_t *links)
@@ -612,12 +629,14 @@ static void sf3000_webport_render_links(const uint8_t *links)
 	for (index = 0; index <= count; ++index) {
 		const uint8_t *link = links + 4 + ((size_t)index * 20);
 		sf3000_webport_vec3 points3d[4];
+		sf3000_webport_vec3 world_points3d[4];
 		int32_t points[8];
 		int32_t node[4];
 		int32_t point_index;
 		int all_in_front = 1;
 		int any_beyond_clip = 0;
 		int32_t shade;
+		uint32_t command_count;
 
 		if (link[16] >= 248) {
 			sf3000_webport_render_fluffy(link);
@@ -649,6 +668,7 @@ static void sf3000_webport_render_links(const uint8_t *links)
 		if (point_index != 4) {
 			continue;
 		}
+		memcpy(world_points3d, points3d, sizeof(world_points3d));
 
 		if (all_in_front) {
 			for (point_index = 0; point_index < 4; ++point_index) {
@@ -685,11 +705,25 @@ static void sf3000_webport_render_links(const uint8_t *links)
 			}
 		}
 		sf3000_webport_set_quad(graphic_cel_quad, points, shade);
+		command_count = sf_web_renderer_command_count();
 		arm_addpolycel32(graphic_cel_quad,
 				 sf3000_webport_long(link[16]));
 		if (shade_style == 2) {
 			arm_setpolycel32palette(graphic_cel_quad,
 						 sf3000_webport_long(bit_palette));
+		}
+		if (render_world_geometry != 0 &&
+		    sf_web_renderer_command_count() != command_count) {
+			int32_t view_x[4];
+			int32_t view_y[4];
+			int32_t view_z[4];
+
+			for (point_index = 0; point_index < 4; ++point_index) {
+				view_x[point_index] = world_points3d[point_index].x;
+				view_y[point_index] = world_points3d[point_index].y;
+				view_z[point_index] = world_points3d[point_index].z;
+			}
+			sf_web_world_renderer_append_last_quad(view_x, view_y, view_z);
 		}
 	}
 }
@@ -950,14 +984,16 @@ static void sf3000_webport_draw_collision_boxes(int ship_collision)
 				sf3000_webport_mul32(
 					sf3000_webport_asr32(xi, 12),
 					sf3000_webport_add32(
-						sf3000_webport_i32(collision_box_colour_adder),
+						sf3000_webport_i32(
+							collision_box_render_colour_adder),
 						16)),
 				4);
 			corners[edge].y = sf3000_webport_asr32(
 				sf3000_webport_mul32(
 					sf3000_webport_asr32(yi, 12),
 					sf3000_webport_add32(
-						sf3000_webport_i32(collision_box_colour_adder),
+						sf3000_webport_i32(
+							collision_box_render_colour_adder),
 						16)),
 				4);
 			corners[edge].z = sf3000_webport_sub32(0,
@@ -966,7 +1002,7 @@ static void sf3000_webport_draw_collision_boxes(int ship_collision)
 						sf3000_webport_asr32(zi, 12),
 						sf3000_webport_add32(
 							sf3000_webport_i32(
-								collision_box_colour_adder),
+								collision_box_render_colour_adder),
 							16)),
 					4));
 			if (ship_collision) {
@@ -996,7 +1032,7 @@ static void sf3000_webport_draw_collision_boxes(int ship_collision)
 				sf3000_webport_add32(
 					sf3000_webport_asr32(
 						sf3000_webport_i32(
-							collision_box_colour_adder),
+							collision_box_render_colour_adder),
 						1),
 					1));
 		}
@@ -1023,7 +1059,152 @@ static void sf3000_webport_plot_static_internal(
 	sf3000_webport_rotate_graphic(static_graphic_rotation, &centre);
 	shade_style = 0;
 	plot_group_mask = 0;
+	render_world_geometry = 1;
 	sf3000_webport_plot_style();
+	render_world_geometry = 0;
+}
+
+void sf3000_webport_begin_target_selection(void)
+{
+	/*
+	 * Collision boxes historically display the target selected during the
+	 * preceding draw.  Preserve that frame boundary while calculating the
+	 * next target during the simulation update.
+	 */
+	air_to_ground_render_scan = air_to_ground_scan;
+	air_to_air_render_scan = air_to_air_scan;
+	collision_box_render_colour_adder = collision_box_colour_adder;
+	air_to_ground_scan_temp = (long)NULL;
+	air_to_air_scan_temp = (long)NULL;
+	air_to_ground_x = 1<<30;
+	air_to_ground_y = 1<<30;
+	air_to_ground_z = 1<<30;
+	air_to_air_x = 1<<30;
+	air_to_air_y = 1<<30;
+	air_to_air_z = 1<<30;
+}
+
+void sf3000_webport_consider_static_target(void *grid_reference)
+{
+	int32_t grid = (int32_t)(uint32_t)(uintptr_t)grid_reference;
+	int32_t x_grid;
+	int32_t y_grid;
+	int32_t type;
+	int32_t height;
+	int32_t x;
+	int32_t y;
+	int32_t z;
+	int32_t clipped_depth;
+	const uint8_t *details;
+	sf3000_webport_vec3 point;
+
+	if (poly_map_data == NULL || landscape_heights == NULL ||
+	    static_graphics_data == NULL) {
+		return;
+	}
+	x_grid = grid & 127;
+	y_grid = sf3000_webport_asr32(grid, 7);
+	type = poly_map_data[(uint32_t)grid];
+	details = static_graphics_data + ((size_t)type * 64);
+	height = landscape_heights[(size_t)sf3000_webport_lsl32(x_grid, 1) +
+				   (size_t)sf3000_webport_lsl32(y_grid, 9)];
+	height = sf3000_webport_sub32(height, 17);
+	if (height < 0) {
+		height = 0;
+	}
+	if (type == 60) {
+		height = sf3000_webport_add32(height, 64);
+	}
+
+	z = sf3000_webport_lsl32(height, 21);
+	x = sf3000_webport_lsl32(x_grid, 25);
+	y = sf3000_webport_lsl32(y_grid, 25);
+	x = sf3000_webport_sub32(x, sf3000_webport_i32(camera_x_position));
+	y = sf3000_webport_sub32(y, sf3000_webport_i32(camera_y_position));
+	z = sf3000_webport_sub32(sf3000_webport_i32(camera_z_position), z);
+	point.x = sf3000_webport_asr32(x, 12);
+	point.y = sf3000_webport_asr32(y, 12);
+	point.z = sf3000_webport_asr32(z, 12);
+	sf3000_webport_rotate_camera(&point);
+	clipped_depth = sf3000_webport_add32(
+		point.y, sf3000_webport_asr32(sf3000_webport_read_i32(details, 0), 12));
+	if (clipped_depth < 0 || sf3000_webport_abs32(point.x) > clipped_depth ||
+	    sf3000_webport_abs32(point.z) > clipped_depth) {
+		return;
+	}
+
+	if ((sf3000_webport_i32(are_we_in_space_or_wot) == 0 &&
+	     sf3000_webport_i32(atg_selected) != 0) ||
+	    (sf3000_webport_i32(are_we_in_space_or_wot) != 0 &&
+	     sf3000_webport_i32(ata_selected) != 0)) {
+		int32_t horizontal = sf3000_webport_abs32(point.x);
+		int32_t vertical = sf3000_webport_abs32(point.z);
+
+		if (point.y >= sf3000_webport_lsl32(horizontal, 2) &&
+		    point.y >= sf3000_webport_lsl32(vertical, 1) &&
+		    horizontal <= sf3000_webport_i32(air_to_ground_x)) {
+			air_to_ground_x = sf3000_webport_long(horizontal);
+			air_to_ground_scan_temp = sf3000_webport_long(grid);
+		}
+	}
+}
+
+void sf3000_webport_consider_ship_target(void *ship)
+{
+	const uint8_t *data = (const uint8_t *)ship +
+			      SF3000_WEBPORT_SHIP_HEADER_BYTES;
+	sf3000_webport_vec3 point;
+	const uint8_t *details;
+	int32_t type;
+	int32_t category;
+	int32_t clip_size;
+	int32_t horizontal;
+	int32_t vertical;
+
+	if (ship == NULL || ships_data == NULL) {
+		return;
+	}
+	type = sf3000_webport_read_i32(data, 24);
+	if (type >= 255) {
+		clip_size = 8 << 24;
+	} else {
+		details = ships_data + ((size_t)type * 64);
+		clip_size = sf3000_webport_read_i32(details, 0);
+	}
+	point.x = sf3000_webport_asr32(
+		sf3000_webport_sub32(sf3000_webport_read_i32(data, 0),
+				     sf3000_webport_i32(camera_x_position)), 12);
+	point.y = sf3000_webport_asr32(
+		sf3000_webport_sub32(sf3000_webport_read_i32(data, 4),
+				     sf3000_webport_i32(camera_y_position)), 12);
+	point.z = sf3000_webport_asr32(
+		sf3000_webport_sub32(sf3000_webport_i32(camera_z_position),
+				     sf3000_webport_read_i32(data, 8)), 12);
+	sf3000_webport_rotate_camera(&point);
+	clip_size = sf3000_webport_add32(
+		point.y, sf3000_webport_asr32(clip_size, 12));
+	if (clip_size < 0 || sf3000_webport_abs32(point.x) > clip_size ||
+	    sf3000_webport_abs32(point.z) > clip_size) {
+		return;
+	}
+
+	category = sf3000_webport_asr32(type, 4);
+	if (sf3000_webport_i32(atg_selected) == 0 &&
+	    (sf3000_webport_i32(ata_selected) == 0 || category == 7)) {
+		return;
+	}
+	horizontal = sf3000_webport_abs32(point.x);
+	vertical = sf3000_webport_abs32(point.z);
+	if (horizontal <= sf3000_webport_i32(air_to_air_x) &&
+	    point.y >= sf3000_webport_lsl32(horizontal, 2) &&
+	    point.y >= sf3000_webport_lsl32(vertical, 2) &&
+	    type < 256 && category != 0 && category != 3 && category != 6) {
+		air_to_air_x = sf3000_webport_long(horizontal);
+		air_to_air_y = sf3000_webport_long(point.y);
+		air_to_air_z = sf3000_webport_long(point.z);
+		air_to_air_scan_temp =
+			(long)(intptr_t)(data - SF3000_WEBPORT_SHIP_HEADER_BYTES);
+	}
 }
 
 void plot_static_graphic(long x, long y, long z, long type)
@@ -1091,20 +1272,11 @@ void plot_static_from_grid(void *grid_reference)
 	     sf3000_webport_i32(atg_selected) != 0) ||
 	    (sf3000_webport_i32(are_we_in_space_or_wot) != 0 &&
 	     sf3000_webport_i32(ata_selected) != 0)) {
-		int32_t horizontal = sf3000_webport_abs32(point.x);
-		int32_t vertical = sf3000_webport_abs32(point.z);
-
-		if (point.y >= sf3000_webport_lsl32(horizontal, 2) &&
-		    point.y >= sf3000_webport_lsl32(vertical, 1) &&
-		    horizontal <= sf3000_webport_i32(air_to_ground_x)) {
-			air_to_ground_x = sf3000_webport_long(horizontal);
-			air_to_ground_scan_temp = sf3000_webport_long(grid);
-			if (grid == sf3000_webport_i32(air_to_ground_scan)) {
-				sf3000_webport_plot_static_internal(
-					point.x, point.y, point.z, type);
-				sf3000_webport_draw_collision_boxes(0);
-				return;
-			}
+		if (grid == sf3000_webport_i32(air_to_ground_render_scan)) {
+			sf3000_webport_plot_static_internal(
+				point.x, point.y, point.z, type);
+			sf3000_webport_draw_collision_boxes(0);
+			return;
 		}
 	}
 	sf3000_webport_plot_static_internal(point.x, point.y, point.z, type);
@@ -1117,6 +1289,7 @@ static void sf3000_webport_plot_distant_ship(const uint8_t *ship)
 	int32_t scale;
 	int32_t type;
 	int32_t sprite;
+	uint32_t command_count;
 
 	if (quad == NULL) {
 		return;
@@ -1135,9 +1308,11 @@ static void sf3000_webport_plot_distant_ship(const uint8_t *ship)
 		return;
 	}
 	sf3000_webport_project(&point, 0);
+#if !defined(SF_WEB_PORT)
 	if (point.x > 168 || point.x < -168 || point.z > 128 || point.z < -128) {
 		return;
 	}
+#endif
 	quad->x_pos0 = sf3000_webport_long(sf3000_webport_sub32(point.x, 4));
 	quad->y_pos0 = sf3000_webport_long(sf3000_webport_sub32(point.z, 4));
 	quad->shade = 12;
@@ -1153,8 +1328,11 @@ static void sf3000_webport_plot_distant_ship(const uint8_t *ship)
 		sprite = special != NULL && special[2] != 0 ? 40 : 41;
 	}
 	scale = 1024;
+	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(quad, sf3000_webport_long(sprite),
 		       sf3000_webport_long(scale), sf3000_webport_long(scale));
+	if (sf_web_renderer_command_count() != command_count)
+		sf_web_world_renderer_append_last_billboard(point.y);
 }
 
 static void sf3000_webport_plot_ship_internal(const uint8_t *ship)
@@ -1215,16 +1393,16 @@ static void sf3000_webport_plot_ship_internal(const uint8_t *ship)
 	}
 	if (graphic_start != NULL) {
 		sf3000_webport_rotate_graphic(ship_graphic_rotation, &centre);
+		render_world_geometry = 1;
 		sf3000_webport_plot_style();
+		render_world_geometry = 0;
 	}
 }
 
-static void sf3000_webport_update_ship_target(void)
+static void sf3000_webport_draw_ship_target(void)
 {
 	int32_t type;
 	int32_t category;
-	int32_t horizontal;
-	int32_t vertical;
 
 	atg_truck_target = 0;
 	if (ship_to_plot == NULL) {
@@ -1238,19 +1416,7 @@ static void sf3000_webport_update_ship_target(void)
 		return;
 	}
 
-	horizontal = sf3000_webport_abs32(plot_graphic_position.x);
-	vertical = sf3000_webport_abs32(plot_graphic_position.z);
-	if (horizontal <= sf3000_webport_i32(air_to_air_x) &&
-	    plot_graphic_position.y >= sf3000_webport_lsl32(horizontal, 2) &&
-	    plot_graphic_position.y >= sf3000_webport_lsl32(vertical, 2) &&
-	    type < 256 && category != 0 && category != 3 && category != 6) {
-		air_to_air_x = sf3000_webport_long(horizontal);
-		air_to_air_y = sf3000_webport_long(plot_graphic_position.y);
-		air_to_air_z = sf3000_webport_long(plot_graphic_position.z);
-		air_to_air_scan_temp =
-			(long)(intptr_t)(ship_to_plot - SF3000_WEBPORT_SHIP_HEADER_BYTES);
-	}
-	if ((const uint8_t *)(intptr_t)air_to_air_scan +
+	if ((const uint8_t *)(intptr_t)air_to_air_render_scan +
 		    SF3000_WEBPORT_SHIP_HEADER_BYTES ==
 	    ship_to_plot) {
 		sf3000_webport_draw_collision_boxes(1);
@@ -1270,7 +1436,7 @@ void plot_ship_graphic(void *ship)
 	} else {
 		sf3000_webport_plot_ship_internal(data);
 	}
-	sf3000_webport_update_ship_target();
+	sf3000_webport_draw_ship_target();
 }
 
 void plot_bit(void *bit)
@@ -1310,7 +1476,9 @@ void plot_bit(void *bit)
 	shade_style = 2;
 	plot_group_mask = 0;
 	sf3000_webport_rotate_graphic(ship_graphic_rotation, &centre);
+	render_world_geometry = 1;
 	sf3000_webport_plot_style();
+	render_world_geometry = 0;
 }
 
 void plot_bit_graphic(void *bit)
@@ -1325,6 +1493,7 @@ static void sf3000_webport_plot_star(const int32_t *star, int space)
 	int32_t type;
 	int32_t shade;
 	int32_t metadata = star[3];
+	uint32_t command_count;
 
 	sf3000_webport_rotate_camera(&point);
 	if (point.y < 1024) {
@@ -1333,9 +1502,11 @@ static void sf3000_webport_plot_star(const int32_t *star, int space)
 	scale = sf3000_webport_perspective_scale(point.y, 0);
 	point.x = sf3000_webport_asr32(sf3000_webport_mul32(point.x, scale), 16);
 	point.z = sf3000_webport_asr32(sf3000_webport_mul32(point.z, scale), 16);
+#if !defined(SF_WEB_PORT)
 	if (point.x > 180 || point.x < -180 || point.z > 140 || point.z < -140) {
 		return;
 	}
+#endif
 	type = sf3000_webport_asr32(metadata, 24);
 	shade = space ? 12 :
 		sf3000_webport_sub32(
@@ -1350,7 +1521,10 @@ static void sf3000_webport_plot_star(const int32_t *star, int space)
 	graphic_cel_quad->x_pos0 = sf3000_webport_long(point.x);
 	graphic_cel_quad->y_pos0 = sf3000_webport_long(point.z);
 	graphic_cel_quad->shade = sf3000_webport_long(shade);
+	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(graphic_cel_quad, sf3000_webport_long(type), 1024, 1024);
+	if (sf_web_renderer_command_count() != command_count)
+		sf_web_world_renderer_append_last_billboard(point.y);
 }
 
 void plot_stars(void)
@@ -1377,6 +1551,28 @@ void plot_space_stars(void)
 		return;
 	}
 	for (index = 0; index < 128; ++index) {
+		sf3000_webport_plot_star(star_data + (index * 4), 1);
+	}
+}
+
+void sf3000_webport_advance_world_animation_state(void)
+{
+	int32_t index;
+	int32_t radar_delta;
+
+	radar_delta = sf_web_fixed_step_scale_legacy_delta(32);
+
+	static_graphic_radar_phase = sf3000_webport_sub32(
+		static_graphic_radar_phase, radar_delta);
+	if (static_graphic_radar_phase < 0) {
+		static_graphic_radar_phase = sf3000_webport_add32(
+			static_graphic_radar_phase, 1024);
+	}
+
+	if (!sf_web_fixed_step_is_reference_tick() || star_data == NULL) {
+		return;
+	}
+	for (index = 0; index < 128; ++index) {
 		int32_t *star = star_data + (index * 4);
 
 		star[0] = sf3000_webport_add32(
@@ -1394,7 +1590,6 @@ void plot_space_stars(void)
 		star[0] = sf3000_webport_sub32(star[0], 1 << 15);
 		star[1] = sf3000_webport_sub32(star[1], 1 << 15);
 		star[2] = sf3000_webport_sub32(star[2], 1 << 15);
-		sf3000_webport_plot_star(star, 1);
 	}
 }
 
@@ -1402,6 +1597,7 @@ static void sf3000_webport_plot_planet(int32_t x, int32_t y, int32_t z,
 					int32_t sprite)
 {
 	sf3000_webport_vec3 point = { x, y, z };
+	uint32_t command_count;
 
 	if (graphic_cel_quad == NULL) {
 		return;
@@ -1411,15 +1607,15 @@ static void sf3000_webport_plot_planet(int32_t x, int32_t y, int32_t z,
 		return;
 	}
 	sf3000_webport_project(&point, 0);
-	if (point.x > 184 || point.x < -184 || point.z > 144 || point.z < -144) {
-		return;
-	}
 	graphic_cel_quad->x_pos0 =
 		sf3000_webport_long(sf3000_webport_sub32(point.x, 24));
 	graphic_cel_quad->y_pos0 =
 		sf3000_webport_long(sf3000_webport_sub32(point.z, 24));
 	graphic_cel_quad->shade = 12;
+	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(graphic_cel_quad, sf3000_webport_long(sprite), 1024, 1024);
+	if (sf_web_renderer_command_count() != command_count)
+		sf_web_world_renderer_append_last_billboard(SF_WEB_WORLD_FAR_DEPTH);
 }
 
 void plot_planets(void)
@@ -1482,42 +1678,30 @@ void setup_rotations(void)
 		static_graphic_rotation[axis] = point;
 	}
 
-	/*
-	 * The legacy routine keeps the radar phase privately.  silly_y is an
-	 * exported scratch value, so keep a separate phase rather than exposing
-	 * an implementation detail through it.
-	 */
-	{
-		static int32_t radar_rotation;
+	for (axis = 0; axis < 3; ++axis) {
+		sf3000_webport_vec3 point = { 0, 0, 0 };
+		int32_t angle = sf3000_webport_sub32(
+			sf3000_webport_i32(camera_x_rotation),
+			static_graphic_radar_phase);
 
-		for (axis = 0; axis < 3; ++axis) {
-			sf3000_webport_vec3 point = { 0, 0, 0 };
-			int32_t angle = sf3000_webport_sub32(
-				sf3000_webport_i32(camera_x_rotation), radar_rotation);
-
-			if (angle < 0) {
-				angle = sf3000_webport_add32(angle, 1024);
-			}
-			if (axis == 0) {
-				point.x = 1024;
-			} else if (axis == 1) {
-				point.y = 1024;
-			} else {
-				point.x = sf3000_webport_i32(silly_x);
-				point.y = sf3000_webport_i32(silly_y);
-				point.z = 1024;
-			}
-			sf3000_webport_rotate_x(&point, angle);
-			sf3000_webport_rotate_y(
-				&point, sf3000_webport_i32(camera_y_rotation));
-			sf3000_webport_rotate_z(
-				&point, sf3000_webport_i32(camera_z_rotation));
-			static_graphic_radar_rotation[axis] = point;
+		if (angle < 0) {
+			angle = sf3000_webport_add32(angle, 1024);
 		}
-		radar_rotation = sf3000_webport_sub32(radar_rotation, 32);
-		if (radar_rotation < 0) {
-			radar_rotation = sf3000_webport_add32(radar_rotation, 1024);
+		if (axis == 0) {
+			point.x = 1024;
+		} else if (axis == 1) {
+			point.y = 1024;
+		} else {
+			point.x = sf3000_webport_i32(silly_x);
+			point.y = sf3000_webport_i32(silly_y);
+			point.z = 1024;
 		}
+		sf3000_webport_rotate_x(&point, angle);
+		sf3000_webport_rotate_y(
+			&point, sf3000_webport_i32(camera_y_rotation));
+		sf3000_webport_rotate_z(
+			&point, sf3000_webport_i32(camera_z_rotation));
+		static_graphic_radar_rotation[axis] = point;
 	}
 }
 

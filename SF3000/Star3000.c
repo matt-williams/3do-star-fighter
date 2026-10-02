@@ -42,6 +42,7 @@
 #include "SFlib/SF_Star3000.h"
 
 #include "SFlib/Draw_Frame.h"							// Hutch's header files
+#include "SFlib/Draw_Land.h"
 #include "SFlib/Update_Frame.h"
 #include "SFlib/Setup_Tables.h"
 #include "SFlib/Camera_Struct.h"
@@ -52,6 +53,7 @@
 #include "SFlib/Global_2.h"
 #if defined(SF_WEB_PORT)
 #include "WebPort/sf_web_runtime.h"
+#include "WebPort/sf_web_fixed_step.h"
 #endif
 
 #include <timerutils.h>									// System routines
@@ -555,6 +557,135 @@ long	brief_status;
 /												PLAY A MISSION										/
 ****************************************************************************************************/
 
+static void game_begin_mission_tick(long *debounced_keypad,
+									long *constant_keypad)
+{
+	armzsort_initialise ();
+	cel_quad.temp_cels =0;
+	*debounced_keypad = controlpad_debounce ();
+	*constant_keypad = controlpad_constant ();
+}
+
+static void game_handle_mission_controls(long *debounced_keypad)
+{
+	if (menu_status.current_menu == NO_MENU)
+		{
+		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_VIEW_MAP]])
+			if (players_ship->shields > 0)
+				{
+				map_show ();
+				*debounced_keypad = 0;
+				}
+
+		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_CHANGE_CAM]])
+			control_changecamera ((status.current_camera == 1) ? 2 : 1);
+
+		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_SELECT_WEAPON]])
+			control_selectweapon();
+
+		if (*debounced_keypad & keypad_iomap [configuration.flight_controls [FLIGHT_MENU]])
+			{
+			menu_enter (PAUSE_MENU, 1);
+			*debounced_keypad = 0;
+			}
+		}
+}
+
+static void game_advance_mission_state(long constant_keypad)
+{
+	update_frame (constant_keypad);
+	status_updatestatus();
+#if defined(SF_WEB_PORT)
+	if (planet_info.space_mission == 0)
+		armburn_updateexplosions (*sprite_map, &cel_quad);
+	sf3000_webport_advance_world_animation_state ();
+#endif
+}
+
+static long game_select_mission_camera(void)
+{
+	if (status.status == STATUS_CRASHED || status.status == STATUS_GAMEOVERWAIT)
+		return (0);
+
+	if (camera [status.current_camera].instance == -1)
+		return (1);
+
+	return (status.current_camera);
+}
+
+static void game_queue_mission_world(void)
+{
+	draw_frame_render ();
+}
+
+static void game_update_mission_visual_state(long camera_touse,
+		long advance_visual_state)
+{
+#if defined(SF_WEB_PORT)
+		if (advance_visual_state == 0)
+		{
+			draw_land_update_state ();
+			return;
+		}
+
+		while (advance_visual_state-- > 0)
+		{
+			draw_land_update_state ();
+			draw_frame_advance_visual_state (camera_touse);
+		}
+#else
+	draw_frame_update_camera_state (camera_touse);
+	draw_land_update_state ();
+	(void)advance_visual_state;
+#endif
+}
+
+#if !defined(SF_WEB_PORT)
+static void game_complete_mission_visual_state(long camera_touse)
+{
+	draw_frame_advance_visual_state (camera_touse);
+}
+#endif
+
+static void game_update_mission_interface(long debounced_keypad,
+										  long constant_keypad,
+										  long advance_game_state)
+{
+	if (menu_status.current_menu != NO_MENU)
+		menu_update (debounced_keypad, constant_keypad);
+	else
+		{
+		if (advance_game_state != 0 &&
+			status.track_status == TRACKING_STATUS_FREE && status.clock2 == 0)
+			control_retrack ();
+		}
+}
+
+static long game_present_mission_frame(long graphics_limit,
+									   long wait_delay_type)
+{
+	if (status.status == STATUS_GAMEOVER ||
+		status.status == STATUS_MISSIONCOMPLETED)
+		return (0);
+
+	if ((graphics_limit + (status.clock3>>1)) < cel_quad.temp_cels)
+		{
+		cel_quad.temp_cels = graphics_limit + (status.clock3>>1);
+		if (status.clock3 & 1)
+			sound_playsample (SOUND_BEEP, 60, 80, 0);
+		}
+
+	if (menu_status.current_menu == NO_MENU)
+		screen_update(S_CEL | S_BANK | S_INFO | wait_delay_type);
+	else
+		{
+		menu_display (BLUE_PAL);
+		screen_update(S_CEL | S_BANK | S_MENU | S_INFO | wait_delay_type);
+		}
+
+	return (1);
+}
+
 void game_play (long command)
 
 // Purpose : Plays a mission
@@ -580,11 +711,25 @@ long	shield_extent=0,							// Shield display variables
 		
 		remember_score,
 		waitdelaytype;
+#if defined(SF_WEB_PORT)
+uint32_t browser_wave_phase_remainder;
+uint32_t browser_elapsed_microseconds;
+uint64_t browser_fixed_steps;
+uint64_t browser_step;
+uint64_t browser_wave_phase_units;
+uint64_t browser_visual_steps;
+long browser_visual_state_dirty;
+long browser_camera_state_dirty;
+#endif
 		
 target_struct target;
 		
 
 char	intro_clip [16];
+#if defined(SF_WEB_PORT)
+SFWebRealTimeStepClock browser_fixed_step_clock;
+SFWebFixedStepRate browser_visual_step_rate;
+#endif
 
 	// INITIALISE MISSION START ETC.
 	
@@ -613,6 +758,15 @@ char	intro_clip [16];
 	// Update first frame always before loop
 	
 	update_frame (0);
+#if defined(SF_WEB_PORT)
+	sf_web_real_time_step_clock_reset (&browser_fixed_step_clock);
+	sf_web_fixed_step_rate_reset (&browser_visual_step_rate);
+	sf_web_fixed_step_simulation_reset ();
+	browser_wave_phase_remainder = 0;
+	browser_visual_state_dirty = 1;
+	browser_camera_state_dirty = 1;
+	sf_web_runtime_reset_frame_clock ();
+#endif
 	
 /****************************************************************************************************
 /										MISSION IN-PROGRESS LOOP									/
@@ -620,82 +774,76 @@ char	intro_clip [16];
 
 	do
 		{
-
-// RESET PLOTTING DATA
-
-		armzsort_initialise ();
-		cel_quad.temp_cels =0;
-
-				
-// READ KEYPAD (DEBOUNCE 1 OF THE KEYPAD VARIABLES, KEEP THE OTHER IMMEDIATE)
-
-		keypad = controlpad_debounce ();
-		keypad_constant = controlpad_constant ();
-					
-// GAME UPDATE ? (IF NOT IN MENU)
+#if defined(SF_WEB_PORT)
+		browser_fixed_steps = 0;
+		browser_visual_steps = 0;
+		browser_elapsed_microseconds =
+			sf_web_runtime_take_elapsed_microseconds ();
+#endif
+		game_begin_mission_tick (&keypad, &keypad_constant);
+		game_handle_mission_controls (&keypad);
 
 		if (menu_status.current_menu == NO_MENU)
 			{
-	
-			// CHECK FOR GAME CONTROLS
-			
-			if (keypad & keypad_iomap [configuration.flight_controls [FLIGHT_VIEW_MAP]])			// Check for map display
-				if (players_ship->shields > 0)														// Can only enter map when alive
-					{
-					map_show ();
-					keypad = 0;
-					}
-				
-			if (keypad & keypad_iomap [configuration.flight_controls [FLIGHT_CHANGE_CAM]])			// Check for camera change
-				control_changecamera ((status.current_camera == 1) ? 2 : 1);
-				
-			if (keypad & keypad_iomap [configuration.flight_controls [FLIGHT_SELECT_WEAPON]])		// Check for weapon change
-				control_selectweapon();
-			
-			if (keypad & keypad_iomap [configuration.flight_controls [FLIGHT_MENU]])				// Entering game menu ?
+#if defined(SF_WEB_PORT)
+			browser_fixed_steps =
+				sf_web_real_time_step_clock_advance_microseconds (
+					&browser_fixed_step_clock,
+					browser_elapsed_microseconds);
+			if (planet_info.space_mission == 0)
 				{
-				menu_enter (PAUSE_MENU, 1);
-				keypad = 0;
+				browser_wave_phase_units = browser_wave_phase_remainder +
+					browser_fixed_steps * 16u;
+				draw_frame_advance_wave_state_by (
+					(long)(browser_wave_phase_units / 5u));
+				browser_wave_phase_remainder =
+					(uint32_t)(browser_wave_phase_units % 5u);
 				}
+			browser_visual_steps = sf_web_fixed_step_rate_advance (
+				&browser_visual_step_rate, browser_fixed_steps);
+			if (browser_visual_steps != 0)
+				browser_visual_state_dirty = 1;
+			for (browser_step = 0; browser_step < browser_fixed_steps;
+				++browser_step)
+				{
+				sf_web_fixed_step_begin_simulation_step ();
+				game_advance_mission_state (keypad_constant);
+				draw_frame_update_camera_state (
+					game_select_mission_camera ());
+				browser_camera_state_dirty = 0;
+				}
+#else
+			game_advance_mission_state (keypad_constant);
+#endif
 			}
-			
-// UPDATE GAME FRAME
-		
-		if (menu_status.current_menu == NO_MENU)
-			{
-			update_frame (keypad_constant);				// Update simulation
-			status_updatestatus();						// Update game status
-			}
-			
-			
-// DECIDE WHAT CAMERA TO USE, THEN RENDER 3D WORLD TO CEL LIST USING THAT CAMERA
 
-		
-		if (status.status == STATUS_CRASHED || status.status == STATUS_GAMEOVERWAIT)	// If player is crashing, display using camera 0
-			camera_touse=0;
-		else
+		camera_touse = game_select_mission_camera ();
+#if defined(SF_WEB_PORT)
+		if (browser_camera_state_dirty != 0)
 			{
-			if (camera [status.current_camera].instance == -1)							// Otherwise, if player is using cam2 & no item, use cam1
-				camera_touse=1;
-			else
-				camera_touse=status.current_camera;										// Otherwise, use current cam
+			draw_frame_update_camera_state (camera_touse);
+			browser_camera_state_dirty = 0;
 			}
-		
-		draw_frame (camera_touse);														// Render world
-		
-// UPDATE MENU OR UPDATE CURRENT TRACKING OBJECTS ?
-
-		if (menu_status.current_menu != NO_MENU)
+		if (browser_visual_state_dirty != 0)
 			{
-			menu_update (keypad, keypad_constant);										// Update menu
+			game_update_mission_visual_state (camera_touse,
+				(long)browser_visual_steps);
+			browser_visual_state_dirty = 0;
 			}
-		
-		else
-		
-			{
-			if (status.track_status == TRACKING_STATUS_FREE && status.clock2 == 0)		// Update tracking objects ?
-				control_retrack ();
-			}
+#else
+		game_update_mission_visual_state (camera_touse, 0);
+#endif
+		game_queue_mission_world ();
+#if !defined(SF_WEB_PORT)
+		game_complete_mission_visual_state (camera_touse);
+#endif
+		game_update_mission_interface (keypad, keypad_constant,
+#if defined(SF_WEB_PORT)
+			browser_visual_steps != 0
+#else
+			1
+#endif
+		);
 			
 // IF INTERNAL VIEW, DISPLAY COCKPIT GRAPHICS (AND NOT DOCKED)
 
@@ -908,7 +1056,14 @@ char	intro_clip [16];
 			
 // UPDATE TEXT MESSAGES
 
+#if defined(SF_WEB_PORT)
+		for (browser_step = 0; browser_step < browser_visual_steps;
+			++browser_step)
+			message_advance ();								// Update Text Message State
+		message_render ();									// Queue Text Message Cursors
+#else
 		message_update ();										// Update Text Messages
+#endif
 
 
 // IS THIS A SPACE MISSION, OR A NORMAL ONE ?
@@ -922,7 +1077,6 @@ char	intro_clip [16];
 		else
 			{
 			// armanim_update (animate, *sprite_map);			// NO - Update Ground Animations [TAKEN OUT]
-			armburn_updateexplosions (*sprite_map, &cel_quad);	// NO - Update Ground Explosions
 			arm_updatecache (&cel_quad);						// Update Plotting Cache
 			waitdelaytype = S_WAIT;
 			}
@@ -930,29 +1084,15 @@ char	intro_clip [16];
 			
 // DRAW SCREEN (Only if not just about to quit)
 
-		if (!(status.status == STATUS_GAMEOVER || status.status == STATUS_MISSIONCOMPLETED))
-			{
-			
-			// Do build up of post-game graphics ? (ie. shields bar, co-ordinates etc. ?)
-			
-			if ((cel_graphicslimit + (status.clock3>>1)) < cel_quad.temp_cels)
-				{
-				cel_quad.temp_cels = cel_graphicslimit + (status.clock3>>1);
-				if (status.clock3 & 1)
-					sound_playsample (SOUND_BEEP, 60, 80, 0);
-				}
-			
-			if (menu_status.current_menu == NO_MENU)
-				screen_update(S_CEL | S_BANK | S_INFO | waitdelaytype);
-			else
-				{
-				menu_display (BLUE_PAL);
-				screen_update(S_CEL | S_BANK | S_MENU | S_INFO | waitdelaytype);
-				}
-			}
+		(void)game_present_mission_frame (cel_graphicslimit, waitdelaytype);
 				
 // UPDATE ANIMATIONS, TEXT MESSAGES
 
+		#if defined(SF_WEB_PORT)
+		for (browser_step = 0; browser_step < browser_visual_steps;
+			++browser_step)
+			{
+		#endif
 		armtex_updateall (animate_poly);					// Update Texture Animations
 		if (menu_status.current_menu == NO_MENU)
 			{
@@ -961,6 +1101,9 @@ char	intro_clip [16];
 			else
 				armtex_update (animate_poly,0,-1);
 			}
+		#if defined(SF_WEB_PORT)
+			}
+		#endif
 		
 		}
 

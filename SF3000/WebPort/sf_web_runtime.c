@@ -1,16 +1,32 @@
 #include "sf_web_runtime.h"
 
 #include "sf_web_port_renderer.h"
+#include "sf_web_world_renderer.h"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 
-EM_JS(void, sf_web_runtime_present_js, (const SFWebRenderQuad *commands,
-                                        uint32_t command_count, uint32_t bank), {
+EM_JS(int32_t, sf_web_runtime_present_js, (const SFWebRenderQuad *commands,
+                                           uint32_t command_count,
+                                           const SFWebWorldQuad *world_commands,
+                                           uint32_t world_command_count,
+                                           uint32_t bank,
+                                           const SFWebTerrainFrame *terrain_frame,
+                                           const uint8_t *terrain_heights,
+                                           const uint8_t *terrain_tiles,
+                                           uint32_t terrain_x, uint32_t terrain_y,
+                                           uint32_t terrain_width,
+                                           uint32_t terrain_height,
+                                           int32_t terrain_full), {
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
-        runtime.present(commands, command_count, bank);
+        runtime.present(commands, command_count, world_commands,
+                        world_command_count, bank, terrain_frame,
+                        terrain_heights, terrain_tiles, terrain_x, terrain_y,
+                        terrain_width, terrain_height, terrain_full);
+        return 1;
     }
+    return 0;
 });
 
 EM_JS(void, sf_web_runtime_set_status_js, (const char *status), {
@@ -210,6 +226,22 @@ EM_ASYNC_JS(int32_t, sf_web_runtime_video_play_js, (const char *path), {
     const runtime = globalThis.SF3000WebPort;
     return runtime === undefined ? 0 : await runtime.videoPlay(UTF8ToString(path));
 });
+
+EM_ASYNC_JS(void, sf_web_runtime_wait_vbl_js, (int32_t fields), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime !== undefined) {
+        await runtime.waitForVbl(fields);
+    }
+});
+
+EM_JS(void, sf_web_runtime_reset_frame_clock_js, (), {
+    globalThis.SF3000WebPort?.resetFrameClock();
+});
+
+EM_JS(uint32_t, sf_web_runtime_take_elapsed_microseconds_js, (), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : runtime.takeElapsedMicroseconds();
+});
 #endif
 
 void sf_web_runtime_initialise(void)
@@ -285,8 +317,28 @@ void sf_web_runtime_queue_screen_cel(uint32_t target_bank, uint32_t source_bank,
 void sf_web_runtime_present(uint32_t bank)
 {
 #if defined(__EMSCRIPTEN__)
-    sf_web_runtime_present_js(sf_web_port_renderer_command_buffer(),
-                              sf_web_port_renderer_command_count(), bank);
+    SFWebTerrainStateUpload terrain_upload;
+    int32_t has_terrain_upload =
+        sf_web_world_renderer_terrain_state_upload(&terrain_upload);
+    int32_t presented;
+
+    presented = sf_web_runtime_present_js(
+        sf_web_port_renderer_command_buffer(),
+        sf_web_port_renderer_command_count(),
+        sf_web_world_renderer_commands(),
+        sf_web_world_renderer_command_count(), bank,
+        sf_web_world_renderer_terrain_frame(),
+        has_terrain_upload != 0 ? terrain_upload.heights : NULL,
+        has_terrain_upload != 0 ? terrain_upload.tiles : NULL,
+        has_terrain_upload != 0 ? terrain_upload.x : 0,
+        has_terrain_upload != 0 ? terrain_upload.y : 0,
+        has_terrain_upload != 0 ? terrain_upload.width : 0,
+        has_terrain_upload != 0 ? terrain_upload.height : 0,
+        has_terrain_upload != 0 ? terrain_upload.full : 0);
+    if (has_terrain_upload != 0 && presented != 0)
+        sf_web_world_renderer_acknowledge_terrain_state_upload();
+    if (presented != 0 && sf_web_world_renderer_terrain_frame()->active != 0)
+        sf_web_world_renderer_acknowledge_terrain_material_upload();
 #else
     (void)bank;
 #endif
@@ -342,6 +394,22 @@ uint32_t sf_web_runtime_control_pad_state(void)
 {
 #if defined(__EMSCRIPTEN__)
     return sf_web_runtime_control_pad_state_js();
+#else
+    return 0u;
+#endif
+}
+
+void sf_web_runtime_reset_frame_clock(void)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_reset_frame_clock_js();
+#endif
+}
+
+uint32_t sf_web_runtime_take_elapsed_microseconds(void)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_take_elapsed_microseconds_js();
 #else
     return 0u;
 #endif
@@ -609,7 +677,7 @@ int32_t sf_web_runtime_video_play(const char *path)
 void sf_web_runtime_wait_vbl(int32_t fields)
 {
 #if defined(__EMSCRIPTEN__)
-    emscripten_sleep(fields > 0 ? fields * 1000 / 60 : 0);
+    sf_web_runtime_wait_vbl_js(fields);
 #else
     (void)fields;
 #endif

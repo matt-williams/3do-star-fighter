@@ -24,6 +24,8 @@ set(SF_WEB_PORT_SOURCES
     sf3000_webport_smoke.c
     sf_web_port_renderer.c
     sf_web_runtime.c
+    sf_web_fixed_step.c
+    sf_web_world_renderer.c
 )
 
 add_library(starfighter_web_port STATIC ${SF_WEB_PORT_SOURCES})
@@ -56,14 +58,72 @@ if(BUILD_TESTING)
     target_compile_definitions(terrain_port_tests PRIVATE PLOT_LAND_PORT_TEST)
     add_test(NAME terrain_port_tests COMMAND terrain_port_tests)
 
+    add_executable(terrain_web_tests Plot_Land_test.c)
+    target_compile_definitions(terrain_web_tests PRIVATE PLOT_LAND_PORT_TEST
+        SF_WEB_PORT)
+    add_test(NAME terrain_web_tests COMMAND terrain_web_tests)
+
+    add_executable(terrain_deformation_tests
+        tests/test_terrain_deformation.c
+        ../SFlib/Explosion.c
+        sf_web_fixed_step.c
+        sf_web_world_renderer.c
+    )
+    target_compile_definitions(terrain_deformation_tests PRIVATE SF_WEB_PORT)
+    target_include_directories(terrain_deformation_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    if(NOT WIN32)
+        set(SF_TERRAIN_TEST_CASE_ALIAS_DIR
+            "${CMAKE_CURRENT_BINARY_DIR}/terrain-test-case-aliases")
+        file(MAKE_DIRECTORY "${SF_TERRAIN_TEST_CASE_ALIAS_DIR}")
+        file(WRITE "${SF_TERRAIN_TEST_CASE_ALIAS_DIR}/Textlib.h"
+            "#include_next <textlib.h>\n")
+        file(WRITE "${SF_TERRAIN_TEST_CASE_ALIAS_DIR}/Stdio.h"
+            "#include_next <stdio.h>\n")
+        file(WRITE "${SF_TERRAIN_TEST_CASE_ALIAS_DIR}/String.h"
+            "#include_next <string.h>\n")
+        target_include_directories(terrain_deformation_tests PRIVATE
+            "${SF_TERRAIN_TEST_CASE_ALIAS_DIR}")
+    endif()
+    if(MSVC)
+        target_compile_options(terrain_deformation_tests PRIVATE /Gy)
+        target_link_options(terrain_deformation_tests PRIVATE /OPT:REF)
+    else()
+        target_compile_options(terrain_deformation_tests PRIVATE
+            -ffunction-sections)
+        target_link_options(terrain_deformation_tests PRIVATE -Wl,--gc-sections)
+    endif()
+    add_test(NAME terrain_deformation_tests COMMAND terrain_deformation_tests)
+
+    add_executable(terrain_impact_texture_tests
+        tests/test_terrain_impact_texture.c
+        SF_ARMBurn.c
+        sf_web_fixed_step.c
+        sf_web_world_renderer.c
+    )
+    add_test(NAME terrain_impact_texture_tests COMMAND terrain_impact_texture_tests)
+
     add_executable(renderer_port_tests
         tests/test_renderer_ports.c
         sf3000_webport_plot_graphic.c
         sf3000_webport_sky.c
         sf3000_webport_laser.c
         sf3000_webport_smoke.c
+        sf_web_fixed_step.c
     )
     add_test(NAME renderer_port_tests COMMAND renderer_port_tests)
+
+    add_executable(world_renderer_tests
+        tests/test_world_renderer.c
+        sf_web_world_renderer.c
+    )
+    add_test(NAME world_renderer_tests COMMAND world_renderer_tests)
+
+    add_executable(fixed_step_scheduler_tests
+        tests/test_fixed_step_scheduler.c
+        sf_web_fixed_step.c
+    )
+    add_test(NAME fixed_step_scheduler_tests COMMAND fixed_step_scheduler_tests)
 
     add_executable(three_do_compat_tests tests/test_3do_compat.c)
     target_link_libraries(three_do_compat_tests PRIVATE starfighter_web_port)

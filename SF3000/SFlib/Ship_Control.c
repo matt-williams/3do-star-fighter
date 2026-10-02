@@ -24,6 +24,15 @@
 #include "SF_Message.h"
 #include "SF_Palette.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 void update_docking( ship_stack* ship )
 {
 
@@ -87,21 +96,24 @@ z_pos = ship->z_pos - (mother->z_pos + node_data.z_pos) ;
 
 counter = 16 - docked.counter ;
 
-ship->x_pos -= ((counter*x_pos)>>4) ;
-ship->y_pos -= ((counter*y_pos)>>4) ;
-ship->z_pos -= ((counter*z_pos)>>4) ;
+ship->x_pos += SF_SIMULATION_DELTA(-((counter*x_pos)>>4)) ;
+ship->y_pos += SF_SIMULATION_DELTA(-((counter*y_pos)>>4)) ;
+ship->z_pos += SF_SIMULATION_DELTA(-((counter*z_pos)>>4)) ;
 
-ship->x_pos += ship->x_vel ;
-ship->y_pos += ship->y_vel ;
-ship->z_pos += ship->z_vel ;
+ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
+ship->y_pos += SF_SIMULATION_DELTA(ship->y_vel) ;
+ship->z_pos += SF_SIMULATION_DELTA(ship->z_vel) ;
 
-ship->x_vel -= (ship->x_vel>>4) ;
-ship->y_vel -= (ship->y_vel>>4) ;
-ship->z_vel -= (ship->z_vel>>4) ;
+ship->x_vel += SF_SIMULATION_DELTA(-(ship->x_vel>>4)) ;
+ship->y_vel += SF_SIMULATION_DELTA(-(ship->y_vel>>4)) ;
+ship->z_vel += SF_SIMULATION_DELTA(-(ship->z_vel>>4)) ;
 
-ship->x_rot = (ship->x_rot - ((counter*x_rot)>>4) )&ROT_LIMIT;
-ship->y_rot = (ship->y_rot - ((counter*y_rot)>>4) )&ROT_LIMIT;
-ship->z_rot = (ship->z_rot - ((counter*z_rot)>>4) )&ROT_LIMIT;
+ship->x_rot = (ship->x_rot +
+	SF_SIMULATION_DELTA(-((counter*x_rot)>>4)))&ROT_LIMIT;
+ship->y_rot = (ship->y_rot +
+	SF_SIMULATION_DELTA(-((counter*y_rot)>>4)))&ROT_LIMIT;
+ship->z_rot = (ship->z_rot +
+	SF_SIMULATION_DELTA(-((counter*z_rot)>>4)))&ROT_LIMIT;
 
 if (docked.counter <= 0)
 {
@@ -121,12 +133,12 @@ if (docked.counter >= 16)
 	status.docked = 0 ;
 }
 
-docked.counter += 2 ;
+docked.counter += SF_SIMULATION_DELTA(2) ;
 
 ship->x_dir = mother->x_rot ;
 ship->y_dir = mother->y_rot ;
 
-ship->speed -= 8 ;
+ship->speed += SF_SIMULATION_DELTA(-8) ;
 
 ship->x_vel =	-(
 				(( sine_table [ (ship->x_dir)>>10 ] * 
@@ -142,9 +154,9 @@ ship->y_vel =	-(
 
 ship->z_vel =	( sine_table [ (ship->y_dir)>>10 ] * (ship->speed) ) ;
 
-ship->x_pos += ship->x_vel ;
-ship->y_pos += ship->y_vel ;
-ship->z_pos += ship->z_vel ;
+ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
+ship->y_pos += SF_SIMULATION_DELTA(ship->y_vel) ;
+ship->z_pos += SF_SIMULATION_DELTA(ship->z_vel) ;
 
 break ;
 
@@ -176,7 +188,7 @@ break ;
 
 }
 
-if (docked.counter > 0) docked.counter -= 1;
+if (docked.counter > 0) docked.counter += SF_SIMULATION_DELTA(-1);
 
 }
 
@@ -188,6 +200,8 @@ char ecm_message [48];
 long coll_check ;
 long temp_long ;
 long loop , loop2 ;
+long target_x_delta ;
+long target_y_delta ;
 
 long cosine_y , sine_y ;
 long cosine_z , sine_z ;
@@ -273,26 +287,30 @@ else
 }
 
 // friction on speed
-ship->speed -= ( ((ship->speed)>>7) + ( ((ship->speed)*temp_long)>>16 ) ) ;
+ship->speed += SF_SIMULATION_DELTA(
+	-( ((ship->speed)>>7) + ( ((ship->speed)*temp_long)>>16 ) )) ;
 //ship->speed -=  ((ship->speed)>>6) ;
 
 if (which_graphics_set != SPACE_GRAPHICS)
 {
 	// Gravity on speed
-	ship->speed -= (( sine_table [ (ship->y_dir)>>10 ])>>8) ;
+	ship->speed += SF_SIMULATION_DELTA(
+		-(( sine_table [ (ship->y_dir)>>10 ])>>8)) ;
 }
 
 // check min speed limit and increase if ness
 if ( (ship->speed) < 256 ) 
 {
-	ship->speed -= ((ship->speed)>>3) ;
-	ship->speed += 64 ;
+	ship->speed += SF_SIMULATION_DELTA(-((ship->speed)>>3)) ;
+	ship->speed += SF_SIMULATION_DELTA(64) ;
 	if (ship->speed > 256) ship->speed = 256 ;
 }
 
 
 // change the ships rotation based on x , y control position
 
+/* These offsets define an absolute requested attitude; scaling them makes
+   zero-delta substeps incorrectly target the neutral orientation. */
 node_data.x_pos = z_control<<10 ;
 node_data.y_pos = 1<<22 ;
 node_data.z_pos = y_control<<10 ;
@@ -314,37 +332,47 @@ target_finder( &target );
 // the z roll must change to keep up
 // How about z roll rate of change = x change * sine y rot ???
 
-// Find rate of change of x rot
-temp_long = (ship->x_rot - target.x_rot) ;
-if (temp_long > 512*1024) temp_long -= 1024*1024 ;
-if (temp_long < -512*1024) temp_long += 1024*1024 ;
+// Find the shortest rotation from the current attitude to the requested one.
+// The requested vector is relative to the current attitude, so assigning it
+// directly per fixed step would apply the original control deflection 5 times.
+target_x_delta = target.x_rot - ship->x_rot ;
+if (target_x_delta > 512*1024) target_x_delta -= 1024*1024 ;
+if (target_x_delta < -512*1024) target_x_delta += 1024*1024 ;
 
 // Watch out for overflow
-temp_long = temp_long >> 2 ;
+temp_long = (-target_x_delta) >> 2 ;
 
 // Change z roll based on rate of change of x and sine y
-ship->z_rot =  ( (ship->z_rot + ((sine_table [ ship->y_rot>>10 ] * temp_long )>>10) )&ROT_LIMIT);
+ship->z_rot =  ( (ship->z_rot + SF_SIMULATION_DELTA(
+	(sine_table [ ship->y_rot>>10 ] * temp_long )>>10))&ROT_LIMIT);
 
-ship->x_rot = target.x_rot ;
-ship->y_rot = target.y_rot ;
+ship->x_rot = (ship->x_rot +
+	SF_SIMULATION_DELTA(target_x_delta))&ROT_LIMIT ;
+
+target_y_delta = target.y_rot - ship->y_rot ;
+if (target_y_delta > 512*1024) target_y_delta -= 1024*1024 ;
+if (target_y_delta < -512*1024) target_y_delta += 1024*1024 ;
+ship->y_rot = (ship->y_rot +
+	SF_SIMULATION_DELTA(target_y_delta))&ROT_LIMIT ;
 
 
 // change x rot based sine z roll and cosine y pitch to help auto turn corners
 ship->x_rot =	(ship->x_rot 
 
-				- ( ( sine_table [ ship->z_rot>>10 ]
+				+ SF_SIMULATION_DELTA(-( ( sine_table [ ship->z_rot>>10 ]
 				* cosine_table [ ship->y_rot>>10 ] )>>12 )
-				
+				)
 				)
 				&ROT_LIMIT ;
 
 
 // change z rot based on x control and z_roller - (set by laser / missile hits)
-ship->z_rot =	(ship->z_roller + ship->z_rot + ((x_control)<<6) )&ROT_LIMIT ;
+ship->z_rot =	(SF_SIMULATION_DELTA(ship->z_roller) + ship->z_rot +
+	SF_SIMULATION_DELTA((x_control)<<6))&ROT_LIMIT ;
 // ship->z_rot =	(ship->z_rot + ((x_control)<<6) )&ROT_LIMIT ;
 
 // Decrease damage roller
-ship->z_roller -= ((ship->z_roller)>>2) ;
+ship->z_roller += SF_SIMULATION_DELTA(-((ship->z_roller)>>2)) ;
 
 
 if ( (ship->damage & DAMAGE_HILL_BOUNCE_BIT) != DAMAGE_HILL_BOUNCE_BIT)
@@ -354,13 +382,15 @@ if ( (ship->damage & DAMAGE_HILL_BOUNCE_BIT) != DAMAGE_HILL_BOUNCE_BIT)
 	if (temp_long > 512*1024) temp_long -= 1024*1024 ;
 	if (temp_long < -512*1024) temp_long += 1024*1024 ;
 
-	ship->x_dir = (ship->x_dir-(temp_long>>1))&ROT_LIMIT ;
+	ship->x_dir = (ship->x_dir+
+		SF_SIMULATION_DELTA(-(temp_long>>1)))&ROT_LIMIT ;
 
 	temp_long = ship->y_dir - ship->y_rot ;
 	if (temp_long > 512*1024) temp_long -= 1024*1024 ;
 	if (temp_long < -512*1024) temp_long += 1024*1024 ;
 
-	ship->y_dir = (ship->y_dir-(temp_long>>1))&ROT_LIMIT ;
+	ship->y_dir = (ship->y_dir+
+		SF_SIMULATION_DELTA(-(temp_long>>1)))&ROT_LIMIT ;
 }
 else
 {
@@ -370,19 +400,23 @@ else
 	if (temp_long > 512*1024) temp_long -= 1024*1024 ;
 	if (temp_long < -512*1024) temp_long += 1024*1024 ;
 
-	ship->x_dir = (ship->x_dir-(temp_long>>6))&ROT_LIMIT ;
+	ship->x_dir = (ship->x_dir+
+		SF_SIMULATION_DELTA(-(temp_long>>6)))&ROT_LIMIT ;
 
 	// Change the ships angle very slightly towards the direction angle
-	ship->x_rot = (ship->x_rot+(temp_long>>4))&ROT_LIMIT ;
+	ship->x_rot = (ship->x_rot+
+		SF_SIMULATION_DELTA(temp_long>>4))&ROT_LIMIT ;
 
 	temp_long = ship->y_dir - ship->y_rot ;
 	if (temp_long > 512*1024) temp_long -= 1024*1024 ;
 	if (temp_long < -512*1024) temp_long += 1024*1024 ;
 
-	ship->y_dir = (ship->y_dir-(temp_long>>6))&ROT_LIMIT ;
+	ship->y_dir = (ship->y_dir+
+		SF_SIMULATION_DELTA(-(temp_long>>6)))&ROT_LIMIT ;
 
 	// Change the ships angle very slightly towards the direction angle
-	ship->y_rot = (ship->y_rot+(temp_long>>4))&ROT_LIMIT ;
+	ship->y_rot = (ship->y_rot+
+		SF_SIMULATION_DELTA(temp_long>>4))&ROT_LIMIT ;
 }
 
 // calculate the x,y,z velocities based on x , y direction and speed
@@ -402,9 +436,9 @@ ship->y_vel =	-(
 ship->z_vel =	( sine_table [ (ship->y_dir)>>10 ] * (ship->speed) ) ;
 
 // add velocity onto x ,y ,z positions
-ship->x_pos += ship->x_vel ;
-ship->y_pos += ship->y_vel ;
-ship->z_pos += ship->z_vel ;
+ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
+ship->y_pos += SF_SIMULATION_DELTA(ship->y_vel) ;
+ship->z_pos += SF_SIMULATION_DELTA(ship->z_vel) ;
 
 if (which_graphics_set != SPACE_GRAPHICS) check_shippy_collision( ship ) ;
 
@@ -448,9 +482,9 @@ if (coll_check != 0 && coll_check != ship->who_owns_me )
 	ship->z_vel = -ship->z_vel ;
 	
 	// Take the ship back 2 frame steps
-	ship->x_pos += ((ship->x_vel)<<1) ;
-	ship->y_pos += ((ship->y_vel)<<1) ;
-	ship->z_pos += ((ship->z_vel)<<1) ;
+	ship->x_pos += SF_SIMULATION_DELTA((ship->x_vel)<<1) ;
+	ship->y_pos += SF_SIMULATION_DELTA((ship->y_vel)<<1) ;
+	ship->z_pos += SF_SIMULATION_DELTA((ship->z_vel)<<1) ;
 
 	make_sound( ship->x_pos , ship->y_pos , ship->z_pos , THUD_SOUND ) ;
 }
@@ -462,7 +496,8 @@ if (ship->z_pos > (100<<24) && which_graphics_set != SPACE_GRAPHICS )
 {
 	if ( ship->z_pos > (124<<24) ) ship->z_pos = (124<<24) ;
 	
-	ship->y_rot = ((ship->y_rot)-8192)&ROT_LIMIT ;
+	ship->y_rot = ((ship->y_rot)+
+		SF_SIMULATION_DELTA(-8192))&ROT_LIMIT ;
 }
 
 
@@ -471,7 +506,9 @@ if ( ship->thrust_control>0 )
 {
 	//ship->speed += (32+( ((ship->performance)->engine)<<2 ) ) ;
 
-	ship->speed += (( ( 20 + ((ship->performance)->engine << 2) ) * (ship->thrust_control) )>>10) ;
+	ship->speed += SF_SIMULATION_DELTA(
+		(( ( 20 + ((ship->performance)->engine << 2) ) *
+			(ship->thrust_control) )>>10)) ;
 
 	// check if it can be seen n do thrusters if true
 	if (ship->can_see) fighter_thrusters( ship ) ;
@@ -479,14 +516,15 @@ if ( ship->thrust_control>0 )
 else
 {
 	// No thruster then dec colour counter
-	if (ship->misc_counter > 0) ship->misc_counter -= 1;
+	if (ship->misc_counter > 0)
+		ship->misc_counter += SF_SIMULATION_DELTA(-1);
 }
 
 
 // Dec the counter for can i fire - only when 0 can yer shoot
 // This counter is set when you fire - therefore you can only shoot laser every other frame
 // and missiles every 4 frames etc.......
-if (ship->counter>0) ship->counter -= 1 ;
+if (ship->counter>0) ship->counter += SF_SIMULATION_DELTA(-1) ;
 
 if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 {
@@ -805,7 +843,7 @@ long dist ;
 ship_stack* target ;
 
 // Fire at target if in range and arm_randomom fire = true
-if ( satellite->fire_request != WEAPON_NOTHING )
+if (satellite->fire_request != WEAPON_NOTHING)
 {
 
 	target = (ship_stack*) ( (ship_sdb*) satellite->special_data )->command_address ;
@@ -844,7 +882,8 @@ if ( satellite->fire_request != WEAPON_NOTHING )
 }
 
 // Spin on the x
-satellite->x_rot = ((satellite->x_rot)+32*1024)&ROT_LIMIT ;
+satellite->x_rot = ((satellite->x_rot)+
+	SF_SIMULATION_DELTA(32*1024))&ROT_LIMIT ;
 
 }
 
@@ -863,10 +902,11 @@ void parachute_control( ship_stack * parachute )
 long coll_check ;
 
 // Spin on the x
-parachute->x_rot = ((parachute->x_rot)-16*1024)&ROT_LIMIT ;
+parachute->x_rot = ((parachute->x_rot)+
+	SF_SIMULATION_DELTA(-16*1024))&ROT_LIMIT ;
 
 // Fall slowly
-parachute->z_pos -= (1<<21) ;
+parachute->z_pos += SF_SIMULATION_DELTA(-(1<<21)) ;
 parachute->z_vel = -(1<<21) ;
 
 // Check the collision flag 
@@ -903,7 +943,7 @@ ship_stack* ship ;
 long x_pos , y_pos , z_pos , dist ;
 
 // Rig the tank fire
-if ( (arm_random()&31) == 1 )
+if (SF_SIMULATION_REFERENCE_TICK() && (arm_random()&31) == 1 )
 {
 	car->fire_request = WEAPON_LASER ;
 }
@@ -930,7 +970,8 @@ if (x_aim > 512*1024) x_aim -= 1024*1024 ;
 if (x_aim < -512*1024) x_aim += 1024*1024 ;
 
 
-car->x_rot = ((car->x_rot)+ (x_aim>>3) )&ROT_LIMIT ;
+car->x_rot = ((car->x_rot)+
+	SF_SIMULATION_DELTA(x_aim>>3))&ROT_LIMIT ;
 
 // Brake when near target
 if (target.distance < (4<<24) )
@@ -940,7 +981,7 @@ if (target.distance < (4<<24) )
 }
 else
 {
-	car->speed += 32 ;
+	car->speed += SF_SIMULATION_DELTA(32) ;
 	if (car->speed > 1024) car->speed = 1024 ;
 }
 
@@ -965,8 +1006,8 @@ car->y_vel =	-(
 				) ;
 
 // add velocity onto x ,y positions
-car->x_pos += car->x_vel ;
-car->y_pos += car->y_vel ;
+car->x_pos += SF_SIMULATION_DELTA(car->x_vel) ;
+car->y_pos += SF_SIMULATION_DELTA(car->y_vel) ;
 
 car->z_pos = find_ground_height(car->x_pos,car->y_pos) ;
 
@@ -982,7 +1023,8 @@ rot_temp = (find_rotation( -height_temp , (1<<13) ))-car->y_rot ;
 if(rot_temp>512*1024) rot_temp-=1024*1024 ;
 if(rot_temp<-512*1024) rot_temp+=1024*1024 ;
 // Change the y rotation by scale diff
-car->y_rot = (car->y_rot+ (rot_temp>>2) )&ROT_LIMIT;
+car->y_rot = (car->y_rot+
+	SF_SIMULATION_DELTA(rot_temp>>2))&ROT_LIMIT;
 
 
 // Find the ground height at side of the car
@@ -997,7 +1039,8 @@ rot_temp = (find_rotation( -height_temp , (1<<13) ))-car->z_rot ;
 if(rot_temp>512*1024) rot_temp-=1024*1024 ;
 if(rot_temp<-512*1024) rot_temp+=1024*1024 ;
 // Change the z rotation by scale diff
-car->z_rot = (car->z_rot+ (rot_temp>>2) )&ROT_LIMIT;
+car->z_rot = (car->z_rot+
+	SF_SIMULATION_DELTA(rot_temp>>2))&ROT_LIMIT;
 
 }
 
@@ -1020,7 +1063,8 @@ if (x_aim > 512*1024) x_aim -= 1024*1024 ;
 if (x_aim < -512*1024) x_aim += 1024*1024 ;
 
 
-car->x_rot = ((car->x_rot)+ (x_aim>>3) )&ROT_LIMIT ;
+car->x_rot = ((car->x_rot)+
+	SF_SIMULATION_DELTA(x_aim>>3))&ROT_LIMIT ;
 
 	car->speed = 512 ;
 
@@ -1039,8 +1083,8 @@ car->y_vel =	-(
 				) ;
 
 // add velocity onto x ,y positions
-car->x_pos += car->x_vel ;
-car->y_pos += car->y_vel ;
+car->x_pos += SF_SIMULATION_DELTA(car->x_vel) ;
+car->y_pos += SF_SIMULATION_DELTA(car->y_vel) ;
 
 car->z_pos = find_ground_height(car->x_pos,car->y_pos) ;
 
@@ -1056,7 +1100,8 @@ rot_temp = (find_rotation( -height_temp , (1<<13) ))-car->y_rot ;
 if(rot_temp>512*1024) rot_temp-=1024*1024 ;
 if(rot_temp<-512*1024) rot_temp+=1024*1024 ;
 // Change the y rotation by scale diff
-car->y_rot = (car->y_rot+ (rot_temp>>2) )&ROT_LIMIT;
+car->y_rot = (car->y_rot+
+	SF_SIMULATION_DELTA(rot_temp>>2))&ROT_LIMIT;
 
 
 // Find the ground height at side of the car
@@ -1071,11 +1116,13 @@ rot_temp = (find_rotation( -height_temp , (1<<13) ))-car->z_rot ;
 if(rot_temp>512*1024) rot_temp-=1024*1024 ;
 if(rot_temp<-512*1024) rot_temp+=1024*1024 ;
 // Change the z rotation by scale diff
-car->z_rot = (car->z_rot+ (rot_temp>>2) )&ROT_LIMIT;
+car->z_rot = (car->z_rot+
+	SF_SIMULATION_DELTA(rot_temp>>2))&ROT_LIMIT;
 
 
 // Fire at target if in range and arm_randomom fire = true
-if ( car->fire_request != WEAPON_NOTHING )
+if (SF_SIMULATION_REFERENCE_TICK() &&
+	car->fire_request != WEAPON_NOTHING )
 {
 
 	
@@ -1242,16 +1289,18 @@ case BIG_SHIP_COMMAND_NORMAL :
 	if (y_aim < -64*1024) y_aim = -64*1024 ;
 
 	// Add these values onto the rate of change
-	ship->x_control += (x_aim>>2) ;
-	ship->y_control += (y_aim>>2) ;
+	ship->x_control += SF_SIMULATION_DELTA(x_aim>>2) ;
+	ship->y_control += SF_SIMULATION_DELTA(y_aim>>2) ;
 
 	// Auto centre the rates of change
-	ship->x_control -= ((ship->x_control)>>4) ;
-	ship->y_control -= ((ship->y_control)>>4) ;
+	ship->x_control += SF_SIMULATION_DELTA(-((ship->x_control)>>4)) ;
+	ship->y_control += SF_SIMULATION_DELTA(-((ship->y_control)>>4)) ;
 
 	// Turn the big ship
-	ship->x_rot = ((ship->x_rot)+((ship->x_control)>>6) )&ROT_LIMIT ;
-	ship->y_rot = ((ship->y_rot)+((ship->y_control)>>6) )&ROT_LIMIT ;
+	ship->x_rot = ((ship->x_rot)+
+		SF_SIMULATION_DELTA((ship->x_control)>>6))&ROT_LIMIT ;
+	ship->y_rot = ((ship->y_rot)+
+		SF_SIMULATION_DELTA((ship->y_control)>>6))&ROT_LIMIT ;
 
 	// Roll abit based on x rate of change - just for effect
 	ship->z_rot = (-(ship->x_control)>>2)&ROT_LIMIT ;
@@ -1282,9 +1331,9 @@ case BIG_SHIP_COMMAND_NORMAL :
 
 
 	// add velocity onto x ,y ,z positions
-	ship->x_pos += ship->x_vel ;
-	ship->y_pos += ship->y_vel ;
-	ship->z_pos += ship->z_vel ;
+	ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
+	ship->y_pos += SF_SIMULATION_DELTA(ship->y_vel) ;
+	ship->z_pos += SF_SIMULATION_DELTA(ship->z_vel) ;
 
 break ;
 
@@ -1292,7 +1341,8 @@ case BIG_SHIP_COMMAND_ROTATE_Z :
 
 	ship->x_rot = ( ship->x_rot & ROT_LIMIT ) ;
 	ship->y_rot = ( ship->y_rot & ROT_LIMIT ) ;
-	ship->z_rot = (ship->z_rot + 8*1024)&ROT_LIMIT ;
+	ship->z_rot = (ship->z_rot +
+		SF_SIMULATION_DELTA(8*1024))&ROT_LIMIT ;
 	ship->speed = 0 ;
 	ship->x_vel = 0 ;
 	ship->y_vel = 0 ;
@@ -1303,7 +1353,8 @@ break ;
 
 case BIG_SHIP_COMMAND_ROTATE_X :
 
-	ship->x_rot = ( ship->x_rot + 8*1024 )&ROT_LIMIT ;
+	ship->x_rot = ( ship->x_rot +
+		SF_SIMULATION_DELTA(8*1024))&ROT_LIMIT ;
 	ship->y_rot = ( ship->y_rot & ROT_LIMIT ) ;
 	ship->z_rot = ( ship->z_rot & ROT_LIMIT ) ;	
 	
@@ -1331,7 +1382,8 @@ break ;
 
 // Big ships always have their thrusters on
 // check if it can be seen
-if (ship->can_see && (ship->special_data)->command_override != BIG_SHIP_COMMAND_STATIC )
+if (SF_SIMULATION_REFERENCE_TICK() && ship->can_see &&
+	(ship->special_data)->command_override != BIG_SHIP_COMMAND_STATIC )
 {
 	
 	if ( ship->type != ((BIG_SHIP<<4)+2) )
@@ -1589,7 +1641,7 @@ if (ship->fire_request == WEAPON_LAUNCH_SHIP && ship->counter == 0)
 	}
 }
 
-if (ship->counter > 0) ship->counter -= 1 ;
+if (ship->counter > 0) ship->counter += SF_SIMULATION_DELTA(-1) ;
 
 }
 

@@ -1,8 +1,21 @@
 const COMMAND_WORDS = 17;
 const COMMAND_BYTES = COMMAND_WORDS * Uint32Array.BYTES_PER_ELEMENT;
+const WORLD_COMMAND_WORDS = 29;
+const WORLD_COMMAND_BYTES = WORLD_COMMAND_WORDS * Uint32Array.BYTES_PER_ELEMENT;
 const TEXT_ENCODING = 10;
+const SKY_ENCODING = 9;
+const WORLD_ENCODING = 0x10000000;
+const WORLD_BACKGROUND_ENCODING = 0x08000000;
+const TERRAIN_ENCODING = 0x40000000;
 const CCB_PXOR = 0x00000800;
 const CCB_USEAV = 0x00002400;
+const LOGICAL_DISPLAY_WIDTH = 320;
+const LOGICAL_DISPLAY_HEIGHT = 240;
+const TERRAIN_HEIGHT_MAP_DIMENSION = 256;
+const TERRAIN_GRID_DIMENSION = TERRAIN_HEIGHT_MAP_DIMENSION + 1;
+const TERRAIN_TILE_COUNT = 256;
+const TERRAIN_FRAME_WORDS = 20;
+const TERRAIN_GRID_COPIES = 3;
 
 const vertexShaderSource = `#version 300 es
 in vec2 position;
@@ -45,6 +58,7 @@ const fragmentShaderSource = `#version 300 es
 precision highp float;
 uniform sampler2D texture0;
 uniform float screenHeight;
+uniform vec2 renderScale;
 in vec2 fragmentP0;
 in vec2 fragmentP1;
 in vec2 fragmentP2;
@@ -84,7 +98,8 @@ void considerRoot(float u, vec2 point, vec2 firstEdge, vec2 secondEdge,
 }
 
 void main() {
-  vec2 point = vec2(gl_FragCoord.x, screenHeight - gl_FragCoord.y) - fragmentP0;
+  vec2 point = vec2(gl_FragCoord.x / renderScale.x,
+                    screenHeight - gl_FragCoord.y / renderScale.y) - fragmentP0;
   vec2 firstEdge = fragmentP1 - fragmentP0;
   vec2 secondEdge = fragmentP3 - fragmentP0;
   vec2 diagonal = fragmentP2 - fragmentP1 - fragmentP3 + fragmentP0;
@@ -201,6 +216,220 @@ void main() {
   color = vec4(source.rgb * colourScale * (1.0 - fade), source.a * opacity);
 }`;
 
+const worldVertexShaderSource = `#version 300 es
+in vec3 viewPosition;
+in vec2 textureCoordinate;
+in vec2 sourceShade;
+in vec2 sourceOpacity;
+uniform float aspectRatio;
+out vec2 fragmentTextureCoordinate;
+out vec2 fragmentSourceShade;
+out vec2 fragmentSourceOpacity;
+void main() {
+  const float nearPlane = 1280.0;
+  const float farPlane = 4194304.0;
+  const float legacyAspectRatio = 4.0 / 3.0;
+  const float legacyHorizontalScale = 1.2;
+  const float legacyVerticalScale = 1.6;
+  float depth = viewPosition.y;
+  float horizontalScale = aspectRatio >= legacyAspectRatio ?
+    legacyVerticalScale / aspectRatio : legacyHorizontalScale;
+  float verticalScale = aspectRatio >= legacyAspectRatio ?
+    legacyVerticalScale : legacyHorizontalScale * aspectRatio;
+  float clipZ = depth * (farPlane + nearPlane) / (farPlane - nearPlane) -
+    2.0 * farPlane * nearPlane / (farPlane - nearPlane);
+
+  gl_Position = vec4(viewPosition.x * horizontalScale,
+                     -viewPosition.z * verticalScale,
+                     clipZ, depth);
+  fragmentTextureCoordinate = textureCoordinate;
+  fragmentSourceShade = sourceShade;
+  fragmentSourceOpacity = sourceOpacity;
+}`;
+
+const worldFragmentShaderSource = `#version 300 es
+precision highp float;
+uniform sampler2D texture0;
+in vec2 fragmentTextureCoordinate;
+in vec2 fragmentSourceShade;
+in vec2 fragmentSourceOpacity;
+out vec4 color;
+void main() {
+  vec4 texel = texture(texture0, fragmentTextureCoordinate);
+  if (texel.a == 0.0) discard;
+  bool pMode1 = texel.a < 0.75;
+  color = vec4(texel.rgb *
+                 (pMode1 ? fragmentSourceShade.y : fragmentSourceShade.x),
+               pMode1 ? fragmentSourceOpacity.y : fragmentSourceOpacity.x);
+}`;
+
+const terrainVertexShaderSource = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp isampler2D;
+precision highp usampler2D;
+in vec2 terrainCoordinate;
+uniform usampler2D terrainState;
+uniform isampler2D terrainHeightOffsets;
+uniform ivec2 terrainMapStart;
+uniform vec3 terrainOrigin;
+uniform vec3 terrainHorizontal;
+uniform vec3 terrainVertical;
+uniform int terrainWavePhase;
+uniform float aspectRatio;
+out vec2 fragmentTerrainCoordinate;
+out float fragmentWaterLight;
+
+float waveHeightAt(ivec2 coordinate) {
+  int phase = (terrainWavePhase + coordinate.y * 128 +
+    coordinate.x * 64) & 1023;
+  return cos(float(phase) * 6.28318530718 / 1024.0) * 8.0 + 8.0;
+}
+
+float terrainVisualHeightAt(ivec2 coordinate) {
+  int rawHeight = int(texelFetch(
+    terrainState, coordinate & ivec2(255), 0
+  ).r);
+  return rawHeight <= 16 ? waveHeightAt(coordinate) : float(rawHeight);
+}
+
+vec3 terrainHeightOffsetAt(float height) {
+  float clampedHeight = clamp(height, 0.0, 255.0);
+  int lowerHeight = int(floor(clampedHeight));
+  int upperHeight = min(lowerHeight + 1, 255);
+  vec3 lowerOffset = vec3(texelFetch(
+    terrainHeightOffsets, ivec2(lowerHeight, 0), 0
+  ).xyz);
+  vec3 upperOffset = vec3(texelFetch(
+    terrainHeightOffsets, ivec2(upperHeight, 0), 0
+  ).xyz);
+  return mix(lowerOffset, upperOffset, fract(clampedHeight)) / 64.0;
+}
+
+float terrainLightFromHeight(float height, float eastHeight,
+                             float southHeight, bool water) {
+  float relief = height - eastHeight - southHeight;
+  if (water) relief *= 0.5;
+  float shade = relief * 0.5 + 16.0;
+  return mix(0.25, 1.5, clamp(shade / 31.0, 0.0, 1.0));
+}
+
+float terrainWaterLight(ivec2 coordinate) {
+  float height = terrainVisualHeightAt(coordinate);
+  float eastHeight = terrainVisualHeightAt(coordinate + ivec2(1, 0));
+  float southHeight = terrainVisualHeightAt(coordinate + ivec2(0, 1));
+  vec3 heightOffset = terrainHeightOffsetAt(height);
+  vec3 eastOffset = terrainHeightOffsetAt(eastHeight);
+  vec3 southOffset = terrainHeightOffsetAt(southHeight);
+  vec3 flatNormal = normalize(cross(terrainHorizontal, terrainVertical));
+  vec3 surfaceNormal = normalize(cross(
+    terrainHorizontal - eastOffset + heightOffset,
+    terrainVertical - southOffset + heightOffset
+  ));
+  if (dot(surfaceNormal, flatNormal) < 0.0) surfaceNormal = -surfaceNormal;
+  vec3 lightDirection = normalize(flatNormal +
+    normalize(terrainHorizontal) * 0.45 +
+    normalize(terrainVertical) * 0.35);
+  float directionalLight = clamp(dot(surfaceNormal, lightDirection), 0.0, 1.0);
+  float legacyLight = terrainLightFromHeight(
+    height, eastHeight, southHeight, true
+  );
+  return clamp(legacyLight * mix(0.7, 1.3, directionalLight), 0.25, 1.5);
+}
+
+void main() {
+  const float nearPlane = 1280.0;
+  const float farPlane = 4194304.0;
+  const float legacyAspectRatio = 4.0 / 3.0;
+  const float legacyHorizontalScale = 1.2;
+  const float legacyVerticalScale = 1.6;
+  int copyX = gl_InstanceID % ${TERRAIN_GRID_COPIES} -
+    ${(TERRAIN_GRID_COPIES - 1) / 2};
+  int copyY = gl_InstanceID / ${TERRAIN_GRID_COPIES} -
+    ${(TERRAIN_GRID_COPIES - 1) / 2};
+  vec2 worldCoordinate = terrainCoordinate + vec2(copyX, copyY) *
+    float(${TERRAIN_HEIGHT_MAP_DIMENSION});
+  ivec2 mapCoordinate = (terrainMapStart + ivec2(worldCoordinate)) & 255;
+  int rawHeight = int(texelFetch(terrainState, mapCoordinate, 0).r);
+  float visualHeight = terrainVisualHeightAt(mapCoordinate);
+  vec3 heightOffset = terrainHeightOffsetAt(visualHeight);
+  fragmentWaterLight = rawHeight <= 16 ? terrainWaterLight(mapCoordinate) : 1.0;
+  vec3 viewPosition = terrainOrigin +
+    worldCoordinate.x * terrainHorizontal +
+    worldCoordinate.y * terrainVertical - heightOffset;
+  float horizontalScale = aspectRatio >= legacyAspectRatio ?
+    legacyVerticalScale / aspectRatio : legacyHorizontalScale;
+  float verticalScale = aspectRatio >= legacyAspectRatio ?
+    legacyVerticalScale : legacyHorizontalScale * aspectRatio;
+  float depth = viewPosition.y;
+  float clipZ = depth * (farPlane + nearPlane) / (farPlane - nearPlane) -
+    2.0 * farPlane * nearPlane / (farPlane - nearPlane);
+
+  gl_Position = vec4(viewPosition.x * horizontalScale,
+                     -viewPosition.z * verticalScale,
+                     clipZ, depth);
+  fragmentTerrainCoordinate = worldCoordinate + vec2(terrainMapStart);
+}`;
+
+const terrainFragmentShaderSource = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp usampler2D;
+precision highp sampler2DArray;
+uniform usampler2D terrainState;
+uniform sampler2DArray terrainTileTextures;
+uniform int terrainWavePhase;
+in vec2 fragmentTerrainCoordinate;
+in float fragmentWaterLight;
+out vec4 color;
+
+int terrainRawHeightAt(ivec2 coordinate) {
+  return int(texelFetch(terrainState, coordinate & ivec2(255), 0).r);
+}
+
+float waveHeightAt(ivec2 coordinate) {
+  int phase = (terrainWavePhase + coordinate.y * 128 +
+    coordinate.x * 64) & 1023;
+  return cos(float(phase) * 6.28318530718 / 1024.0) * 8.0 + 8.0;
+}
+
+float terrainVisualHeightAt(ivec2 coordinate) {
+  int rawHeight = terrainRawHeightAt(coordinate);
+  return rawHeight <= 16 ? waveHeightAt(coordinate) : float(rawHeight);
+}
+
+float terrainLight(ivec2 mapCoordinate) {
+  float height = terrainVisualHeightAt(mapCoordinate);
+  float eastHeight = terrainVisualHeightAt(mapCoordinate + ivec2(1, 0));
+  float southHeight = terrainVisualHeightAt(mapCoordinate + ivec2(0, 1));
+  float relief = height - eastHeight - southHeight;
+  const float ambientShade = 16.0;
+  // These endpoints match the mean brightness of the legacy P-mode 0 terrain.
+  const float darkestScale = 0.25;
+  const float brightestScale = 1.5;
+  float shade = relief * 0.5 + ambientShade;
+  float legacyLight = mix(darkestScale, brightestScale,
+                          clamp(shade / 31.0, 0.0, 1.0));
+  float centredSlope = terrainVisualHeightAt(mapCoordinate + ivec2(-1, 0)) -
+    eastHeight +
+    terrainVisualHeightAt(mapCoordinate + ivec2(0, -1)) -
+    southHeight;
+  return clamp(legacyLight + centredSlope * 0.03,
+               darkestScale, brightestScale);
+}
+
+void main() {
+  ivec2 mapCoordinate = ivec2(floor(fragmentTerrainCoordinate)) & 255;
+  int tile = int(texelFetch(terrainState, mapCoordinate, 0).g);
+  vec2 tileCoordinate = fract(fragmentTerrainCoordinate);
+  vec4 texel = texture(terrainTileTextures,
+                       vec3(tileCoordinate.x, 1.0 - tileCoordinate.y, float(tile)));
+  if (texel.a == 0.0) discard;
+  float light = terrainRawHeightAt(mapCoordinate) <= 16 ?
+    fragmentWaterLight : terrainLight(mapCoordinate);
+  color = vec4(texel.rgb * light, 1.0);
+}`;
+
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
@@ -228,6 +457,38 @@ function createProgram(gl, vertexSource, fragmentSource) {
   const error = gl.getProgramInfoLog(program);
   gl.deleteProgram(program);
   throw new Error(error);
+}
+
+function createTerrainMesh() {
+  const vertices = new Float32Array(TERRAIN_GRID_DIMENSION *
+                                    TERRAIN_GRID_DIMENSION * 2);
+  const indices = new Uint32Array(TERRAIN_HEIGHT_MAP_DIMENSION *
+                                  TERRAIN_HEIGHT_MAP_DIMENSION * 6);
+  let vertex = 0;
+  let index = 0;
+
+  for (let y = 0; y < TERRAIN_GRID_DIMENSION; y += 1) {
+    for (let x = 0; x < TERRAIN_GRID_DIMENSION; x += 1) {
+      vertices[vertex++] = x;
+      vertices[vertex++] = y;
+    }
+  }
+  for (let y = 0; y < TERRAIN_HEIGHT_MAP_DIMENSION; y += 1) {
+    for (let x = 0; x < TERRAIN_HEIGHT_MAP_DIMENSION; x += 1) {
+      const topLeft = y * TERRAIN_GRID_DIMENSION + x;
+      const topRight = topLeft + 1;
+      const bottomLeft = topLeft + TERRAIN_GRID_DIMENSION;
+      const bottomRight = bottomLeft + 1;
+
+      indices[index++] = topLeft;
+      indices[index++] = bottomLeft;
+      indices[index++] = bottomRight;
+      indices[index++] = topLeft;
+      indices[index++] = bottomRight;
+      indices[index++] = topRight;
+    }
+  }
+  return { vertices, indices };
 }
 
 function signedTriangleArea(command, first, second, third) {
@@ -537,11 +798,12 @@ function createTextFontAtlas(gl, memory, source, size) {
   };
 }
 
-export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
+export function createWebGLRenderer(canvas, textureForCommand, textForCommand,
+                                    decodeTexture) {
   const gl = canvas.getContext("webgl2", {
     alpha: false,
     antialias: false,
-    depth: false
+    depth: true
   });
   if (gl === null) {
     throw new Error("WebGL 2 is required");
@@ -552,9 +814,19 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
                                     textFragmentShaderSource);
   const screenProgram = createProgram(gl, screenVertexShaderSource,
                                       screenFragmentShaderSource);
+  const worldProgram = createProgram(gl, worldVertexShaderSource,
+                                     worldFragmentShaderSource);
+  const terrainProgram = createProgram(gl, terrainVertexShaderSource,
+                                       terrainFragmentShaderSource);
   const vertices = gl.createBuffer();
   const textVertices = gl.createBuffer();
   const screenVertices = gl.createBuffer();
+  const worldVertices = gl.createBuffer();
+  const terrainVertices = gl.createBuffer();
+  const terrainIndices = gl.createBuffer();
+  const terrainStateTexture = gl.createTexture();
+  const terrainTileTextures = gl.createTexture();
+  const terrainHeightOffsetsTexture = gl.createTexture();
   const position = gl.getAttribLocation(program, "position");
   const commandP0 = gl.getAttribLocation(program, "commandP0");
   const commandP1 = gl.getAttribLocation(program, "commandP1");
@@ -567,6 +839,7 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
   const commandEdgeCoverage = gl.getAttribLocation(program,
                                                     "commandEdgeCoverage");
   const screenHeight = gl.getUniformLocation(program, "screenHeight");
+  const renderScale = gl.getUniformLocation(program, "renderScale");
   const textPosition = gl.getAttribLocation(textProgram, "position");
   const textTextureCoordinate = gl.getAttribLocation(textProgram,
                                                       "textureCoordinate");
@@ -579,20 +852,93 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
   const screenFade = gl.getUniformLocation(screenProgram, "fade");
   const screenOpacity = gl.getUniformLocation(screenProgram, "opacity");
   const screenColourScale = gl.getUniformLocation(screenProgram, "colourScale");
+  const worldPosition = gl.getAttribLocation(worldProgram, "viewPosition");
+  const worldTextureCoordinate = gl.getAttribLocation(
+    worldProgram, "textureCoordinate"
+  );
+  const worldSourceShade = gl.getAttribLocation(worldProgram, "sourceShade");
+  const worldSourceOpacity = gl.getAttribLocation(worldProgram, "sourceOpacity");
+  const worldAspectRatio = gl.getUniformLocation(worldProgram, "aspectRatio");
+  const terrainCoordinate = gl.getAttribLocation(terrainProgram,
+                                                  "terrainCoordinate");
+  const terrainState = gl.getUniformLocation(terrainProgram, "terrainState");
+  const terrainHeightOffsets = gl.getUniformLocation(
+    terrainProgram, "terrainHeightOffsets"
+  );
+  const terrainMapStart = gl.getUniformLocation(terrainProgram,
+                                                 "terrainMapStart");
+  const terrainOrigin = gl.getUniformLocation(terrainProgram, "terrainOrigin");
+  const terrainHorizontal = gl.getUniformLocation(terrainProgram,
+                                                  "terrainHorizontal");
+  const terrainVertical = gl.getUniformLocation(terrainProgram,
+                                                "terrainVertical");
+  const terrainWavePhase = gl.getUniformLocation(terrainProgram,
+                                                 "terrainWavePhase");
+  const terrainAspectRatio = gl.getUniformLocation(terrainProgram,
+                                                   "aspectRatio");
+  const terrainTileTexturesUniform = gl.getUniformLocation(
+    terrainProgram, "terrainTileTextures"
+  );
   let textFont;
   const screenOperations = [];
   let fade = 0;
+  let worldFrameActive = false;
   // The game begins rendering into bank 0 while bank 1 is the blank display.
   let displayedBank = 1;
-  const displayWidth = canvas.width;
-  const displayHeight = canvas.height;
+  const displayWidth = LOGICAL_DISPLAY_WIDTH;
+  const displayHeight = LOGICAL_DISPLAY_HEIGHT;
+  let renderWidth = canvas.width;
+  let renderHeight = canvas.height;
+  let canvasWidth = canvas.width;
+  let canvasHeight = canvas.height;
+  let presentationViewport = { x: 0, y: 0, width: renderWidth, height: renderHeight };
+  let terrainStateUploadScratch = new Uint8Array(0);
+  let terrainFrame;
+  let terrainTileMaterialGeneration = -1;
+  let terrainHeightOffsetsSource = 0;
+  let terrainStateTextureReady = false;
+  let terrainTileTexturesAllocated = false;
+  let terrainTileTexturesReady = false;
+  let lastWorldStats = {
+    commandCount: 0,
+    drawCalls: 0,
+    terrainCommands: 0,
+    terrainDrawCalls: 0,
+    terrainOnlyDrawCalls: 0,
+    mixedTerrainDrawCalls: 0,
+    persistentTerrainDrawCalls: 0
+  };
+
+  gl.bindTexture(gl.TEXTURE_2D, terrainStateTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  gl.bindTexture(gl.TEXTURE_2D, terrainHeightOffsetsTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, terrainTileTextures);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  const terrainMesh = createTerrainMesh();
+  gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
+  gl.bufferData(gl.ARRAY_BUFFER, terrainMesh.vertices, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIndices);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, terrainMesh.indices, gl.STATIC_DRAW);
 
   function createScreenBank() {
     const texture = gl.createTexture();
     const framebuffer = gl.createFramebuffer();
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, displayWidth, displayHeight, 0,
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, renderWidth, renderHeight, 0,
                   gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -607,7 +953,7 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     return { texture, framebuffer };
   }
 
-  const screenBanks = [createScreenBank(), createScreenBank()];
+  let screenBanks = [createScreenBank(), createScreenBank()];
   const cinematicTexture = gl.createTexture();
   let cinematicVideo;
   let cinematicFrameCallback;
@@ -624,16 +970,219 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     return bank >= 0 && bank < screenBanks.length ? bank : 0;
   }
 
+  function updateTerrainState(memory, heights, tiles, x, y, width, height, full) {
+    if (!Number.isInteger(heights) || !Number.isInteger(tiles) ||
+        !Number.isInteger(x) ||
+        !Number.isInteger(y) || !Number.isInteger(width) ||
+        !Number.isInteger(height) || !Number.isInteger(full) ||
+        heights <= 0 || tiles <= 0 ||
+        x < 0 || y < 0 ||
+        width <= 0 || height <= 0 ||
+        x + width > TERRAIN_HEIGHT_MAP_DIMENSION ||
+        y + height > TERRAIN_HEIGHT_MAP_DIMENSION ||
+        heights + TERRAIN_HEIGHT_MAP_DIMENSION ** 2 > memory.length ||
+        tiles + TERRAIN_HEIGHT_MAP_DIMENSION ** 2 > memory.length) {
+      throw new Error("Invalid terrain-state upload");
+    }
+
+    const pixelCount = width * height;
+    const byteCount = pixelCount * 2;
+    if (terrainStateUploadScratch.length < byteCount) {
+      terrainStateUploadScratch = new Uint8Array(byteCount);
+    }
+    for (let row = 0; row < height; row += 1) {
+      const sourceOffset =
+        (y + row) * TERRAIN_HEIGHT_MAP_DIMENSION + x;
+      let destinationOffset = row * width * 2;
+      for (let column = 0; column < width; column += 1) {
+        terrainStateUploadScratch[destinationOffset] =
+          memory[heights + sourceOffset + column];
+        terrainStateUploadScratch[destinationOffset + 1] =
+          memory[tiles + sourceOffset + column];
+        destinationOffset += 2;
+      }
+    }
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, terrainStateTexture);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    if (!terrainStateTextureReady) {
+      if (full === 0 || width !== TERRAIN_HEIGHT_MAP_DIMENSION ||
+          height !== TERRAIN_HEIGHT_MAP_DIMENSION) {
+        throw new Error("Initial terrain-state upload must cover the map");
+      }
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8UI,
+                    TERRAIN_HEIGHT_MAP_DIMENSION,
+                    TERRAIN_HEIGHT_MAP_DIMENSION, 0, gl.RG_INTEGER,
+                    gl.UNSIGNED_BYTE, terrainStateUploadScratch.subarray(
+                      0, byteCount
+                    ));
+      terrainStateTextureReady = true;
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, gl.RG_INTEGER,
+                       gl.UNSIGNED_BYTE,
+                       terrainStateUploadScratch.subarray(0, byteCount));
+    }
+  }
+
+  function terrainFrameFromWasm(memory, address) {
+    if (!Number.isInteger(address) || address === 0 ||
+        address + TERRAIN_FRAME_WORDS * Uint32Array.BYTES_PER_ELEMENT >
+          memory.length) {
+      return undefined;
+    }
+    const words = new Uint32Array(memory.buffer, address, TERRAIN_FRAME_WORDS);
+    const signed = new Int32Array(memory.buffer, address, TERRAIN_FRAME_WORDS);
+    return {
+      heights: words[0],
+      tiles: words[1],
+      heightOffsets: words[2],
+      tileMaterials: words[3],
+      tileMaterialValid: words[4],
+      tileMaterialDirty: words[5],
+      tileMaterialGeneration: words[6],
+      mapX: signed[7],
+      mapY: signed[8],
+      origin: [signed[9], signed[10], signed[11]],
+      horizontal: [signed[12], signed[13], signed[14]],
+      vertical: [signed[15], signed[16], signed[17]],
+      wavePhase: signed[18],
+      active: signed[19] !== 0
+    };
+  }
+
+  function updateTerrainFrame(memory, address) {
+    const frame = terrainFrameFromWasm(memory, address);
+    if (frame === undefined || !frame.active) {
+      terrainFrame = undefined;
+      return;
+    }
+    if (frame.heights === 0 || frame.tiles === 0 || frame.heightOffsets === 0 ||
+        frame.tileMaterials === 0 || frame.tileMaterialValid === 0 ||
+        frame.tileMaterialDirty === 0 ||
+        frame.heights + TERRAIN_HEIGHT_MAP_DIMENSION ** 2 > memory.length ||
+        frame.tiles + TERRAIN_HEIGHT_MAP_DIMENSION ** 2 > memory.length ||
+        frame.heightOffsets + TERRAIN_TILE_COUNT * 4 *
+          Int32Array.BYTES_PER_ELEMENT > memory.length ||
+        frame.tileMaterials + TERRAIN_TILE_COUNT * COMMAND_BYTES >
+          memory.length ||
+        frame.tileMaterialValid + TERRAIN_TILE_COUNT > memory.length ||
+        frame.tileMaterialDirty + TERRAIN_TILE_COUNT > memory.length) {
+      throw new Error("Invalid persistent terrain frame");
+    }
+
+    if (!terrainTileTexturesAllocated ||
+        frame.tileMaterialGeneration !== terrainTileMaterialGeneration) {
+      const materialValid = new Uint8Array(memory.buffer,
+                                           frame.tileMaterialValid,
+                                           TERRAIN_TILE_COUNT);
+      const materialDirty = new Uint8Array(memory.buffer,
+                                           frame.tileMaterialDirty,
+                                           TERRAIN_TILE_COUNT);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, terrainTileTextures);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      if (!terrainTileTexturesAllocated) {
+        gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, 16, 16,
+                      TERRAIN_TILE_COUNT, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        terrainTileTexturesAllocated = true;
+      }
+      for (let tile = 0; tile < TERRAIN_TILE_COUNT; tile += 1) {
+        if (materialValid[tile] === 0 ||
+            (materialDirty[tile] === 0 && terrainTileTexturesReady)) continue;
+        const material = commandFromWasm(
+          memory, frame.tileMaterials + tile * COMMAND_BYTES
+        );
+        const decoded = decodeTexture(material, memory);
+        if (decoded === null || decoded.width !== 16 || decoded.height !== 16) {
+          throw new Error(`Invalid terrain tile material ${tile}`);
+        }
+        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, tile, 16, 16, 1,
+                         gl.RGBA, gl.UNSIGNED_BYTE, decoded.pixels);
+      }
+      terrainTileMaterialGeneration = frame.tileMaterialGeneration;
+      terrainTileTexturesReady = terrainTileTexturesAllocated;
+    }
+
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, terrainHeightOffsetsTexture);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    const heightOffsets = new Int32Array(memory.buffer, frame.heightOffsets,
+                                         TERRAIN_TILE_COUNT * 4);
+    if (frame.heightOffsets !== terrainHeightOffsetsSource) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32I, TERRAIN_TILE_COUNT, 1, 0,
+                    gl.RGBA_INTEGER, gl.INT, heightOffsets);
+      terrainHeightOffsetsSource = frame.heightOffsets;
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TERRAIN_TILE_COUNT, 1,
+                       gl.RGBA_INTEGER, gl.INT, heightOffsets);
+    }
+    terrainFrame = frame;
+  }
+
   function bindScreenBank(bank) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, screenBanks[normaliseBank(bank)].framebuffer);
-    gl.viewport(0, 0, displayWidth, displayHeight);
-    gl.scissor(0, 0, displayWidth, displayHeight);
+    gl.viewport(0, 0, renderWidth, renderHeight);
+    gl.scissor(0, 0, renderWidth, renderHeight);
+  }
+
+  function resizeRenderTargets() {
+    const bounds = canvas.getBoundingClientRect();
+    const maximumDimension = Math.min(
+      gl.getParameter(gl.MAX_TEXTURE_SIZE),
+      gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
+    );
+    const maximumViewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+    const pixelRatio = globalThis.devicePixelRatio ?? 1;
+    const desiredWidth = Math.max(1, Math.round(bounds.width * pixelRatio));
+    const desiredHeight = Math.max(1, Math.round(bounds.height * pixelRatio));
+    const canvasScale = Math.min(1, maximumViewport[0] / desiredWidth,
+                                 maximumViewport[1] / desiredHeight);
+    const nextCanvasWidth = Math.max(1, Math.floor(desiredWidth * canvasScale));
+    const nextCanvasHeight = Math.max(1, Math.floor(desiredHeight * canvasScale));
+    const viewportUnit = Math.max(1, Math.floor(Math.min(
+      nextCanvasWidth / 4,
+      nextCanvasHeight / 3,
+      maximumDimension / 4,
+      maximumDimension / 3
+    )));
+    const nextRenderWidth = viewportUnit * 4;
+    const nextRenderHeight = viewportUnit * 3;
+    const targetsChanged = nextRenderWidth !== renderWidth ||
+      nextRenderHeight !== renderHeight;
+    const canvasChanged = nextCanvasWidth !== canvasWidth ||
+      nextCanvasHeight !== canvasHeight;
+
+    if (!targetsChanged && !canvasChanged) return false;
+    if (targetsChanged) {
+      for (const bank of screenBanks) {
+        gl.deleteFramebuffer(bank.framebuffer);
+        gl.deleteTexture(bank.texture);
+      }
+    }
+    canvasWidth = nextCanvasWidth;
+    canvasHeight = nextCanvasHeight;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    renderWidth = nextRenderWidth;
+    renderHeight = nextRenderHeight;
+    presentationViewport = {
+      x: Math.floor((canvasWidth - renderWidth) / 2),
+      y: Math.floor((canvasHeight - renderHeight) / 2),
+      width: renderWidth,
+      height: renderHeight
+    };
+    if (targetsChanged) {
+      screenBanks = [createScreenBank(), createScreenBank()];
+    }
+    return true;
   }
 
   function clearScreenBank(bank, red = 0, green = 0, blue = 0) {
     bindScreenBank(bank);
     gl.disable(gl.SCISSOR_TEST);
-    gl.clearColor(red, green, blue, 1);
+    gl.clearColor(red, green, blue, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.SCISSOR_TEST);
   }
@@ -670,11 +1219,18 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
 
   function drawBankToCanvas(bank, fade) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, displayWidth, displayHeight);
     gl.disable(gl.SCISSOR_TEST);
-    gl.disable(gl.BLEND);
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!worldFrameActive || cinematicVideo !== undefined) {
+      gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    } else {
+      gl.enable(gl.BLEND);
+      gl.blendEquation(gl.FUNC_ADD);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
+    gl.viewport(presentationViewport.x, presentationViewport.y,
+                presentationViewport.width, presentationViewport.height);
     if (cinematicVideo === undefined) {
       drawScreenTexture(screenBanks[normaliseBank(bank)].texture, 0, 0,
                         displayWidth, displayHeight, fade);
@@ -686,6 +1242,7 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
 
   function drawCinematicFrame() {
     if (cinematicVideo === undefined) return;
+    resizeRenderTargets();
     if (cinematicVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       gl.bindTexture(gl.TEXTURE_2D, cinematicTexture);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -734,7 +1291,7 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
 
   gl.useProgram(program);
   gl.uniform1i(gl.getUniformLocation(program, "texture0"), 0);
-  gl.uniform1f(screenHeight, canvas.height);
+  gl.uniform1f(screenHeight, displayHeight);
   gl.useProgram(textProgram);
   gl.uniform1i(gl.getUniformLocation(textProgram, "fontAtlas"), 0);
   gl.useProgram(program);
@@ -798,6 +1355,261 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     }
   }
 
+  function worldCommandFromWasm(memory, address) {
+    const material = commandFromWasm(memory, address);
+    const view = new Int32Array(memory.buffer, address + COMMAND_BYTES, 12);
+
+    return {
+      material,
+      viewX: [view[0], view[1], view[2], view[3]],
+      viewY: [view[4], view[5], view[6], view[7]],
+      viewZ: [view[8], view[9], view[10], view[11]]
+    };
+  }
+
+  function worldRenderEntry(world, memory) {
+    const image = textureForCommand(world.material, memory);
+    if (image === null) return null;
+
+    const operation = pixelOperation(world.material, false);
+    const useAv = (world.material.ccbFlags & CCB_USEAV) !== 0;
+    const pMode0Scale = sourceScale(pixcHalf(world.material, false), useAv);
+    const pMode1Scale = sourceScale(pixcHalf(world.material, true), useAv);
+    const scales = (scale) => {
+      if (operation === "replace") return [scale, 1];
+      if (operation === "add" || operation === "mix") return [1, scale];
+      return [1, 1];
+    };
+    const firstScales = scales(pMode0Scale);
+    const secondScales = scales(pMode1Scale);
+    const texture = image.texture === undefined ?
+      { texture: image, u: 0, v: 0, width: 1, height: 1 } : image;
+    return {
+      world,
+      operation,
+      texture,
+      sourceShade: [firstScales[0], secondScales[0]],
+      sourceOpacity: [firstScales[1], secondScales[1]],
+      destinationScale: operation === "diminish" ? pMode0Scale : 1
+    };
+  }
+
+  function appendWorldQuadVertices(vertices, entry) {
+    const indices = [0, 1, 2, 0, 2, 3];
+
+    for (const index of indices) {
+      const u = index === 1 || index === 2 ? 1 : 0;
+      const v = index >= 2 ? 1 : 0;
+      vertices.push(entry.world.viewX[index], entry.world.viewY[index],
+                    entry.world.viewZ[index],
+                    entry.texture.u + u * entry.texture.width,
+                    entry.texture.v + v * entry.texture.height,
+                    entry.sourceShade[0], entry.sourceShade[1],
+                    entry.sourceOpacity[0], entry.sourceOpacity[1]);
+    }
+  }
+
+  function drawWorldBatch(entries, writeDepth = true, stats = undefined) {
+    if (entries.length === 0) return;
+
+    const entry = entries[0];
+    const vertices = [];
+    for (const batchEntry of entries) {
+      appendWorldQuadVertices(vertices, batchEntry);
+    }
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture.texture);
+    gl.useProgram(worldProgram);
+    gl.uniform1f(worldAspectRatio, canvasWidth / canvasHeight);
+    configureBlend(entry.operation, entry.destinationScale);
+    gl.depthMask(writeDepth && entry.operation === "replace");
+    gl.bindBuffer(gl.ARRAY_BUFFER, worldVertices);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(worldPosition);
+    gl.vertexAttribPointer(worldPosition, 3, gl.FLOAT, false,
+                           9 * Float32Array.BYTES_PER_ELEMENT, 0);
+    gl.enableVertexAttribArray(worldTextureCoordinate);
+    gl.vertexAttribPointer(worldTextureCoordinate, 2, gl.FLOAT, false,
+                           9 * Float32Array.BYTES_PER_ELEMENT,
+                           3 * Float32Array.BYTES_PER_ELEMENT);
+    gl.enableVertexAttribArray(worldSourceShade);
+    gl.vertexAttribPointer(worldSourceShade, 2, gl.FLOAT, false,
+                           9 * Float32Array.BYTES_PER_ELEMENT,
+                           5 * Float32Array.BYTES_PER_ELEMENT);
+    gl.enableVertexAttribArray(worldSourceOpacity);
+    gl.vertexAttribPointer(worldSourceOpacity, 2, gl.FLOAT, false,
+                           9 * Float32Array.BYTES_PER_ELEMENT,
+                           7 * Float32Array.BYTES_PER_ELEMENT);
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 9);
+    if (stats !== undefined) {
+      let terrainCommands = 0;
+      for (const batchEntry of entries) {
+        if ((batchEntry.world.material.encoding & TERRAIN_ENCODING) !== 0) {
+          terrainCommands += 1;
+        }
+      }
+
+      stats.drawCalls += 1;
+      if (terrainCommands !== 0) {
+        stats.terrainCommands += terrainCommands;
+        stats.terrainDrawCalls += 1;
+        if (terrainCommands === entries.length) {
+          stats.terrainOnlyDrawCalls += 1;
+        } else {
+          stats.mixedTerrainDrawCalls += 1;
+        }
+      }
+    }
+  }
+
+  function drawWorldSky(memory, commandAddress, commandCount, stats) {
+    const nearPlane = 1280.0;
+    const skyDepth = nearPlane + 1.0;
+    const legacyAspectRatio = 4.0 / 3.0;
+    const legacyHorizontalScale = 1.2;
+    const legacyVerticalScale = 1.6;
+    const aspectRatio = canvasWidth / canvasHeight;
+    const horizontalScale = aspectRatio >= legacyAspectRatio ?
+      legacyVerticalScale / aspectRatio : legacyHorizontalScale;
+    const verticalScale = aspectRatio >= legacyAspectRatio ?
+      legacyVerticalScale : legacyHorizontalScale * aspectRatio;
+    const horizontalExtent = skyDepth / horizontalScale;
+    const verticalExtent = skyDepth / verticalScale;
+
+    for (let index = 0; index < commandCount; index += 1) {
+      const material = commandFromWasm(
+        memory, commandAddress + index * COMMAND_BYTES
+      );
+      if ((material.encoding & 0xff) !== SKY_ENCODING) continue;
+
+      const entry = worldRenderEntry({
+        material,
+        viewX: [-horizontalExtent, horizontalExtent,
+                horizontalExtent, -horizontalExtent],
+        viewY: [skyDepth, skyDepth, skyDepth, skyDepth],
+        viewZ: [-verticalExtent, -verticalExtent,
+                verticalExtent, verticalExtent]
+      }, memory);
+      if (entry !== null) drawWorldBatch([entry], false, stats);
+    }
+  }
+
+  function drawPersistentTerrain(stats) {
+    if (terrainFrame === undefined || !terrainStateTextureReady ||
+        !terrainTileTexturesReady) return;
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, terrainStateTexture);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, terrainTileTextures);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, terrainHeightOffsetsTexture);
+    gl.useProgram(terrainProgram);
+    gl.uniform1i(terrainState, 1);
+    gl.uniform1i(terrainTileTexturesUniform, 3);
+    gl.uniform1i(terrainHeightOffsets, 4);
+    gl.uniform2i(terrainMapStart, terrainFrame.mapX, terrainFrame.mapY);
+    gl.uniform3f(terrainOrigin, ...terrainFrame.origin);
+    gl.uniform3f(terrainHorizontal, ...terrainFrame.horizontal);
+    gl.uniform3f(terrainVertical, ...terrainFrame.vertical);
+    gl.uniform1i(terrainWavePhase, terrainFrame.wavePhase);
+    gl.uniform1f(terrainAspectRatio, canvasWidth / canvasHeight);
+    configureBlend("replace");
+    gl.depthMask(true);
+    gl.bindBuffer(gl.ARRAY_BUFFER, terrainVertices);
+    gl.enableVertexAttribArray(terrainCoordinate);
+    gl.vertexAttribPointer(terrainCoordinate, 2, gl.FLOAT, false,
+                           2 * Float32Array.BYTES_PER_ELEMENT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIndices);
+    gl.drawElementsInstanced(gl.TRIANGLES, terrainMesh.indices.length,
+                             gl.UNSIGNED_INT, 0,
+                             TERRAIN_GRID_COPIES * TERRAIN_GRID_COPIES);
+    stats.drawCalls += 1;
+    stats.terrainDrawCalls += 1;
+    stats.terrainOnlyDrawCalls += 1;
+    stats.persistentTerrainDrawCalls += 1;
+  }
+
+  function sameWorldBatch(left, right) {
+    return left.texture.texture === right.texture.texture &&
+      left.operation === right.operation &&
+      left.destinationScale === right.destinationScale;
+  }
+
+  function drawWorld(memory, commandAddress, commandCount,
+                     legacyCommandAddress, legacyCommandCount) {
+    const stats = {
+      commandCount,
+      drawCalls: 0,
+      terrainCommands: 0,
+      terrainDrawCalls: 0,
+      terrainOnlyDrawCalls: 0,
+      mixedTerrainDrawCalls: 0,
+      persistentTerrainDrawCalls: 0
+    };
+
+    lastWorldStats = stats;
+    if (commandCount === 0 && terrainFrame === undefined) return false;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvasWidth, canvasHeight);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST);
+    drawWorldSky(memory, legacyCommandAddress, legacyCommandCount, stats);
+    gl.enable(gl.DEPTH_TEST);
+    drawPersistentTerrain(stats);
+    const transparentCommands = [];
+    const opaqueBatches = new Map();
+    for (let index = 0; index < commandCount; index += 1) {
+      const world = worldCommandFromWasm(
+        memory, commandAddress + index * WORLD_COMMAND_BYTES
+      );
+      const entry = worldRenderEntry(world, memory);
+      if (entry === null) continue;
+      if (entry.operation === "replace") {
+        const batch = opaqueBatches.get(entry.texture.texture);
+        if (batch === undefined) {
+          opaqueBatches.set(entry.texture.texture, [entry]);
+        } else {
+          batch.push(entry);
+        }
+      } else {
+        transparentCommands.push(entry);
+      }
+    }
+    for (const batch of opaqueBatches.values()) {
+      drawWorldBatch(batch, true, stats);
+    }
+    transparentCommands.sort((left, right) => {
+      const leftDepth = left.world.viewY[0] + left.world.viewY[1] +
+        left.world.viewY[2] + left.world.viewY[3];
+      const rightDepth = right.world.viewY[0] + right.world.viewY[1] +
+        right.world.viewY[2] + right.world.viewY[3];
+
+      return rightDepth - leftDepth;
+    });
+    let transparentBatch = [];
+    for (const entry of transparentCommands) {
+      if (transparentBatch.length !== 0 &&
+          !sameWorldBatch(transparentBatch[0], entry)) {
+        drawWorldBatch(transparentBatch, false, stats);
+        transparentBatch = [];
+      }
+      transparentBatch.push(entry);
+    }
+    drawWorldBatch(transparentBatch, false, stats);
+    gl.depthMask(true);
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+
   const COMMAND_VERTEX_FLOATS = 19;
   const COMMAND_VERTEX_BYTES = COMMAND_VERTEX_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 
@@ -805,9 +1617,9 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     const geometry = fallbackGeometry(command);
     let hull = convexHull(command);
     const minX = Math.max(0, Math.floor(Math.min(...command.x)));
-    const maxX = Math.min(canvas.width, Math.ceil(Math.max(...command.x)));
+    const maxX = Math.min(displayWidth, Math.ceil(Math.max(...command.x)));
     const minY = Math.max(0, Math.floor(Math.min(...command.y)));
-    const maxY = Math.min(canvas.height, Math.ceil(Math.max(...command.y)));
+    const maxY = Math.min(displayHeight, Math.ceil(Math.max(...command.y)));
     if (hull === null || minX >= maxX || minY >= maxY) return null;
     const expandCoverage = !geometry.requiresFallback &&
       !isCollapsedQuadTriangle(command);
@@ -904,7 +1716,12 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     gl.bindTexture(gl.TEXTURE_2D, first.image.texture);
     gl.useProgram(program);
     configureBlend(first.operation, first.destinationScale);
-    gl.scissor(minX, canvas.height - maxY, maxX - minX, maxY - minY);
+    gl.uniform2f(renderScale, renderWidth / displayWidth,
+                 renderHeight / displayHeight);
+    gl.scissor(Math.floor(minX * renderWidth / displayWidth),
+               Math.floor((displayHeight - maxY) * renderHeight / displayHeight),
+               Math.ceil((maxX - minX) * renderWidth / displayWidth),
+               Math.ceil((maxY - minY) * renderHeight / displayHeight));
     gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fillVertices), gl.DYNAMIC_DRAW);
     configureCommandAttributes();
@@ -996,11 +1813,13 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
                  (command.palette & 31) / 31);
     gl.uniform3f(textOutline, 0, 0, 1 / 31);
     const left = Math.max(0, command.x[0]);
-    const right = Math.min(canvas.width, command.x[0] + command.width);
+    const right = Math.min(displayWidth, command.x[0] + command.width);
     if (left >= right) return;
 
     // PRE1 can reveal a TextCel progressively from its left edge.
-    gl.scissor(left, 0, right - left, canvas.height);
+    gl.scissor(Math.floor(left * renderWidth / displayWidth), 0,
+               Math.ceil((right - left) * renderWidth / displayWidth),
+               renderHeight);
     gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
   }
 
@@ -1026,6 +1845,11 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
         gl.deleteTexture(textFont.texture);
       }
       textFont = nextFont;
+    },
+    updateTerrainState,
+    updateTerrainFrame,
+    worldStats() {
+      return { ...lastWorldStats };
     },
     copyVram(bank, memory, source) {
       const pixels = new Uint8Array(displayWidth * displayHeight * 4);
@@ -1074,8 +1898,13 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
       if (clippedLeft >= clippedRight || clippedTop >= clippedBottom) return;
 
       bindScreenBank(bank);
-      gl.scissor(clippedLeft, displayHeight - clippedBottom,
-                 clippedRight - clippedLeft, clippedBottom - clippedTop);
+      gl.scissor(Math.floor(clippedLeft * renderWidth / displayWidth),
+                 Math.floor((displayHeight - clippedBottom) *
+                            renderHeight / displayHeight),
+                 Math.ceil((clippedRight - clippedLeft) *
+                           renderWidth / displayWidth),
+                 Math.ceil((clippedBottom - clippedTop) *
+                           renderHeight / displayHeight));
       gl.clearColor(((colour >>> 10) & 31) / 31,
                     ((colour >>> 5) & 31) / 31, (colour & 31) / 31, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1098,10 +1927,13 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
     },
     setFade(opacity) {
       fade = Math.max(0, Math.min(1, opacity));
+      resizeRenderTargets();
       drawBankToCanvas(displayedBank, fade);
     },
     startCinematic(video) {
+      worldFrameActive = false;
       cinematicVideo = video;
+      resizeRenderTargets();
       drawBankToCanvas(displayedBank, fade);
       drawCinematicFrame();
       scheduleCinematicFrame();
@@ -1116,6 +1948,7 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
       }
       cinematicFrameCallback = undefined;
       cinematicVideo = undefined;
+      worldFrameActive = false;
       drawBankToCanvas(displayedBank, fade);
     },
     submit,
@@ -1129,6 +1962,12 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
         const command = commandFromWasm(
           memory, commandAddress + index * COMMAND_BYTES
         );
+        if ((command.encoding & WORLD_ENCODING) !== 0 ||
+            (worldFrameActive &&
+             (command.encoding & WORLD_BACKGROUND_ENCODING) !== 0) ||
+            (worldFrameActive && (command.encoding & 0xff) === SKY_ENCODING)) {
+          continue;
+        }
         if ((command.encoding & 0xff) === TEXT_ENCODING) {
           flush();
           drawText(command, textForCommand(command, memory));
@@ -1143,8 +1982,16 @@ export function createWebGLRenderer(canvas, textureForCommand, textForCommand) {
       }
       flush();
     },
-    present(memory, commandAddress, commandCount, bank) {
-      bindScreenBank(bank);
+    present(memory, commandAddress, commandCount, worldCommandAddress,
+            worldCommandCount, bank) {
+      resizeRenderTargets();
+      worldFrameActive = drawWorld(memory, worldCommandAddress, worldCommandCount,
+                                   commandAddress, commandCount);
+      if (worldFrameActive) {
+        clearScreenBank(bank);
+      } else {
+        bindScreenBank(bank);
+      }
       this.submitWasm(memory, commandAddress, commandCount);
       applyScreenOperations();
       displayedBank = normaliseBank(bank);

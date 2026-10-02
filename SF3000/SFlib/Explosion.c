@@ -20,6 +20,28 @@
 #include "Weapons.h"
 #include "String.h"
 #include "Collision.h"
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_world_renderer.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
+static void set_ground_height(long x_pos, long y_pos, long new_height)
+{
+	char height = (char)new_height;
+
+	if (height_map[y_pos][x_pos] == height)
+		return;
+	height_map[y_pos][x_pos] = height;
+#if defined(SF_WEB_PORT)
+	sf_web_world_renderer_mark_terrain_height_change((uint32_t)x_pos,
+		(uint32_t)y_pos);
+#endif
+}
 
 void static_explode( long grid_pos , long damage )
 {
@@ -89,7 +111,7 @@ while ((explosion->header).status==1)
 	// Get the adr of the next before any deleting is done
 	explosion_temp = (explosion_stack*) (explosion->header).next_address ;
 	
-	explosion->counter -=1 ;
+	explosion->counter += SF_SIMULATION_DELTA(-1) ;
 	
 	if ( (explosion->counter) < 0 )
 	{
@@ -733,7 +755,7 @@ new_height = ( (long) height_map [ y_pos ] [ x_pos ] ) - damage ;
 // Check min height
 if (new_height < 17) new_height = 17 ;
 
-height_map [ y_pos ] [ x_pos ] = (char) new_height ;
+set_ground_height(x_pos, y_pos, new_height);
 
 // Check rate of change of height in surrounding area
 
@@ -834,7 +856,7 @@ new_height = ( (long) height_map [ y_pos ] [ x_pos ] ) + damage ;
 // Check max height
 if (new_height > 255) new_height = 255 ;
 
-height_map [ y_pos ] [ x_pos ] = (char) new_height ;
+set_ground_height(x_pos, y_pos, new_height);
 
 // Check rate of change of height in surrounding area
 
@@ -1034,9 +1056,9 @@ section_group_data = (section_groups*) (details + (section->type-SECTION) )->ext
 
 
 // Update the movement of this section
-section->goto_x += section->x_vel ;
-section->goto_y += section->y_vel ;
-section->goto_z += section->z_vel ;
+section->goto_x += SF_SIMULATION_DELTA(section->x_vel) ;
+section->goto_y += SF_SIMULATION_DELTA(section->y_vel) ;
+section->goto_z += SF_SIMULATION_DELTA(section->z_vel) ;
 
 // Get real centre point for this section
 node_data.x_pos = section->aim_goto_x ;
@@ -1055,20 +1077,22 @@ section->z_pos = section->goto_z + node_data.z_pos ;
 // Gravity - but not in space
 if ( which_graphics_set != SPACE_GRAPHICS )
 {
-	section->z_vel -= (1<<19) ;
+	section->z_vel += SF_SIMULATION_DELTA(-(1<<19)) ;
 }
 
 // Friction
-section->x_vel -= (section->x_vel>>6) ;
-section->y_vel -= (section->y_vel>>6) ;
-section->z_vel -= (section->z_vel>>6) ;
+section->x_vel += SF_SIMULATION_DELTA(-(section->x_vel>>6)) ;
+section->y_vel += SF_SIMULATION_DELTA(-(section->y_vel>>6)) ;
+section->z_vel += SF_SIMULATION_DELTA(-(section->z_vel>>6)) ;
 
-section->y_rot = ((section->y_rot+section->x_control)&ROT_LIMIT);
-section->z_rot = ((section->z_rot+section->y_control)&ROT_LIMIT);
+section->y_rot = ((section->y_rot+
+	SF_SIMULATION_DELTA(section->x_control))&ROT_LIMIT);
+section->z_rot = ((section->z_rot+
+	SF_SIMULATION_DELTA(section->y_control))&ROT_LIMIT);
 
-section->shields -= 1 ;
+section->shields += SF_SIMULATION_DELTA(-1) ;
 
-if ( section_group_data != NULL )
+if (SF_SIMULATION_REFERENCE_TICK() && section_group_data != NULL )
 {
 	// Section smoke
 	switch( section->misc_counter )
@@ -1349,9 +1373,9 @@ collision_data = (collision_details*) (collision_header + 1) ;
 section_group_data = (section_groups*) (details + (section->type-SHIP_SECTION) )->extra_data ;
 
 // Update the movement of this section
-section->goto_x += section->x_vel ;
-section->goto_y += section->y_vel ;
-section->goto_z += section->z_vel ;
+section->goto_x += SF_SIMULATION_DELTA(section->x_vel) ;
+section->goto_y += SF_SIMULATION_DELTA(section->y_vel) ;
+section->goto_z += SF_SIMULATION_DELTA(section->z_vel) ;
 
 // Get real centre point for this section
 node_data.x_pos = section->aim_goto_x ;
@@ -1371,20 +1395,22 @@ section->z_pos = section->goto_z + node_data.z_pos ;
 // Gravity - but not in space
 if ( which_graphics_set != SPACE_GRAPHICS )
 {
-	section->z_vel -= (1<<17) ;
+	section->z_vel += SF_SIMULATION_DELTA(-(1<<17)) ;
 }
 
 // Friction
-section->x_vel -= (section->x_vel>>6) ;
-section->y_vel -= (section->y_vel>>6) ;
-section->z_vel -= (section->z_vel>>6) ;
+section->x_vel += SF_SIMULATION_DELTA(-(section->x_vel>>6)) ;
+section->y_vel += SF_SIMULATION_DELTA(-(section->y_vel>>6)) ;
+section->z_vel += SF_SIMULATION_DELTA(-(section->z_vel>>6)) ;
 
-section->y_rot = ((section->y_rot+section->x_control)&ROT_LIMIT);
-section->z_rot = ((section->z_rot+section->y_control)&ROT_LIMIT);
+section->y_rot = ((section->y_rot+
+	SF_SIMULATION_DELTA(section->x_control))&ROT_LIMIT);
+section->z_rot = ((section->z_rot+
+	SF_SIMULATION_DELTA(section->y_control))&ROT_LIMIT);
 
-section->shields -= 1 ;
+section->shields += SF_SIMULATION_DELTA(-1) ;
 
-if ( section_group_data != NULL )
+if (SF_SIMULATION_REFERENCE_TICK() && section_group_data != NULL )
 {
 	// Section smoke
 	switch( section->misc_counter )
@@ -2145,8 +2171,6 @@ if (section_randy_crystals == 0)
 }
 
 }
-
-
 
 
 

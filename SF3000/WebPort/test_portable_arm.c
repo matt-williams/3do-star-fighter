@@ -29,6 +29,7 @@ long divide(long numerator, long denominator);
 int target_finder(void *data);
 int scan_poly_map(long x, long y, void *results);
 int scan_poly_map_2(long x, long y, void *results);
+int scan_poly_map_3(long x, long y, void *results);
 void arm_randominit(void);
 long arm_random(void);
 long arm_randomvalue(long maximum);
@@ -115,6 +116,7 @@ static void test_fixed_point_math(void)
 static void test_random_and_map_scans(void)
 {
     sf_arm_i32 results[1025];
+    sf_arm_i32 wide_results[4097];
 
     arm_randominit();
     assert((sf_arm_u32)arm_random() == 0x00000c01U);
@@ -132,6 +134,10 @@ static void test_random_and_map_scans(void)
     assert(results[0] == 127 * 128 + 124);
     assert(results[1] == 0);
     assert(results[2] == -1);
+    assert(scan_poly_map_3(96, 96, wide_results) == 0);
+    assert(wide_results[0] == 127 * 128 + 124);
+    assert(wide_results[1] == 0);
+    assert(wide_results[2] == -1);
 }
 
 typedef struct test_link_item {

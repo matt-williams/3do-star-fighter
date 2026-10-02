@@ -143,6 +143,7 @@ void sf3000_webport_rotate_camera(sf3000_webport_vec3 *point);
 int32_t sf3000_webport_perspective_scale(int32_t depth, int high_resolution);
 void sf3000_webport_set_quad(sf3000_webport_celdata *quad,
 			      const int32_t points[8], int32_t shade);
+void sf3000_webport_advance_world_animation_state(void);
 void sf3000_webport_clip_vec3(sf3000_webport_vec3 *first,
 			       sf3000_webport_vec3 *second);
 void clip_3d_line(long *x0, long *y0, long *z0, long *x1, long *y1,

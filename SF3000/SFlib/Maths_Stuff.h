@@ -9,3 +9,4 @@ extern int target_finder(void*);
 extern int mc_smoke_mover(void*);
 extern int scan_poly_map(long, long, void*);
 extern int scan_poly_map_2(long, long, void*);
+extern int scan_poly_map_3(long, long, void*);

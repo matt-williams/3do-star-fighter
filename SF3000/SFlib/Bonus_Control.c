@@ -9,6 +9,15 @@
 #include "String.h"
 #include "Graphics_Set.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_fixed_step.h"
+#define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
+#define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
+#else
+#define SF_SIMULATION_DELTA(value) (value)
+#define SF_SIMULATION_REFERENCE_TICK() 1
+#endif
+
 //################################################
 //#                                              #
 //#     Bonus control and decision maker 	     #
@@ -28,32 +37,34 @@ spin_rate = spin_rate << 9 ;
 // Spin on the x depending on type which way
 if ( ((bonus->type)&1) == 0)
 {
-	bonus->x_rot = ((bonus->x_rot)-spin_rate)&ROT_LIMIT ;
+	bonus->x_rot = ((bonus->x_rot)+
+		SF_SIMULATION_DELTA(-spin_rate))&ROT_LIMIT ;
 }
 else
 {
-	bonus->x_rot = ((bonus->x_rot)+spin_rate)&ROT_LIMIT ;
+	bonus->x_rot = ((bonus->x_rot)+
+		SF_SIMULATION_DELTA(spin_rate))&ROT_LIMIT ;
 }
 
 // add on velocitys
-bonus->x_pos += bonus->x_vel ;
-bonus->y_pos += bonus->y_vel ;
-bonus->z_pos += bonus->z_vel ;
+bonus->x_pos += SF_SIMULATION_DELTA(bonus->x_vel) ;
+bonus->y_pos += SF_SIMULATION_DELTA(bonus->y_vel) ;
+bonus->z_pos += SF_SIMULATION_DELTA(bonus->z_vel) ;
 
 // slow down the velocitys quickly
-bonus->x_vel -= (bonus->x_vel>>4) ;
-bonus->y_vel -= (bonus->y_vel>>4) ;
-bonus->z_vel -= (bonus->z_vel>>4) ;
+bonus->x_vel += SF_SIMULATION_DELTA(-(bonus->x_vel>>4)) ;
+bonus->y_vel += SF_SIMULATION_DELTA(-(bonus->y_vel>>4)) ;
+bonus->z_vel += SF_SIMULATION_DELTA(-(bonus->z_vel>>4)) ;
 
 // Dec counter
-bonus->shields -= 1 ;
+bonus->shields += SF_SIMULATION_DELTA(-1) ;
 
 if (bonus->what_hit_me != 0) bonus_collision( bonus );
 
 if (which_graphics_set != SPACE_GRAPHICS)
 {
 	// Rise slowly
-	bonus->z_pos += (1<<18) ;
+	bonus->z_pos += SF_SIMULATION_DELTA(1<<18) ;
 
 	coll_check = find_ground_height(bonus->x_pos,bonus->y_pos) ;
 	if (coll_check>bonus->z_pos)
@@ -218,7 +229,8 @@ void update_bonus_crystal_adder( void )
 
 if (bonus_crystal_adder.counter >= 0)
 {
-	if ( (bonus_crystal_adder.counter&31) == 0)
+	if (SF_SIMULATION_REFERENCE_TICK() &&
+		(bonus_crystal_adder.counter&31) == 0)
 	{
 		add_bonus ( 	bonus_crystal_adder.x_pos ,
 						bonus_crystal_adder.y_pos ,
@@ -227,7 +239,7 @@ if (bonus_crystal_adder.counter >= 0)
 						((arm_random())&7)
 						) ;
 	}
-	bonus_crystal_adder.counter -= 1 ;
+	bonus_crystal_adder.counter += SF_SIMULATION_DELTA(-1) ;
 	
 	if (bonus_crystal_adder.counter == 0)
 	{
@@ -329,4 +341,3 @@ add_bonus ( x_pos ,
 toggle = 7 - toggle ;
 
 }
-
