@@ -4,8 +4,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-sf_arm_i32 cosine_table[2048];
-unsigned char tangent_table[4100];
 unsigned char poly_map[128][128];
 unsigned char height_map[256][256];
 sf_arm_i32 graphics_data[19000];
@@ -46,37 +44,6 @@ void armzsort_add(long distance, void *graphic_address, long reference);
 void setup_collision_constants(long space_mission);
 long find_ground_height(long x_position, long y_position);
 long check_collision(long x_position, long y_position, long z_position);
-
-static void set_tangent(unsigned int index, sf_arm_i32 value)
-{
-    tangent_table[index * 4U] = (unsigned char)(sf_arm_u32)value;
-    tangent_table[index * 4U + 1U] = (unsigned char)((sf_arm_u32)value >> 8U);
-    tangent_table[index * 4U + 2U] = (unsigned char)((sf_arm_u32)value >> 16U);
-    tangent_table[index * 4U + 3U] = (unsigned char)((sf_arm_u32)value >> 24U);
-}
-
-static void initialise_tables(void)
-{
-    cosine_table[0] = 4096;
-    cosine_table[256] = 0;
-    cosine_table[512] = -4096;
-    cosine_table[768] = 0;
-    cosine_table[1024] = 4096;
-    cosine_table[768] = 0;
-    cosine_table[1024] = 4096;
-    cosine_table[1280] = 0;
-    cosine_table[1536] = -4096;
-    cosine_table[1792] = 0;
-
-    /* sine_table starts at cosine_table[768]. */
-    cosine_table[768 + 0] = 0;
-    cosine_table[768 + 256] = 4096;
-    cosine_table[768 + 512] = 0;
-    cosine_table[768 + 768] = -4096;
-    cosine_table[768 + 1024] = 0;
-    set_tangent(0, 0);
-    set_tangent(1024, 128 * 1024);
-}
 
 static void test_fixed_point_math(void)
 {
@@ -216,7 +183,6 @@ static void test_ground_collision(void)
 
 int main(void)
 {
-    initialise_tables();
     test_fixed_point_math();
     test_random_and_map_scans();
     test_link_routines();

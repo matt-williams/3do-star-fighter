@@ -1,4 +1,5 @@
 #include "ship_struct.h"
+#include "../WebPort/sf_web_math.h"
 
 #define C_LEFT		1
 #define C_RIGHT		2
@@ -8,8 +9,6 @@
 #define C_FIRE		32
 #define ROT_LIMIT	((1024*1024)-1)
 
-extern long cosine_table [ 2048 ] ;
-extern long *sine_table ;
 
 #include "Misc_Struct.h"
 extern docking_struct docked ;

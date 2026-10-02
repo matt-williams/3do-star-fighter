@@ -1,7 +1,6 @@
 #include "Bit_Struct.h"
+#include "../WebPort/sf_web_math.h"
 
-extern long cosine_table [ 2048 ] ;
-extern long *sine_table ;
 
 extern bit_list bits ;
 #define ROT_LIMIT	((1024*1024)-1)

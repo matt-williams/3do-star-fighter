@@ -72,7 +72,7 @@ if (mode == SDB_MODE_FORMATION)
 }
 
 
-//if ( mode != SDB_MODE_ATTACK ) return ; 
+//if ( mode != SDB_MODE_ATTACK ) return ;
 
 // Attack mode controller
 
@@ -120,38 +120,38 @@ if ( ship->aim_counter < 0 )
 	{
 		ship->aim_counter = 256 + (arm_random()&511) ;
 		ship->aim_x_vel = 256 + (arm_random()&255) ;
-	}	
+	}
 }
 
 
 // Avoid hills
 if ( ship->z_pos < (40<<24) && ship->z_pos > -(16<<24) && which_graphics_set != SPACE_GRAPHICS )
 {
-	//coll_check = find_ground_height(	ship->x_pos + (ship->x_vel<<3) , 
+	//coll_check = find_ground_height(	ship->x_pos + (ship->x_vel<<3) ,
 	//									ship->y_pos + (ship->y_vel<<3) );
-	
-	
+
+
 	for (loop = 0 ; loop <= 3 ; loop += 1)
 	{
-		goto_x =	ship->x_pos -( sine_table [ (ship->x_rot)>>10 ] <<(12+loop) ) ;
+		goto_x =	ship->x_pos -( sf_sin_q12( (ship->x_rot)>>10 ) <<(12+loop) ) ;
 
-		goto_y =	ship->y_pos -( cosine_table [ (ship->x_rot)>>10 ] <<(12+loop) ) ;
+		goto_y =	ship->y_pos -( sf_cos_q12( (ship->x_rot)>>10 ) <<(12+loop) ) ;
 
-		coll_check = find_ground_height(	goto_x , 
+		coll_check = find_ground_height(	goto_x ,
 											goto_y );
-		
+
 		if ( coll_check > ( ship->z_pos + (ship->z_vel<<(2+loop) ) - ( 1<<(23+loop) ) ) )
 		{
-	
+
 			// 4096 speed = 1 sprite unit per frame
-			//goto_x =	ship->x_pos -( sine_table [ (ship->x_rot)>>10 ] <<14 ) ;
-	
-			//goto_y =	ship->y_pos -( cosine_table [ (ship->x_rot)>>10 ] <<14 ) ;
-	
+			//goto_x =	ship->x_pos -( sf_sin_q12( (ship->x_rot)>>10 ) <<14 ) ;
+
+			//goto_y =	ship->y_pos -( sf_cos_q12( (ship->x_rot)>>10 ) <<14 ) ;
+
 			//goto_z = find_ground_height( goto_x , goto_y ) + ( 1<<(23+loop) ) ;
-			
+
 			goto_z = coll_check + ( 1<<(23+loop) ) ;
-		
+
 			ship->aim_counter = 10 ;
 			ship->aim_x_vel = 512 ;
 			coll_check = 1 ;
@@ -159,13 +159,13 @@ if ( ship->z_pos < (40<<24) && ship->z_pos > -(16<<24) && which_graphics_set != 
 		}
 		else
 		{
-			//goto_x =	ship->x_pos -( sine_table [ (ship->x_rot)>>10 ] <<14 ) ;
-			//goto_y =	ship->y_pos -( cosine_table [ (ship->x_rot)>>10 ] <<14 ) ;
+			//goto_x =	ship->x_pos -( sf_sin_q12( (ship->x_rot)>>10 ) <<14 ) ;
+			//goto_y =	ship->y_pos -( sf_cos_q12( (ship->x_rot)>>10 ) <<14 ) ;
 			//goto_z = ship->z_pos - (1<<22) ;
 			//coll_check = 1 ;
-			
+
 			coll_check = 0 ;
-		}	
+		}
 	}
 }
 
@@ -178,20 +178,20 @@ if ( coll_check == 0 )
 	{
 		// Use these for the y aim
 		node_data.x_pos =	( (ship->x_pos) - (ship->aim_goto_x) )>>6 ;
-	
+
 		node_data.y_pos =	( (ship->y_pos) - (ship->aim_goto_y) )>>6 ;
-	
+
 		node_data.z_pos =	( (ship->aim_goto_z) - (ship->z_pos) )>>6 ;
 	}
 	else
 	{
 		// Use these for the y aim
-		node_data.x_pos =	( (ship->x_pos) - 
+		node_data.x_pos =	( (ship->x_pos) -
 							( ship->goto_x + (((dist>>12) * temp_ship->x_vel)>>14) ))>>6 ;
-	
-		node_data.y_pos =	( (ship->y_pos) - 
+
+		node_data.y_pos =	( (ship->y_pos) -
 							( ship->goto_y + (((dist>>12) * temp_ship->y_vel)>>14) ))>>6 ;
-	
+
 		node_data.z_pos =	( ( ship->goto_z + (((dist>>12) * temp_ship->z_vel)>>14) )
 							- (ship->z_pos) )>>6 ;
 	}
@@ -200,7 +200,7 @@ else
 {
 	node_data.x_pos = (ship->x_pos - goto_x)>>6 ;
 	node_data.y_pos = (ship->y_pos - goto_y)>>6 ;
-	node_data.z_pos = (goto_z - ship->z_pos)>>6 ;	
+	node_data.z_pos = (goto_z - ship->z_pos)>>6 ;
 }
 
 node_data.x_rot = ship->x_rot ;
@@ -299,7 +299,7 @@ if (z_roll < (-(1<<19)) ) z_roll += (1<<20) ;
 ship->x_control = (-(z_roll>>8)) ;
 
 
-// Sort out the y control 
+// Sort out the y control
 // Is the target behind me - yes wham in full up or down
 if ( node_data.y_pos > 0)
 {
@@ -315,7 +315,7 @@ if ( node_data.y_pos > 0)
 else
 {
 	temp_long3 = (((node_data.z_pos/temp_long))) ;
-	
+
 	if ( temp_long3 > -128 && temp_long3 < 128 )
 	{
 		ship->y_control = temp_long3 ;
@@ -344,10 +344,10 @@ if (y_rot_rel > (512*1024) ) y_rot_rel -= (1024*1024) ;
 if (y_rot_rel < -(512*1024) ) y_rot_rel += (1024*1024) ;
 
 // Aim cos value - On line = +ve 1024 - Off line = -ve 1024
-temp_long = (	((cosine_table [ ((x_aim>>10)&1023) ] * cosine_table [ ((y_aim>>10)&1023) ])>>12)
-			*((cosine_table [ ((x_rot_rel>>10)&1023) ] * cosine_table [ ((y_rot_rel>>10)&1023) ])>>12)
+temp_long = (	((sf_cos_q12( ((x_aim>>10)&1023) ) * sf_cos_q12( ((y_aim>>10)&1023) ))>>12)
+			*((sf_cos_q12( ((x_rot_rel>>10)&1023) ) * sf_cos_q12( ((y_rot_rel>>10)&1023) ))>>12)
 			)>>14 ;
-	
+
 //temp_long = ship->aim_x_vel ;
 
 //if (temp_long < 0)
@@ -391,9 +391,9 @@ if (ship->command != COMMAND_ATTACK_RUN_AWAY )
 			ship->aim_counter = ship->command_counter ;
 			ship->aim_x_vel = 1024 ;
 		}
-		
+
 		dist -= (6<<24) ;
-		if (dist < 0) dist = 0 ;	
+		if (dist < 0) dist = 0 ;
 	}
 	else
 	{
@@ -401,13 +401,13 @@ if (ship->command != COMMAND_ATTACK_RUN_AWAY )
 		{
 			ship->command = COMMAND_ATTACK_RUN_AWAY ;
 			ship->command_counter = 128 + (arm_random()&127) ;
-			ship->aim_counter = ship->command_counter ;	
+			ship->aim_counter = ship->command_counter ;
 			ship->aim_x_vel = 1024 ;
-	
+
 			ship->aim_x_rot = ship->x_rot ;
 			ship->aim_y_rot = ship->y_rot ;
 			ship->aim_z_rot = (arm_random()&2047)-1024 ;
-			
+
 			// Climb or dive
 			if ( ship->z_pos > (34<<24) || ship->z_pos < -(34<<24) )
 			{
@@ -432,7 +432,7 @@ if (ship->command != COMMAND_ATTACK_RUN_AWAY )
 				}
 			}
 		}
-	
+
 		dist -= (5<<24) ;
 		if (dist < 0) dist = 0 ;
 	}
@@ -450,33 +450,33 @@ if ( ship->command == COMMAND_ATTACK_RUN_AWAY )
 	if ( dist<(4<<24) )
 	{
 		// 4096 speed = 1 sprite unit per frame
-		ship->aim_goto_x =	temp_ship->x_pos -(( sine_table [ (ship->x_dir)>>10 ] * 
-							cosine_table [ (ship->y_dir)>>10 ] ) << 3) ;
+		ship->aim_goto_x =	temp_ship->x_pos -(( sf_sin_q12( (ship->x_dir)>>10 ) *
+							sf_cos_q12( (ship->y_dir)>>10 ) ) << 3) ;
 
-		ship->aim_goto_y =	temp_ship->y_pos -(( cosine_table [ (ship->x_dir)>>10 ] * 
-							cosine_table [ (ship->y_dir)>>10 ] ) << 3) ;
+		ship->aim_goto_y =	temp_ship->y_pos -(( sf_cos_q12( (ship->x_dir)>>10 ) *
+							sf_cos_q12( (ship->y_dir)>>10 ) ) << 3) ;
 		min_speed = (1<<20) ;// Floor it
 	}
 	else
 	{
 		// 4096 speed = 1 sprite unit per frame
-		ship->aim_goto_x =	temp_ship->x_pos -(( sine_table [ (ship->aim_x_rot)>>10 ] * 
-							cosine_table [ (ship->aim_y_rot)>>10 ] )<<6) ;
+		ship->aim_goto_x =	temp_ship->x_pos -(( sf_sin_q12( (ship->aim_x_rot)>>10 ) *
+							sf_cos_q12( (ship->aim_y_rot)>>10 ) )<<6) ;
 
-		ship->aim_goto_y =	temp_ship->y_pos -(( cosine_table [ (ship->aim_x_rot)>>10 ] * 
-							cosine_table [ (ship->aim_y_rot)>>10 ] )<<6);
+		ship->aim_goto_y =	temp_ship->y_pos -(( sf_cos_q12( (ship->aim_x_rot)>>10 ) *
+							sf_cos_q12( (ship->aim_y_rot)>>10 ) )<<6);
 
-		ship->aim_goto_z =	temp_ship->z_pos + ( sine_table [ (ship->aim_y_rot)>>10 ] <<18 ) ;
-	
+		ship->aim_goto_z =	temp_ship->z_pos + ( sf_sin_q12( (ship->aim_y_rot)>>10 ) <<18 ) ;
+
 		temp_long  = ((ship->command_counter&63)-32)<<6 ;
-		
+
 		ship->aim_x_rot = ((ship->aim_z_rot+ship->aim_x_rot+temp_long)&ROT_LIMIT) ;
 		ship->aim_y_rot = ((ship->aim_y_rot-(temp_long>>1) )&ROT_LIMIT) ;
-		
+
 		// Tend to levl
 		if ( ship->aim_y_rot>(512<<10) ) ship->aim_y_rot -= (1024<<10) ;
 		ship->aim_y_rot = (ship->aim_y_rot-(ship->aim_y_rot>>4))&ROT_LIMIT ;
-		
+
 		if ( dist<(8<<24) )
 		{
 			min_speed = ((temp_ship->speed>>4) + temp_ship->speed) ;
@@ -487,16 +487,16 @@ if ( ship->command == COMMAND_ATTACK_RUN_AWAY )
 			min_speed = temp_ship->speed ;
 			max_speed = min_speed + 64 ;
 		}
-		
+
 		if ( dist>(24<<24) )
 		{
-			ship->command = COMMAND_ATTACK ;		
+			ship->command = COMMAND_ATTACK ;
 		}
 	}
 }
 
 
-//if(			ship->command == COMMAND_ATTACK )		
+//if(			ship->command == COMMAND_ATTACK )
 //{
 		//Test print up stuff
 //		status.score = 0 ;
@@ -545,7 +545,7 @@ else
 				ship->thrust_control -= 128 ;
 			}
 			else
-			{ 
+			{
 				ship->thrust_control += 128 ;
 			}
 		}
@@ -561,7 +561,7 @@ if (ship->thrust_control > 1024) ship->thrust_control = 1024 ;
 if (ship->fire_request != WEAPON_NOTHING)
 {
 	if (ship->command == COMMAND_ATTACK_RUN_AWAY) ship->fire_request = WEAPON_NOTHING ;
-	
+
 	if ( (temp_ship->type>>4) == BIG_SHIP )
 	{
 		if ( dist > (48<<24) || aim > (64<<10) )
@@ -628,10 +628,10 @@ if ( z_dist > dist ) dist = z_dist ;
 
 // Rotate these distances by the ships rot
 
-node_data.x_pos =	( (ship->x_pos) - 
+node_data.x_pos =	( (ship->x_pos) -
 					( ship->goto_x ) )>>6 ;
 
-node_data.y_pos =	( (ship->y_pos) - 
+node_data.y_pos =	( (ship->y_pos) -
 					( ship->goto_y ) )>>6 ;
 
 node_data.z_pos =	( ( ship->goto_z )
@@ -700,7 +700,7 @@ if (z_roll < (-(1<<19)) ) z_roll += (1<<20) ;
 ship->x_control = (-(z_roll>>8)) ;
 
 
-// Sort out the y control 
+// Sort out the y control
 // Is the target behind me - yes wham in full up or down
 if ( node_data.y_pos > 0)
 {
@@ -747,7 +747,7 @@ else
 		if (ship->thrust_control < 0) ship->thrust_control = 0 ;
 	}
 	else
-	{ 
+	{
 		ship->thrust_control += 128 ;
 		if (ship->thrust_control > 1024) ship->thrust_control = 1024 ;
 	}
@@ -781,7 +781,7 @@ temp_ship = (ship_stack*) ( (ship_sdb*) ship->special_data )->command_address ;
 
 mode = ship->special_data->control_mode ;
 
-if ( mode != SDB_MODE_FORMATION ) return ; 
+if ( mode != SDB_MODE_FORMATION ) return ;
 
 // Formation controller
 
@@ -798,20 +798,20 @@ if (ship->command == COMMAND_FIXED_FORMATION)
 		node_data.x_pos = ( ship->special_data )->x_offset ;
 		node_data.y_pos = -( ( ship->special_data )->y_offset +(1<<24) ) ;
 		node_data.z_pos = ( ship->special_data )->z_offset ;
-	
+
 		// Is this ship in formation with the player in the mother ship
 		if (	((temp_ship->type)>>4) == PLAYERS_SHIP &&
 				docked.status != DOCKING_OUT )
 		{
 			node_data.y_pos = -( ( ship->special_data )->y_offset + (4<<24) ) ;
 		}
-	
+
 		node_data.x_rot = temp_ship->x_rot ;
 		node_data.y_rot = temp_ship->y_rot ;
 		node_data.z_rot = temp_ship->z_rot ;
-	
+
 		rotate_node_from_c( &node_data );
-	
+
 		ship->x_pos = temp_ship->x_pos + node_data.x_pos ;
 		ship->y_pos = temp_ship->y_pos + node_data.y_pos ;
 		ship->z_pos = temp_ship->z_pos + node_data.z_pos ;
@@ -827,29 +827,29 @@ ship->who_owns_me = (long) ship->special_data->command_address ;
 if (ship->command == COMMAND_ENTER_FORMATION)
 {
 
-	// Formation offset stuff again but with offset y	
+	// Formation offset stuff again but with offset y
 	node_data.x_pos = ( ship->special_data )->x_offset ;
-	
+
 	// Offset for the ships y if in formation with the player when in the mother ship
 	if (	((temp_ship->type)>>4) == PLAYERS_SHIP &&
 			docked.status != DOCKING_OUT )
-	{	
+	{
 		node_data.y_pos = -( ( ship->special_data )->y_offset +(2<<24) ) ;
 	}
 	else
 	{
 		node_data.y_pos = -( ( ship->special_data )->y_offset -(1<<24) ) ;
 	}
-	
-	
+
+
 	node_data.z_pos = ( ship->special_data )->z_offset ;
-	
+
 	node_data.x_rot = temp_ship->x_rot ;
 	node_data.y_rot = temp_ship->y_rot ;
 	node_data.z_rot = temp_ship->z_rot ;
-	
+
 	rotate_node_from_c( &node_data );
-	
+
 	ship->goto_x = temp_ship->x_pos + node_data.x_pos ;
 	ship->goto_y = temp_ship->y_pos + node_data.y_pos ;
 	ship->goto_z = temp_ship->z_pos + node_data.z_pos ;
@@ -915,10 +915,10 @@ ship->aim_z_vel = 0 ;
 // Rotate these distances by the ships rot
 
 // Use these for the y aim
-node_data.x_pos =	( (ship->x_pos) - 
+node_data.x_pos =	( (ship->x_pos) -
 					(temp_ship->x_pos + node_data.x_pos + ship->aim_x_vel ))>>6 ;
 
-node_data.y_pos =	( (ship->y_pos) - 
+node_data.y_pos =	( (ship->y_pos) -
 					(temp_ship->y_pos + node_data.y_pos + ship->aim_y_vel ))>>6 ;
 
 node_data.z_pos =	( (temp_ship->z_pos + node_data.z_pos + ship->aim_z_vel )
@@ -991,7 +991,7 @@ if (ship->z_control > 1024) ship->z_control = 1024 ;
 if (ship->z_control < -1024) ship->z_control = -1024 ;
 
 
-// Sort out the y control 
+// Sort out the y control
 // Is the target behind me - yes wham in full up or down
 if ( node_data.y_pos > 0)
 {
@@ -1032,7 +1032,7 @@ else
 		if (ship->thrust_control < 0) ship->thrust_control = 0 ;
 	}
 	else
-	{ 
+	{
 		ship->thrust_control += 128 ;
 		if (ship->thrust_control > 1024) ship->thrust_control = 1024 ;
 	}

@@ -1,10 +1,9 @@
 #include "Smoke_Struct.h"
+#include "../WebPort/sf_web_math.h"
 #include "Ship_Struct.h"
 
 extern smoke_list smokes ;
 
-extern long cosine_table [ 2048 ] ;
-extern long *sine_table ;
 
 extern long which_graphics_set ;
 

@@ -46,12 +46,20 @@ void screen_base (long updateflags)
 // DRAW BACKDROP IMAGE ?
 
 	if (updateflags & S_IMAGE) 
+#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_backdrop(backdrop);
+#else
 		CopyVRAMPages(	VRAMIOReq, (screen->sc_Bitmaps [screen->sc_curScreen])->bm_Buffer,
 						backdrop, screen->sc_nFrameBufferPages, -1 );
+#endif
 	
 	if (updateflags & S_FLASH)
+#if defined(SF_WEB_PORT)
+		sf_web_runtime_clear(0);
+#else
 		SetVRAMPages(	VRAMIOReq, (screen->sc_Bitmaps [screen->sc_curScreen])->bm_Buffer,
 						0, screen->sc_nFrameBufferPages, -1);
+#endif
 }
 
 /**************************************/
@@ -108,7 +116,7 @@ long			temp_cels;
 			screen_swap (screen_swaptype);								// Do pre-flip screenswap ?
 
 #if defined(SF_WEB_PORT)
-		sf_web_runtime_present((uint32_t)screen->sc_curScreen);
+		sf_web_runtime_present();
 #endif
 				
 		DisplayScreen(screen->sc_Screens[screen->sc_curScreen],0);		// Swap screen
@@ -191,10 +199,16 @@ GrafCon GCon;
 	rectangle.rect_YTop = 0;
 	rectangle.rect_YBottom = DISPLAY_HEIGHT;
 	
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_fill_rect((uint32_t)GCon.gc_FGPen,
+						 rectangle.rect_XLeft, rectangle.rect_YTop,
+						 rectangle.rect_XRight, rectangle.rect_YBottom);
+	#else
 	if (screen_type == SCR_UPDATE)	
 		FillRect(screen->sc_BitmapItems[screen->sc_curScreen ], &GCon, &rectangle );
 	else
 		FillRect(screen->sc_BitmapItems[1-screen->sc_curScreen], &GCon, &rectangle );
+	#endif
 
 }
 
@@ -212,9 +226,19 @@ void	screen_swap (long swap_type)
 		{
 		case 1 :	FadeToBlack(screen, 20);	// SCREENSWAP 1 ?
 					break;
-		case 2 : 	screenswap_blurscreen();	// SCREENSWAP 2 ?
+		case 2 :
+#if defined(SF_WEB_PORT)
+					sf_web_runtime_blur_screen();
+#else
+					screenswap_blurscreen();
+#endif
 					break;
-		case 3 : 	screenswap_zoominbox();		// SCREENSWAP 3 ?
+		case 3 :
+#if defined(SF_WEB_PORT)
+					sf_web_runtime_zoom_screen();
+#else
+					screenswap_zoominbox();
+#endif
 					break;
 		}
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/legacy-text-indexed-v1.schema.json",
+  "title": "Star Fighter indexed text resource v1",
+  "description": "Array position is the legacy numeric message identifier.",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 160,
+  "items": {
+    "type": "string",
+    "pattern": "^[\\x20-\\x7E]*$"
+  }
+}

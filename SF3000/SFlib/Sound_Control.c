@@ -152,15 +152,15 @@ target.z_aim = (node_data.z_pos<<12) ;
 target_finder( &target );
 
 // Use the cosine of the relative x rot to get the stereo pos (+ve / -ve 16384)
-stereo_pos = (-(sine_table [ (target.x_rot>>10) ]) << 2) ;
+stereo_pos = (-(sf_sin_q12( (target.x_rot>>10) )) << 2) ;
 
 //printf("X rot %d\n",target.x_rot) ;
 //printf("Y rot %d\n\n",target.y_rot) ;
 
 // Find the real distance using the angles and relative dist
-//x_dist = ((node_data.x_pos)*sine_table [ (target.x_rot>>10) ]) ;
-//y_dist = ((node_data.y_pos)*cosine_table [ (target.x_rot>>10) ]) ;
-//z_dist = ((node_data.z_pos)*cosine_table [ (target.y_rot>>10) ]) ;
+//x_dist = ((node_data.x_pos)*sf_sin_q12( (target.x_rot>>10) )) ;
+//y_dist = ((node_data.y_pos)*sf_cos_q12( (target.x_rot>>10) )) ;
+//z_dist = ((node_data.z_pos)*sf_cos_q12( (target.y_rot>>10) )) ;
 
 //if (x_dist < 0) x_dist = -x_dist ;
 //if (y_dist < 0) y_dist = -y_dist ;

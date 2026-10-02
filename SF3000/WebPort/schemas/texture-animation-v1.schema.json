@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/texture-animation-v1.schema.json",
+  "title": "Star Fighter texture animation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "animations"],
+  "properties": {
+    "schema": { "const": "texture-animation-v1" },
+    "animations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/animation" }
+    }
+  },
+  "$defs": {
+    "word": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "texture_slot": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled", "initial_countdown", "frame_interval", "initial_frame",
+        "frame_count", "loop_frame", "sprites"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "initial_countdown": { "$ref": "#/$defs/word" },
+        "frame_interval": { "$ref": "#/$defs/word" },
+        "initial_frame": { "$ref": "#/$defs/word" },
+        "frame_count": { "type": "integer", "minimum": 1, "maximum": 255 },
+        "loop_frame": { "type": "integer", "minimum": 0, "maximum": 254 },
+        "sprites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["destination", "frames"],
+            "properties": {
+              "destination": { "$ref": "#/$defs/texture_slot" },
+              "frames": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 255,
+                "items": { "$ref": "#/$defs/texture_slot" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

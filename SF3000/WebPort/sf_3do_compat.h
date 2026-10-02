@@ -494,6 +494,7 @@ void FadeToBlack(ScreenContext *screen_context, int32 frames);
 void FadeFromBlack(ScreenContext *screen_context, int32 frames);
 
 FontDescriptor *LoadFont(const char *path, uint32 mem_type);
+FontDescriptor *LoadFontData(uint8 *data, uint32 size);
 void UnloadFont(FontDescriptor *font);
 TextCel *CreateTextCel(FontDescriptor *font, int32 width, int32 height, int32 flags);
 void DeleteTextCel(TextCel *text_cel);

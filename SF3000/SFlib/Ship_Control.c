@@ -141,18 +141,18 @@ ship->y_dir = mother->y_rot ;
 ship->speed += SF_SIMULATION_DELTA(-8) ;
 
 ship->x_vel =	-(
-				(( sine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_sin_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
 ship->y_vel =	-(
-				(( cosine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_cos_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
-ship->z_vel =	( sine_table [ (ship->y_dir)>>10 ] * (ship->speed) ) ;
+ship->z_vel =	( sf_sin_q12( (ship->y_dir)>>10 ) * (ship->speed) ) ;
 
 ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
 ship->y_pos += SF_SIMULATION_DELTA(ship->y_vel) ;
@@ -233,11 +233,11 @@ if ( ((ship->type)>>4) == PLAYERS_SHIP &&
 {
 	update_docking( ship );
 	ship->fire_request = WEAPON_NOTHING ;
-	ship->last_fire_request = WEAPON_NOTHING ;	
+	ship->last_fire_request = WEAPON_NOTHING ;
 	return ;
 }
 
-// x_control and y_control can be treated as rate of turn 
+// x_control and y_control can be treated as rate of turn
 // these are set by the ship commands or the joypad key presses for the player
 
 // Is this ship damaged
@@ -295,11 +295,11 @@ if (which_graphics_set != SPACE_GRAPHICS)
 {
 	// Gravity on speed
 	ship->speed += SF_SIMULATION_DELTA(
-		-(( sine_table [ (ship->y_dir)>>10 ])>>8)) ;
+		-(( sf_sin_q12( (ship->y_dir)>>10 ))>>8)) ;
 }
 
 // check min speed limit and increase if ness
-if ( (ship->speed) < 256 ) 
+if ( (ship->speed) < 256 )
 {
 	ship->speed += SF_SIMULATION_DELTA(-((ship->speed)>>3)) ;
 	ship->speed += SF_SIMULATION_DELTA(64) ;
@@ -344,7 +344,7 @@ temp_long = (-target_x_delta) >> 2 ;
 
 // Change z roll based on rate of change of x and sine y
 ship->z_rot =  ( (ship->z_rot + SF_SIMULATION_DELTA(
-	(sine_table [ ship->y_rot>>10 ] * temp_long )>>10))&ROT_LIMIT);
+	(sf_sin_q12( ship->y_rot>>10 ) * temp_long )>>10))&ROT_LIMIT);
 
 ship->x_rot = (ship->x_rot +
 	SF_SIMULATION_DELTA(target_x_delta))&ROT_LIMIT ;
@@ -357,10 +357,10 @@ ship->y_rot = (ship->y_rot +
 
 
 // change x rot based sine z roll and cosine y pitch to help auto turn corners
-ship->x_rot =	(ship->x_rot 
+ship->x_rot =	(ship->x_rot
 
-				+ SF_SIMULATION_DELTA(-( ( sine_table [ ship->z_rot>>10 ]
-				* cosine_table [ ship->y_rot>>10 ] )>>12 )
+				+ SF_SIMULATION_DELTA(-( ( sf_sin_q12( ship->z_rot>>10 )
+				* sf_cos_q12( ship->y_rot>>10 ) )>>12 )
 				)
 				)
 				&ROT_LIMIT ;
@@ -422,18 +422,18 @@ else
 // calculate the x,y,z velocities based on x , y direction and speed
 // 4096 speed = 1 sprite unit per frame
 ship->x_vel =	-(
-				(( sine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_sin_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
 ship->y_vel =	-(
-				(( cosine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_cos_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
-ship->z_vel =	( sine_table [ (ship->y_dir)>>10 ] * (ship->speed) ) ;
+ship->z_vel =	( sf_sin_q12( (ship->y_dir)>>10 ) * (ship->speed) ) ;
 
 // add velocity onto x ,y ,z positions
 ship->x_pos += SF_SIMULATION_DELTA(ship->x_vel) ;
@@ -445,25 +445,25 @@ if (which_graphics_set != SPACE_GRAPHICS) check_shippy_collision( ship ) ;
 
 // check for collisions with ground objects n' ground
 coll_check = check_collision ( ship->x_pos , ship->y_pos , ship->z_pos ) ;
-	
+
 if (coll_check != 0 && coll_check != ship->who_owns_me )
 {
 
-	// Damage based on the ships speed	
+	// Damage based on the ships speed
 	temp_long = (ship->speed)>>3 ;
 	if (temp_long < 0) temp_long = -temp_long ;
 
 	// Is it a collision with a static object
 	// If so damage the object based on the speed of the collision
 	if (coll_check > 0)
-	{		
+	{
 		static_explode ( coll_check , temp_long ) ;
 	}
 	else
 	{
 		dent_ground ( ship->x_pos , ship->y_pos , temp_long ) ;
 	}
-	
+
 	//Damage the ship based on the impact speed
 	ship->shields -= temp_long ;
 
@@ -480,7 +480,7 @@ if (coll_check != 0 && coll_check != ship->who_owns_me )
 	ship->x_vel = -ship->x_vel ;
 	ship->y_vel = -ship->y_vel ;
 	ship->z_vel = -ship->z_vel ;
-	
+
 	// Take the ship back 2 frame steps
 	ship->x_pos += SF_SIMULATION_DELTA((ship->x_vel)<<1) ;
 	ship->y_pos += SF_SIMULATION_DELTA((ship->y_vel)<<1) ;
@@ -495,7 +495,7 @@ if (coll_check != 0 && coll_check != ship->who_owns_me )
 if (ship->z_pos > (100<<24) && which_graphics_set != SPACE_GRAPHICS )
 {
 	if ( ship->z_pos > (124<<24) ) ship->z_pos = (124<<24) ;
-	
+
 	ship->y_rot = ((ship->y_rot)+
 		SF_SIMULATION_DELTA(-8192))&ROT_LIMIT ;
 }
@@ -531,7 +531,7 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 	// Check counters if its the players ship
 	if (ship->fire_request != WEAPON_LASER && ((ship->type)>>4) == PLAYERS_SHIP )
 	{
-		
+
 		// Check that the player has some of these weapons left
 		if (ship->performance->weapons[ship->fire_request] <= 0)
 		{
@@ -543,7 +543,7 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 		else
 		{
 			// If the weapon requires a lock (ie. missiles ) check its not null before allowing it
-			if ( (ship->fire_request == WEAPON_ATA || ship->fire_request == WEAPON_ATG ) 
+			if ( (ship->fire_request == WEAPON_ATA || ship->fire_request == WEAPON_ATG )
 				&& ship->target == NULL )
 			{
 				ship->fire_request = WEAPON_NOTHING ;
@@ -572,14 +572,14 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 			}
 		}
 	}
-	
+
 	switch (ship->fire_request)
 	{
-	
+
 	case WEAPON_LASER :
 	small_fighter_lasers( ship );
 	break ;
-	
+
 	case WEAPON_ATG :
 
 	if ( ((ship->type)>>4) == PLAYERS_SHIP )
@@ -594,9 +594,9 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 	{
 		add_air_to_air( ship , (ship_stack*) ship->target ) ;
 	}
-	
+
 	break ;
-	
+
 	case WEAPON_ATA :
 
 	if ( ((ship->type)>>4) == PLAYERS_SHIP )
@@ -617,28 +617,28 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 	{
 		add_air_to_air( ship , (ship_stack*) ship->target ) ;
 	}
-	
+
 	break ;
-	
+
 	case WEAPON_MINE :
 	add_mine( ship ) ;
 	break ;
-	
+
 	case WEAPON_MEGA_BOMB :
 	add_mega_bomb( ship ) ;
 	break ;
-	
+
 	// Only available for the players ship
 	case WEAPON_BEAM_LASER :
 	if (beam_laser.on_last_frame == 0) start_beam_lasers() ;
 	ship->counter =	0 ;
 	update_beam_lasers() ;
 	break ;
-	
+
 	case WEAPON_MULTI_MISSILE :
-	
+
 	// Fires three missiles at nearest 3 targets
-	
+
 	add_air_to_air( ship , (ship_stack*) ship->target ) ;
 
 	// Is there a 2nd target - if not 1st target gets a double wammer
@@ -650,8 +650,8 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 	{
 		add_air_to_air( ship , (ship_stack*) ship->target ) ;
 	}
-	
-	// Is there a 3rd target - if not 1st target gets a triple wammer	
+
+	// Is there a 3rd target - if not 1st target gets a triple wammer
 	if (ship->target3 != NULL)
 	{
 		add_air_to_air( ship , (ship_stack*) ship->target3 ) ;
@@ -660,9 +660,9 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 	{
 		add_air_to_air( ship , (ship_stack*) ship->target ) ;
 	}
-			
+
 	break ;
-	
+
 	case WEAPON_ECM :
 	temp_ship=(ships.info).start_address ;
 
@@ -670,14 +670,14 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 
 	sprintf (ecm_message, "%s - %d %s", message_decode (MTXT__ECM_FIRED, 0), (ship->performance->weapons[ship->fire_request]), message_decode (MTXT__REMAINING, 0));
 	message_text(MESSAGE_BOTTOM , ecm_message , RED_15 , MESSAGE_SCROLL , 32 , MESSAGE_CURSOR2 );
-	
+
 	while ((temp_ship->header).status==1)
 	{
 		if ( (temp_ship->type>>4) == WEAPON && temp_ship->type != MEGA_BOMB && temp_ship->type != WING_POD )
 		{
 			temp_ship->shields = 0 ;
 		}
-	
+
 		temp_ship=(temp_ship->header).next_address ;
 	}
 
@@ -690,11 +690,11 @@ if ( ship->fire_request != WEAPON_NOTHING && ship->counter == 0 )
 					MISSILE_SMOKE ,
 					0 );
 	}
-	
+
 	ship->counter = 8 ;
-	
+
 	break ;
-	
+
 	}
 }
 
@@ -729,8 +729,8 @@ make_sound( ship->x_pos , ship->y_pos , ship->z_pos , THUD_SOUND ) ;
 ship->z_pos = temp_z_pos+(1<<18) ;
 
 // Find the ground height in front of the object
-height_temp = find_ground_height(	((ship->x_pos)-(sine_table [ (ship->x_rot)>>10 ]<<11)) , 
-									((ship->y_pos)-(cosine_table [ (ship->x_rot)>>10 ]<<11)) );
+height_temp = find_ground_height(	((ship->x_pos)-(sf_sin_q12( (ship->x_rot)>>10 )<<11)) ,
+									((ship->y_pos)-(sf_cos_q12( (ship->x_rot)>>10 )<<11)) );
 
 
 
@@ -747,7 +747,7 @@ rot_temp = (new_rot - ship->y_dir)&ROT_LIMIT ;
 ship->y_dir = new_rot ;
 
 // Set the damage based on the cosine of the rate of change of angle + speed
-damage = ( (-( (cosine_table [ rot_temp>>10 ] - 4096)) * ship->speed)>>14 ) ;
+damage = ( (-( (sf_cos_q12( rot_temp>>10 ) - 4096)) * ship->speed)>>14 ) ;
 if (damage < 0) damage = -damage ;
 
 //printf("shield damage %d\n",damage);
@@ -813,18 +813,18 @@ ship->speed = (ship->speed - (ship->speed>>3) ) ;
 
 // calculate the x,y,z velocities based on x , y direction and speed
 ship->x_vel =	-(
-				(( sine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_sin_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
 ship->y_vel =	-(
-				(( cosine_table [ (ship->x_dir)>>10 ] * 
-				cosine_table [ (ship->y_dir)>>10 ] )>>12)
+				(( sf_cos_q12( (ship->x_dir)>>10 ) *
+				sf_cos_q12( (ship->y_dir)>>10 ) )>>12)
 				* (ship->speed)
 				) ;
 
-ship->z_vel =	( sine_table [ (ship->y_dir)>>10 ] * (ship->speed) ) ;
+ship->z_vel =	( sf_sin_q12( (ship->y_dir)>>10 ) * (ship->speed) ) ;
 
 }
 
@@ -869,7 +869,7 @@ if (satellite->fire_request != WEAPON_NOTHING)
 					satellite->z_pos ,
 					target->x_pos ,
 					target->y_pos ,
-					target->z_pos , 
+					target->z_pos ,
 					satellite->x_vel ,
 					satellite->y_vel ,
 					satellite->z_vel ,
@@ -909,13 +909,13 @@ parachute->x_rot = ((parachute->x_rot)+
 parachute->z_pos += SF_SIMULATION_DELTA(-(1<<21)) ;
 parachute->z_vel = -(1<<21) ;
 
-// Check the collision flag 
+// Check the collision flag
 if (parachute->what_hit_me != 0) parachute_collision( parachute ) ;
 
 // check for collisions with ground objects n' ground
 coll_check = check_collision ( parachute->x_pos , parachute->y_pos , parachute->z_pos ) ;
 
-// if its hit anything then die	
+// if its hit anything then die
 if (coll_check != 0) parachute->shields = 0 ;
 
 // If z_pos < 0 then die
@@ -994,14 +994,14 @@ if (x_aim<-(16<<10) || x_aim>(16<<10) )
 
 // calculate the x,y,z velocities based on x , y direction and speed
 car->x_vel =	-(
-				(( sine_table [ (car->x_rot)>>10 ] * 
-				cosine_table [ (car->y_rot)>>10 ] )>>12)
+				(( sf_sin_q12( (car->x_rot)>>10 ) *
+				sf_cos_q12( (car->y_rot)>>10 ) )>>12)
 				* (car->speed)
 				) ;
 
 car->y_vel =	-(
-				(( cosine_table [ (car->x_rot)>>10 ] * 
-				cosine_table [ (car->y_rot)>>10 ] )>>12)
+				(( sf_cos_q12( (car->x_rot)>>10 ) *
+				sf_cos_q12( (car->y_rot)>>10 ) )>>12)
 				* (car->speed)
 				) ;
 
@@ -1012,8 +1012,8 @@ car->y_pos += SF_SIMULATION_DELTA(car->y_vel) ;
 car->z_pos = find_ground_height(car->x_pos,car->y_pos) ;
 
 // Find the ground height in front of the car
-height_temp = find_ground_height( 	((car->x_pos)-(sine_table [ (car->x_rot)>>10 ]<<11)) , 
-									((car->y_pos)-(cosine_table [ (car->x_rot)>>10 ]<<11)) );
+height_temp = find_ground_height( 	((car->x_pos)-(sf_sin_q12( (car->x_rot)>>10 )<<11)) ,
+									((car->y_pos)-(sf_cos_q12( (car->x_rot)>>10 )<<11)) );
 
 // Find the relative height diff between height at front and middle
 height_temp = (height_temp-car->z_pos)>>10 ;
@@ -1028,8 +1028,8 @@ car->y_rot = (car->y_rot+
 
 
 // Find the ground height at side of the car
-height_temp = find_ground_height( 	((car->x_pos)-(cosine_table [ (car->x_rot)>>10 ]<<11)) , 
-									((car->y_pos)+(sine_table [ (car->x_rot)>>10 ]<<11)) );
+height_temp = find_ground_height( 	((car->x_pos)-(sf_cos_q12( (car->x_rot)>>10 )<<11)) ,
+									((car->y_pos)+(sf_sin_q12( (car->x_rot)>>10 )<<11)) );
 
 // Find the relative height diff between height at front and middle
 height_temp = (height_temp-car->z_pos)>>10 ;
@@ -1071,14 +1071,14 @@ car->x_rot = ((car->x_rot)+
 
 // calculate the x,y,z velocities based on x , y direction and speed
 car->x_vel =	-(
-				(( sine_table [ (car->x_rot)>>10 ] * 
-				cosine_table [ (car->y_rot)>>10 ] )>>12)
+				(( sf_sin_q12( (car->x_rot)>>10 ) *
+				sf_cos_q12( (car->y_rot)>>10 ) )>>12)
 				* (car->speed)
 				) ;
 
 car->y_vel =	-(
-				(( cosine_table [ (car->x_rot)>>10 ] * 
-				cosine_table [ (car->y_rot)>>10 ] )>>12)
+				(( sf_cos_q12( (car->x_rot)>>10 ) *
+				sf_cos_q12( (car->y_rot)>>10 ) )>>12)
 				* (car->speed)
 				) ;
 
@@ -1089,8 +1089,8 @@ car->y_pos += SF_SIMULATION_DELTA(car->y_vel) ;
 car->z_pos = find_ground_height(car->x_pos,car->y_pos) ;
 
 // Find the ground height in front of the car
-height_temp = find_ground_height( 	((car->x_pos)-(sine_table [ (car->x_rot)>>10 ]<<11)) , 
-									((car->y_pos)-(cosine_table [ (car->x_rot)>>10 ]<<11)) );
+height_temp = find_ground_height( 	((car->x_pos)-(sf_sin_q12( (car->x_rot)>>10 )<<11)) ,
+									((car->y_pos)-(sf_cos_q12( (car->x_rot)>>10 )<<11)) );
 
 // Find the relative height diff between height at front and middle
 height_temp = (height_temp-car->z_pos)>>10 ;
@@ -1105,8 +1105,8 @@ car->y_rot = (car->y_rot+
 
 
 // Find the ground height at side of the car
-height_temp = find_ground_height( 	((car->x_pos)-(cosine_table [ (car->x_rot)>>10 ]<<11)) , 
-									((car->y_pos)+(sine_table [ (car->x_rot)>>10 ]<<11)) );
+height_temp = find_ground_height( 	((car->x_pos)-(sf_cos_q12( (car->x_rot)>>10 )<<11)) ,
+									((car->y_pos)+(sf_sin_q12( (car->x_rot)>>10 )<<11)) );
 
 // Find the relative height diff between height at front and middle
 height_temp = (height_temp-car->z_pos)>>10 ;
@@ -1125,7 +1125,7 @@ if (SF_SIMULATION_REFERENCE_TICK() &&
 	car->fire_request != WEAPON_NOTHING )
 {
 
-	
+
 	// ship = (ship_stack*) ( (ship_sdb*) car->special_data )->command_address ;
 	ship = players_ship ;
 
@@ -1150,7 +1150,7 @@ if (SF_SIMULATION_REFERENCE_TICK() &&
 					car->z_pos+(1<<23) ,
 					ship->x_pos ,
 					ship->y_pos ,
-					ship->z_pos , 
+					ship->z_pos ,
 					car->x_vel ,
 					car->y_vel ,
 					car->z_vel ,
@@ -1242,7 +1242,7 @@ long laser_type ;
 //	test_ship.x_pos = ship->x_pos + (x<<22) ;
 //	test_ship.y_pos = ship->y_pos + (y<<22) ;
 //	test_ship.z_pos = ship->z_pos + (z<<22) ;
-	
+
 //	if ( big_ship_collision_check( ship , &test_ship ) != 0)
 //	{
 
@@ -1315,18 +1315,18 @@ case BIG_SHIP_COMMAND_NORMAL :
 
 	// calculate the x,y,z velocities based on x , y direction and speed
 	ship->x_vel =	-(
-					(( sine_table [ (ship->x_rot)>>10 ] * 
-					cosine_table [ (ship->y_rot)>>10 ] )>>12)
+					(( sf_sin_q12( (ship->x_rot)>>10 ) *
+					sf_cos_q12( (ship->y_rot)>>10 ) )>>12)
 					* (ship->speed)
 					) ;
 
 	ship->y_vel =	-(
-					(( cosine_table [ (ship->x_rot)>>10 ] * 
-					cosine_table [ (ship->y_rot)>>10 ] )>>12)
+					(( sf_cos_q12( (ship->x_rot)>>10 ) *
+					sf_cos_q12( (ship->y_rot)>>10 ) )>>12)
 					* (ship->speed)
 					) ;
 
-	ship->z_vel =	( sine_table [ (ship->y_rot)>>10 ] * (ship->speed) ) ;
+	ship->z_vel =	( sf_sin_q12( (ship->y_rot)>>10 ) * (ship->speed) ) ;
 
 
 
@@ -1356,8 +1356,8 @@ case BIG_SHIP_COMMAND_ROTATE_X :
 	ship->x_rot = ( ship->x_rot +
 		SF_SIMULATION_DELTA(8*1024))&ROT_LIMIT ;
 	ship->y_rot = ( ship->y_rot & ROT_LIMIT ) ;
-	ship->z_rot = ( ship->z_rot & ROT_LIMIT ) ;	
-	
+	ship->z_rot = ( ship->z_rot & ROT_LIMIT ) ;
+
 	ship->speed = 0 ;
 	ship->x_vel = 0 ;
 	ship->y_vel = 0 ;
@@ -1369,7 +1369,7 @@ case BIG_SHIP_COMMAND_STATIC :
 
 	ship->x_rot = ( ship->x_rot & ROT_LIMIT ) ;
 	ship->y_rot = ( ship->y_rot & ROT_LIMIT ) ;
-	ship->z_rot = ( ship->z_rot & ROT_LIMIT ) ;	
+	ship->z_rot = ( ship->z_rot & ROT_LIMIT ) ;
 
 	ship->speed = 0 ;
 	ship->x_vel = 0 ;
@@ -1385,12 +1385,12 @@ break ;
 if (SF_SIMULATION_REFERENCE_TICK() && ship->can_see &&
 	(ship->special_data)->command_override != BIG_SHIP_COMMAND_STATIC )
 {
-	
+
 	if ( ship->type != ((BIG_SHIP<<4)+2) )
 	{
-		
+
 		thruster_header = (thruster_details_header*) (details+(ship->type))->thruster_data ;
-		
+
 		// Is there some thruster data here
 		if (thruster_header != NULL)
 		{
@@ -1414,7 +1414,7 @@ if (SF_SIMULATION_REFERENCE_TICK() && ship->can_see &&
 			}
 		}
 	}
-	
+
 	// Are the shields low on this big ship - if so smoke abit
 	if ( ship->shields < 128 )
 	{
@@ -1445,7 +1445,7 @@ if (SF_SIMULATION_REFERENCE_TICK() && ship->can_see &&
 }
 
 // Does the Big ship wish to fire its lasers
-if (ship->fire_request == WEAPON_LASER && ship->counter == 0 && ship->target != NULL ) 
+if (ship->fire_request == WEAPON_LASER && ship->counter == 0 && ship->target != NULL )
 {
 	laser_header = (laser_details_header*) (details+(ship->type))->laser_data ;
 	laser_data = (laser_details*) ( laser_header + 1 ) ;
@@ -1455,9 +1455,9 @@ if (ship->fire_request == WEAPON_LASER && ship->counter == 0 && ship->target != 
 	for (loop = 0 ; loop <= laser_header->counter ; loop += 1)
 	{
 		laser_type = ground_laser_type+loop ;
-		
+
 		if ( laser_type >= LASER_POWER_6 ) laser_type = LASER_POWER_6 ;
-		
+
 		node_data.x_pos = (laser_data->x_pos) ;
 		node_data.y_pos = (laser_data->y_pos) ;
 		node_data.z_pos = (laser_data->z_pos) ;
@@ -1465,41 +1465,41 @@ if (ship->fire_request == WEAPON_LASER && ship->counter == 0 && ship->target != 
 		node_data.y_rot = ship->y_rot ;
 		node_data.z_rot = ship->z_rot ;
 		rotate_node_from_c( &node_data );
-		
+
 		// Find the nearest ship to this laser
-		
+
 		// Assume that its the first target
 		target_ship = (ship_stack*) ship->target ;
 		x_dist = target_ship->x_pos - (ship->x_pos+node_data.x_pos) ;
 		if (x_dist < 0) x_dist = -x_dist ;
-		
+
 		y_dist = target_ship->y_pos - (ship->y_pos+node_data.y_pos) ;
 		if (y_dist < 0) y_dist = -y_dist ;
-		
+
 		z_dist = target_ship->z_pos - (ship->z_pos+node_data.z_pos) ;
 		if (z_dist < 0) z_dist = -z_dist ;
-		
+
 		if (x_dist>y_dist) dist = x_dist ; else dist = y_dist ;
 		if (z_dist>dist) dist = z_dist ;
-		
+
 		// See if the second target is a better option
-		
+
 		// Is there a second ship
 		if (ship->target2 != NULL)
 		{
 			temp_ship = (ship_stack*) ship->target2 ;
 			x_dist = temp_ship->x_pos - (ship->x_pos+node_data.x_pos) ;
 			if (x_dist < 0) x_dist = -x_dist ;
-		
+
 			y_dist = temp_ship->y_pos - (ship->y_pos+node_data.y_pos) ;
 			if (y_dist < 0) y_dist = -y_dist ;
-		
+
 			z_dist = temp_ship->z_pos - (ship->z_pos+node_data.z_pos) ;
 			if (z_dist < 0) z_dist = -z_dist ;
-		
+
 			if (x_dist>y_dist) temp_dist = x_dist ; else temp_dist = y_dist ;
 			if (z_dist>temp_dist) temp_dist = z_dist ;
-		
+
 			// Is it nearer than the current target
 			if (temp_dist<dist)
 			{
@@ -1507,31 +1507,31 @@ if (ship->fire_request == WEAPON_LASER && ship->counter == 0 && ship->target != 
 				target_ship = temp_ship ;
 			}
 		}
-		
+
 		// See if the third target is a better option
-		
+
 		// Is there a third ship
 		if (ship->target3 != NULL)
 		{
 			temp_ship = (ship_stack*) ship->target3 ;
 			x_dist = temp_ship->x_pos - (ship->x_pos+node_data.x_pos) ;
 			if (x_dist < 0) x_dist = -x_dist ;
-		
+
 			y_dist = temp_ship->y_pos - (ship->y_pos+node_data.y_pos) ;
 			if (y_dist < 0) y_dist = -y_dist ;
-		
+
 			z_dist = temp_ship->z_pos - (ship->z_pos+node_data.z_pos) ;
 			if (z_dist < 0) z_dist = -z_dist ;
-		
+
 			if (x_dist>y_dist) temp_dist = x_dist ; else temp_dist = y_dist ;
 			if (z_dist>temp_dist) temp_dist = z_dist ;
-			
+
 			// Is it nearer than the current target
 			if (temp_dist<dist)	target_ship = temp_ship ;
 		}
 
-		
-		
+
+
 		aim_laser( 	ship->x_pos + node_data.x_pos ,
 					ship->y_pos + node_data.y_pos ,
 					ship->z_pos + node_data.z_pos ,
@@ -1574,7 +1574,7 @@ if (ship->fire_request == WEAPON_ATA && ship->counter == 0 && ship->target != NU
 						(long) ship ) ;
 			missile_data += 1 ;
 		}
-	
+
 		if ( (ship_stack*) ship->target == players_ship )
 		{
 			message_add( MESSAGE_TOP, MTXT__WARNING_INCOMING_ATAM , RED_15 , MESSAGE_FLASH , 24 , MESSAGE_NOCURSOR );
@@ -1622,20 +1622,20 @@ if (ship->fire_request == WEAPON_LAUNCH_SHIP && ship->counter == 0)
 		{
 			// They belong to the big ship to avoid crashes on launch
 			pleb_ship->who_owns_me = (long) ship ;
-				
-			// Set the rotations to the opposite of the big ship 
+
+			// Set the rotations to the opposite of the big ship
 			pleb_ship->y_rot = (-(ship->y_rot))&ROT_LIMIT ;
 			pleb_ship->z_rot = (-(ship->z_rot))&ROT_LIMIT ;
-		
+
 			// Set up the launch commands
 			pleb_ship->command = COMMAND_TAKEOFF_CLIMB ;
 			pleb_ship->command_counter = COMMAND_TAKEOFF_CLIMB_COUNTER ;
-			
+
 			// Set this pleb to attack the player
 			war_settoattack( pleb_ship , players_ship ) ;
-	
+
 			sound_playsample( SOUND_INCOMING , 60 , 127 , 0 ) ;
-		
+
 			ship->counter = 8 ;
 		}
 	}
@@ -1696,7 +1696,7 @@ ship = (ship_stack*) armlink_sorttolist( &ships , x_pos ) ;
 if (ship != NULL)
 {
 
-memset( (void*) ( ((char*) ship) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+memset( (void*) ( ((char*) ship) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 ship->x_pos = x_pos ;
 ship->y_pos = y_pos ;
@@ -1730,7 +1730,7 @@ if ( (type>>4) == SMALL_SHIP) test_the_fucking_fighters += 1 ;
 
 ship->z_roller = 0 ;
 
-// Misc counter used for thrusters on small ships 
+// Misc counter used for thrusters on small ships
 // and number of plebs can launch from big ones
 
 ship->misc_counter = 0 ;
@@ -1746,7 +1746,7 @@ else
 
 ship->who_owns_me = (long) ship ;
 
-ship->fire_request = WEAPON_NOTHING ; 
+ship->fire_request = WEAPON_NOTHING ;
 
 if ( (type>>4) == BIG_SHIP || (type>>4) == CAR )
 {
@@ -1756,7 +1756,7 @@ else
 {
 	if ( (type>>4) == PLAYERS_SHIP )
 	{
-	ship->collision_size = 1<<22 ;	
+	ship->collision_size = 1<<22 ;
 	}
 	else
 	{
@@ -1765,7 +1765,7 @@ else
 }
 
 
-//( (ship_sdb*) ship->specail_data)->control_mode 
+//( (ship_sdb*) ship->specail_data)->control_mode
 // command_address = which ship is involved
 //#define	SDB_MODE_ATTACK				0			// Ship control modes
 //#define SDB_MODE_FLIGHTPATH			1
@@ -1791,7 +1791,7 @@ if (special_data != NULL )
 	case SDB_MODE_FORMATION :
 
 	ship->command = COMMAND_FIXED_FORMATION ;
-	
+
 	break ;
 
 	}

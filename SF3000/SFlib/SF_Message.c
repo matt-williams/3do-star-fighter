@@ -15,6 +15,10 @@
 #include "SF_ARMCell.h"
 #include "SF_ARMUtils.h"
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
+
 // Global variables
 
 long	message_gamestatus = 0;											// Message add mode (demo or normal)
@@ -498,10 +502,22 @@ void	message_initialiselanguagefiles (long language_id)
 
 {
 
+#if defined(SF_WEB_PORT)
+	if (sf_web_runtime_load_text(languages[language_id], "Game",
+				     (uint8_t *)messages_gametext,
+				     sizeof(messages_gametext), 1) != 1 ||
+	    sf_web_runtime_load_text(languages[language_id], "Menu",
+				     (uint8_t *)messages_menutext,
+				     sizeof(messages_menutext), 1) != 1 ||
+	    sf_web_runtime_load_text(languages[language_id], "Title",
+				     (uint8_t *)message_missiontitle,
+				     sizeof(message_missiontitle), 1) != 1)
+		return;
+#else
 	load_fileat(messages_gametext, "%s%s/Game", TEXT_ROOT, languages [language_id]);		// Load in game message file
 	load_fileat(messages_menutext, "%s%s/Menu", TEXT_ROOT, languages [language_id]);		// Load in menu message file
 	load_fileat(message_missiontitle, "%s%s/Title", TEXT_ROOT, languages [language_id]);	// Load in mission title file
-	
+#endif
 	
 	message_decodetextfile (&messages_gametext [0], game_message_pointers, 0);				// Decode game message file
 	message_decodetextfile (&messages_menutext [0], menu_message_pointers, 0);				// Decode menu message file
@@ -520,11 +536,26 @@ long	message_initialisemissionfiles (long language_id, long load_level, long loa
 
 	// Load in mission text file
 
+#if defined(SF_WEB_PORT)
+	if (load_level != -1)
+		{
+		char text_name[24];
+		sprintf(text_name, "%c/BRIEF_%d", decode_level(load_level), load_mission);
+		if (sf_web_runtime_load_text(languages[language_id], text_name,
+					     (uint8_t *)messages_missiontext,
+					     sizeof(messages_missiontext), 0) != 1)
+			return (0);
+		}
+	else if (sf_web_runtime_load_text(languages[language_id], "Credits",
+					  (uint8_t *)messages_missiontext,
+					  sizeof(messages_missiontext), 0) != 1)
+		return (0);
+#else
 	if (load_level != -1)
 		load_fileat(messages_missiontext, "%s%s/%c/BRIEF_%d",TEXT_ROOT, languages [language_id], decode_level(load_level),load_mission);
 	else
 		load_fileat(messages_missiontext, "%s%s/Credits",TEXT_ROOT, languages [language_id]);
-	
+#endif
 	return (message_decodetextfile (&messages_missiontext [0], mission_message_pointers, 1));
 }
 

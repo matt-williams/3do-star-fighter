@@ -199,14 +199,12 @@ int main(void)
 	memset(heights, 18, sizeof(heights));
 	memset(cosine, 0, sizeof(cosine));
 	land.landscape_heights = heights;
-	land.cosine_table = cosine;
 	quick_heights[0] = 64;
 	land.rotated_coords = rotated;
 	land.screen_coords = screen;
 	land.landscape_heights = heights;
 	land.perspective_table = perspective;
 	land.quick_height_table = quick_heights;
-	land.cosine_table = cosine;
 	misc[11] = 110;
 	misc[12] = 210;
 	misc[13] = 1000;

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/world-metadata-v1.schema.json",
+  "title": "Star Fighter world metadata v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "worlds"],
+  "properties": {
+    "schema": { "const": "world-metadata-v1" },
+    "worlds": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/world" }
+    }
+  },
+  "$defs": {
+    "word": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "byte": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explosion1_data1", "explosion1_data2", "explosion2_data1",
+        "explosion2_data2", "explosion_heightcheck", "space_mission",
+        "reserved", "comet_rate"
+      ],
+      "properties": {
+        "explosion1_data1": { "$ref": "#/$defs/word" },
+        "explosion1_data2": { "$ref": "#/$defs/word" },
+        "explosion2_data1": { "$ref": "#/$defs/word" },
+        "explosion2_data2": { "$ref": "#/$defs/word" },
+        "explosion_heightcheck": { "$ref": "#/$defs/byte" },
+        "space_mission": { "$ref": "#/$defs/byte" },
+        "reserved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/byte" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "comet_rate": { "$ref": "#/$defs/word" }
+      }
+    }
+  }
+}

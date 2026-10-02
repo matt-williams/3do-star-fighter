@@ -184,14 +184,14 @@ long	sublevel_loop,
 			{
 			
 			mission_num = (sub_cosine >=512) ? mission_loop : sublevel_loop - mission_loop;
-			planet_size = (planet_posscalar <<3) - ((*(sine_table +sub_cosine) >> 4) * (mission_num - (sublevel_loop>>1)));
+			planet_size = (planet_posscalar <<3) - ((sf_sin_q12(sub_cosine) >> 4) * (mission_num - (sublevel_loop>>1)));
 			planet_number = sublevel_count + mission_num;
 			
 			// CALCULATE PLANETS X,Y POSITION AND SHADE
 			
-			cel_quad.x_pos0 = (((((mission_num * planet_posscalar) - ((sublevel_loop * planet_posscalar) >>1 )) /3) * (cosine_table [sub_cosine])) >> 12) - (planet_size >>6);
+			cel_quad.x_pos0 = (((((mission_num * planet_posscalar) - ((sublevel_loop * planet_posscalar) >>1 )) /3) * (sf_cos_q12(sub_cosine))) >> 12) - (planet_size >>6);
 			cel_quad.y_pos0 = 9+(-(((sublevel_loop * 8) - ((pyramids [level_number].sub_levels * 8) >> 1)) *planet_posscalar) >>5) - (planet_size >>6);
-			cel_quad.shade = (mission_num == selector_x && sublevel_loop == selector_y) ? 16 : 5+ ((planet_scalar >>5) - ((*(sine_table +sub_cosine) >> 10) * (mission_num - (sublevel_loop>>1))));
+			cel_quad.shade = (mission_num == selector_x && sublevel_loop == selector_y) ? 16 : 5+ ((planet_scalar >>5) - ((sf_sin_q12(sub_cosine) >> 10) * (mission_num - (sublevel_loop>>1))));
 			
 			// DRAW THE PLANET (SPINNING EITHER WAY)
 			

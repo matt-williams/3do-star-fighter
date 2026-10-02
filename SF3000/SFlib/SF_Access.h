@@ -1,4 +1,5 @@
 /* File : SF_ACCESS -> File access header file */
+#include "../WebPort/sf_web_math.h"
 
 #ifndef __SF_ACCESS
 #define __SF_ACCESS
@@ -42,8 +43,6 @@ extern	long				graphics_data [19000];		// Pointer to polygon datafiles
 extern	char				skyfile [1024];				// Skyfile
 extern	mission_data		mission;					// Mission data
 extern	cel_celdata			cel_quad;					// Cel info block
-extern	char				tangent_table [4100];		// Tangent Data
-extern	long				cosine_table [2048];		// Cosine table
 extern	char				animate_poly [1024];		// Texture animations file
 extern	game_configuration	configuration;				// Game configuration
 

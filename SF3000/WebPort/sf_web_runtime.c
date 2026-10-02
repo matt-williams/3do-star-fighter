@@ -2,6 +2,7 @@
 
 #include "sf_web_port_renderer.h"
 #include "sf_web_world_renderer.h"
+#include "SF_ARMCell_portable.h"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
@@ -10,7 +11,6 @@ EM_JS(int32_t, sf_web_runtime_present_js, (const SFWebRenderQuad *commands,
                                            uint32_t command_count,
                                            const SFWebWorldQuad *world_commands,
                                            uint32_t world_command_count,
-                                           uint32_t bank,
                                            const SFWebTerrainFrame *terrain_frame,
                                            const uint8_t *terrain_heights,
                                            const uint8_t *terrain_tiles,
@@ -21,7 +21,7 @@ EM_JS(int32_t, sf_web_runtime_present_js, (const SFWebRenderQuad *commands,
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
         runtime.present(commands, command_count, world_commands,
-                        world_command_count, bank, terrain_frame,
+                        world_command_count, terrain_frame,
                         terrain_heights, terrain_tiles, terrain_x, terrain_y,
                         terrain_width, terrain_height, terrain_full);
         return 1;
@@ -36,36 +36,40 @@ EM_JS(void, sf_web_runtime_set_status_js, (const char *status), {
     }
 });
 
-EM_JS(void, sf_web_runtime_copy_vram_js, (uint32_t bank, const uint8_t *pixels), {
+EM_JS(void, sf_web_runtime_set_backdrop_js, (const uint8_t *pixels), {
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
-        runtime.copyVram(bank, pixels);
+        runtime.setBackdrop(pixels);
     }
 });
 
-EM_JS(void, sf_web_runtime_clear_bank_js, (uint32_t bank, uint32_t value), {
+EM_JS(void, sf_web_runtime_clear_js, (uint32_t value), {
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
-        runtime.clearBank(bank, value);
+        runtime.clear(value);
     }
 });
 
 EM_JS(void, sf_web_runtime_fill_rect_js,
-      (uint32_t bank, uint32_t colour, int32_t left, int32_t top,
+      (uint32_t colour, int32_t left, int32_t top,
        int32_t right, int32_t bottom), {
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
-        runtime.fillRect(bank, colour, left, top, right, bottom);
+        runtime.fillRect(colour, left, top, right, bottom);
     }
 });
 
-EM_JS(void, sf_web_runtime_queue_screen_cel_js,
-      (uint32_t target_bank, uint32_t source_bank, int32_t x, int32_t y,
-       int32_t hdx, int32_t vdy, uint32_t pixc, uint32_t ccb_flags), {
+EM_JS(void, sf_web_runtime_blur_screen_js, (), {
     const runtime = globalThis.SF3000WebPort;
     if (runtime !== undefined) {
-       runtime.queueScreenCel(target_bank, source_bank, x, y, hdx, vdy, pixc,
-                              ccb_flags);
+        runtime.blurScreen();
+    }
+});
+
+EM_JS(void, sf_web_runtime_zoom_screen_js, (), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime !== undefined) {
+        runtime.zoomScreen();
     }
 });
 
@@ -82,6 +86,164 @@ EM_JS(void, sf_web_runtime_set_text_font_js,
     if (runtime !== undefined) {
         runtime.setTextFont(data, size);
     }
+});
+
+EM_JS(void, sf_web_runtime_set_game_cels_js, (const char *name), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime !== undefined) {
+        runtime.setGameCels(UTF8ToString(name));
+    }
+});
+
+EM_JS(void, sf_web_runtime_set_world_resources_js, (const char *planet,
+      const char *location, const char *variation, const char *sky), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime !== undefined) {
+        runtime.setWorldResources(UTF8ToString(planet), UTF8ToString(location),
+                                  UTF8ToString(variation), UTF8ToString(sky));
+    }
+});
+
+EM_JS(void, sf_web_runtime_set_backdrop_name_js, (const char *name), {
+    globalThis.SF3000WebPort?.setBackdropName(UTF8ToString(name));
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_mission_maps_js,
+            (const char *location, const char *variation,
+             uint8_t *height_destination, uint8_t *tile_destination), {
+    const runtime = globalThis.SF3000WebPort;
+    if (runtime === undefined) {
+        return 0;
+    }
+    return await runtime.loadMissionMaps(
+        UTF8ToString(location), UTF8ToString(variation),
+        height_destination, tile_destination
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_mission_record_js,
+            (char level, int32_t number, uint8_t *destination,
+             uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadMissionRecord(
+        String.fromCharCode(level), number, destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_mission_polygon_map_js,
+            (const char *location, const char *variation,
+             uint8_t *destination), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadMissionPolygonMap(
+        UTF8ToString(location), UTF8ToString(variation), destination
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_backdrop_js, (const char *name), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 :
+        await runtime.loadBackdrop(UTF8ToString(name));
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_world_materials_js,
+            (const char *planet, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadWorldMaterials(
+        UTF8ToString(planet), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_world_graphics_js,
+            (const char *planet, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadWorldGraphics(
+        UTF8ToString(planet), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_game_cels_js,
+            (const char *name, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadGameCels(
+        UTF8ToString(name), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_sky_js,
+            (const char *name, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadSky(
+        UTF8ToString(name), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_monochrome_palette_js,
+            (uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadMonochromePalette(
+        destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_text_js,
+            (const char *language, const char *name, uint8_t *destination,
+             uint32_t capacity, int32_t indexed), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadText(
+        UTF8ToString(language), UTF8ToString(name), destination, capacity, indexed
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_default_configuration_js,
+            (uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 :
+        await runtime.loadDefaultConfiguration(destination, capacity);
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_saved_configuration_js,
+            (uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 :
+        await runtime.loadSavedConfiguration(destination, capacity);
+});
+
+EM_JS(int32_t, sf_web_runtime_save_configuration_js,
+      (const uint8_t *source, uint32_t size), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : runtime.saveConfiguration(source, size);
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_world_metadata_js,
+            (const char *world, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadWorldMetadata(
+        UTF8ToString(world), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_texture_animations_js,
+            (const char *world, uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadTextureAnimations(
+        UTF8ToString(world), destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_message_font_metrics_js,
+            (uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadMessageFontMetrics(
+        destination, capacity
+    );
+});
+
+EM_ASYNC_JS(int32_t, sf_web_runtime_load_alphabet_font_metrics_js,
+            (uint8_t *destination, uint32_t capacity), {
+    const runtime = globalThis.SF3000WebPort;
+    return runtime === undefined ? 0 : await runtime.loadAlphabetFontMetrics(
+        destination, capacity
+    );
 });
 
 EM_JS(void, sf_web_runtime_reset_textures_js, (), {
@@ -259,33 +421,248 @@ void sf_web_runtime_set_status(const char *status)
 #endif
 }
 
-void sf_web_runtime_copy_vram(uint32_t bank, const void *pixels)
+int32_t sf_web_runtime_load_world_materials(const char *planet)
 {
 #if defined(__EMSCRIPTEN__)
-    sf_web_runtime_copy_vram_js(bank, (const uint8_t *)pixels);
+    uint32_t capacity;
+    uint8_t *destination = sf_armcell_world_material_buffer(&capacity);
+    int32_t result;
+
+    if (planet == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_world_materials_js(planet, destination, capacity);
+    return result == (int32_t)capacity &&
+           sf_armcell_use_world_material_buffer(capacity) == 0;
 #else
-    (void)bank;
+    (void)planet;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_world_graphics(const char *planet,
+                                           uint8_t *destination,
+                                           uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (planet == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_world_graphics_js(planet, destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity;
+#else
+    (void)planet;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_game_cels(const char *name, uint8_t *destination,
+                                      uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (name == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_game_cels_js(name, destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity;
+#else
+    (void)name;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_sky(const char *name, uint8_t *destination,
+                                uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (name == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_sky_js(name, destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity;
+#else
+    (void)name;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_monochrome_palette(uint8_t *destination,
+                                               uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_monochrome_palette_js(destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity;
+#else
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_text(const char *language, const char *name,
+                                 uint8_t *destination, uint32_t capacity,
+                                 int32_t indexed)
+{
+#if defined(__EMSCRIPTEN__)
+    if (language == NULL || name == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    return sf_web_runtime_load_text_js(language, name, destination, capacity,
+                                       indexed) == 1;
+#else
+    (void)language;
+    (void)name;
+    (void)destination;
+    (void)capacity;
+    (void)indexed;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_default_configuration(uint8_t *destination,
+                                                  uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    if (destination == NULL || capacity == 0u)
+        return 0;
+    return sf_web_runtime_load_default_configuration_js(destination, capacity) == 1;
+#else
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_saved_configuration(uint8_t *destination,
+                                                uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    if (destination == NULL || capacity == 0u)
+        return 0;
+    return sf_web_runtime_load_saved_configuration_js(destination, capacity) == 1;
+#else
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_save_configuration(const uint8_t *source,
+                                          uint32_t size)
+{
+#if defined(__EMSCRIPTEN__)
+    if (source == NULL || size == 0u)
+        return 0;
+    return sf_web_runtime_save_configuration_js(source, size) == 1;
+#else
+    (void)source;
+    (void)size;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_world_metadata(const char *world,
+                                           uint8_t *destination,
+                                           uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    if (world == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    return sf_web_runtime_load_world_metadata_js(world, destination, capacity) == 1;
+#else
+    (void)world;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_texture_animations(const char *world,
+                                                uint8_t *destination,
+                                                uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    if (world == NULL || destination == NULL || capacity == 0u)
+        return 0;
+    return sf_web_runtime_load_texture_animations_js(world, destination,
+                                                     capacity) == 1;
+#else
+    (void)world;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_message_font_metrics(uint8_t *destination,
+                                                 uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_message_font_metrics_js(destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity ? result : 0;
+#else
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_alphabet_font_metrics(uint8_t *destination,
+                                                  uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    int32_t result;
+
+    if (destination == NULL || capacity == 0u)
+        return 0;
+    result = sf_web_runtime_load_alphabet_font_metrics_js(destination, capacity);
+    return result > 0 && (uint32_t)result <= capacity ? result : 0;
+#else
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+void sf_web_runtime_set_backdrop(const void *pixels)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_set_backdrop_js((const uint8_t *)pixels);
+#else
     (void)pixels;
 #endif
 }
 
-void sf_web_runtime_clear_bank(uint32_t bank, uint32_t value)
+void sf_web_runtime_clear(uint32_t value)
 {
 #if defined(__EMSCRIPTEN__)
-    sf_web_runtime_clear_bank_js(bank, value);
+    sf_web_runtime_clear_js(value);
 #else
-    (void)bank;
     (void)value;
 #endif
 }
 
-void sf_web_runtime_fill_rect(uint32_t bank, uint32_t colour, int32_t left,
+void sf_web_runtime_fill_rect(uint32_t colour, int32_t left,
                               int32_t top, int32_t right, int32_t bottom)
 {
 #if defined(__EMSCRIPTEN__)
-    sf_web_runtime_fill_rect_js(bank, colour, left, top, right, bottom);
+    sf_web_runtime_fill_rect_js(colour, left, top, right, bottom);
 #else
-    (void)bank;
     (void)colour;
     (void)left;
     (void)top;
@@ -294,27 +671,21 @@ void sf_web_runtime_fill_rect(uint32_t bank, uint32_t colour, int32_t left,
 #endif
 }
 
-void sf_web_runtime_queue_screen_cel(uint32_t target_bank, uint32_t source_bank,
-                                     int32_t x, int32_t y, int32_t hdx,
-                                     int32_t vdy, uint32_t pixc,
-                                     uint32_t ccb_flags)
+void sf_web_runtime_blur_screen(void)
 {
 #if defined(__EMSCRIPTEN__)
-    sf_web_runtime_queue_screen_cel_js(target_bank, source_bank, x, y, hdx,
-                                        vdy, pixc, ccb_flags);
-#else
-    (void)target_bank;
-    (void)source_bank;
-    (void)x;
-    (void)y;
-    (void)hdx;
-    (void)vdy;
-    (void)pixc;
-    (void)ccb_flags;
+    sf_web_runtime_blur_screen_js();
 #endif
 }
 
-void sf_web_runtime_present(uint32_t bank)
+void sf_web_runtime_zoom_screen(void)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_zoom_screen_js();
+#endif
+}
+
+void sf_web_runtime_present(void)
 {
 #if defined(__EMSCRIPTEN__)
     SFWebTerrainStateUpload terrain_upload;
@@ -326,7 +697,7 @@ void sf_web_runtime_present(uint32_t bank)
         sf_web_port_renderer_command_buffer(),
         sf_web_port_renderer_command_count(),
         sf_web_world_renderer_commands(),
-        sf_web_world_renderer_command_count(), bank,
+        sf_web_world_renderer_command_count(),
         sf_web_world_renderer_terrain_frame(),
         has_terrain_upload != 0 ? terrain_upload.heights : NULL,
         has_terrain_upload != 0 ? terrain_upload.tiles : NULL,
@@ -340,7 +711,6 @@ void sf_web_runtime_present(uint32_t bank)
     if (presented != 0 && sf_web_world_renderer_terrain_frame()->active != 0)
         sf_web_world_renderer_acknowledge_terrain_material_upload();
 #else
-    (void)bank;
 #endif
     sf_web_port_renderer_begin_frame();
 }
@@ -380,6 +750,96 @@ void sf_web_runtime_set_text_font(const uint8_t *data, uint32_t size)
 #else
     (void)data;
     (void)size;
+#endif
+}
+
+void sf_web_runtime_set_game_cels(const char *name)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_set_game_cels_js(name);
+#else
+    (void)name;
+#endif
+}
+
+void sf_web_runtime_set_world_resources(const char *planet, const char *location,
+                                        const char *variation, const char *sky)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_set_world_resources_js(planet, location, variation, sky);
+#else
+    (void)planet;
+    (void)location;
+    (void)variation;
+    (void)sky;
+#endif
+}
+
+void sf_web_runtime_set_backdrop_name(const char *name)
+{
+#if defined(__EMSCRIPTEN__)
+    sf_web_runtime_set_backdrop_name_js(name);
+#else
+    (void)name;
+#endif
+}
+
+int32_t sf_web_runtime_load_mission_maps(const char *location,
+                                         const char *variation,
+                                         uint8_t *height_destination,
+                                         uint8_t *tile_destination)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_load_mission_maps_js(location, variation,
+                                               height_destination,
+                                               tile_destination);
+#else
+    (void)location;
+    (void)variation;
+    (void)height_destination;
+    (void)tile_destination;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_mission_record(char level, int32_t number,
+                                           uint8_t *destination,
+                                           uint32_t capacity)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_load_mission_record_js(level, number, destination,
+                                                  capacity);
+#else
+    (void)level;
+    (void)number;
+    (void)destination;
+    (void)capacity;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_mission_polygon_map(const char *location,
+                                                 const char *variation,
+                                                 uint8_t *destination)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_load_mission_polygon_map_js(location, variation,
+                                                       destination);
+#else
+    (void)location;
+    (void)variation;
+    (void)destination;
+    return 0;
+#endif
+}
+
+int32_t sf_web_runtime_load_backdrop(const char *name)
+{
+#if defined(__EMSCRIPTEN__)
+    return sf_web_runtime_load_backdrop_js(name);
+#else
+    (void)name;
+    return 0;
 #endif
 }
 

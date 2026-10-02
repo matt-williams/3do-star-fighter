@@ -19,6 +19,10 @@
 #include <String.h>
 #include <Event.h>
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
+
 /**************************************/
 
 // Global variables
@@ -139,6 +143,15 @@ long	object_loop;
 	status.weapon = WEAPON_LASER;							// Reset selected weapon
 	status.current_camera=0;								// Reset camera number
 	status_register	(STATUS_ZOOMIN, 256, 8);				// Set game status to ZOOM IN
+#if defined(SF_WEB_PORT)
+	/*
+	 * The browser can present before its first fixed simulation tick.  Start
+	 * from the same camera state that STATUS_ZOOMIN will apply on that tick,
+	 * rather than exposing the temporary close camera for one frame.
+	 */
+	camera [0].y_rot = -(status.status_count << 10);
+	camera [0].zoom = 1100 + (status.status_count << 6);
+#endif
 	
 	// Total up ammount of ground objects to destroy (hidden and normal)
 	
@@ -663,8 +676,13 @@ long control_saveconfigure (void)
 // Returns : success (1) or failure (0) of operation
 
 {
+#if defined(SF_WEB_PORT)
+	return sf_web_runtime_save_configuration((const uint8_t *)&configuration,
+						 sizeof(configuration));
+#else
 	nvram_delete ("StarFighter.Config", "SFC:");
 	return (nvram_save ("StarFighter.Config", "SFC:", (char*) &configuration, sizeof (game_configuration)));
+#endif
 }
 
 /**************************************/

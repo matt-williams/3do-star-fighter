@@ -1,4 +1,5 @@
 #include "ship_struct.h"
+#include "../WebPort/sf_web_math.h"
 
 // Weapon types
 #define AIR_TO_GROUND	((6<<4)+0)
@@ -16,8 +17,6 @@
 
 extern long which_graphics_set ;
 
-extern long cosine_table [ 2048 ] ;
-extern long *sine_table ;
 
 extern long pod_counter ;
 extern char height_map [ 256 ] [ 256 ] ;

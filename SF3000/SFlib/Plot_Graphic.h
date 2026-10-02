@@ -34,6 +34,7 @@ extern void sf3000_webport_advance_world_animation_state(void);
 extern void sf3000_webport_begin_target_selection(void);
 extern void sf3000_webport_consider_static_target(void *);
 extern void sf3000_webport_consider_ship_target(void *);
+extern int sf3000_webport_target_selection_prefers_air(void);
 #endif
 
 #ifndef __GRAPHIC_STUFF_H

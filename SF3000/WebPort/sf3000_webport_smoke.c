@@ -8,6 +8,17 @@ static const int32_t smoke_clip_distances[] = {
 	8192, 8192, 6 * 1024, 4096, 1024, 4096, 4096, 8192, 8192
 };
 
+static int32_t sf3000_webport_particle_atlas_slot(int32_t sprite)
+{
+	if (sprite >= 16 && sprite <= 23) {
+		return 4 + sprite - 16;
+	}
+	if (sprite >= 78 && sprite <= 85) {
+		return 12 + sprite - 78;
+	}
+	return -1;
+}
+
 void plot_smoke(void *smoke)
 {
 	const uint8_t *data = (const uint8_t *)smoke +
@@ -150,6 +161,14 @@ void plot_smoke(void *smoke)
 	arm_addgamecel(quad, sf3000_webport_long(sprite),
 		       sf3000_webport_long(sprite_scale),
 		       sf3000_webport_long(sprite_scale));
-	if (sf_web_renderer_command_count() != command_count)
-		sf_web_world_renderer_append_last_billboard(point.y);
+	if (sf_web_renderer_command_count() != command_count) {
+		int32_t atlas_slot = sf3000_webport_particle_atlas_slot(sprite);
+
+		if (atlas_slot >= 0) {
+			sf_web_world_renderer_append_last_particle_billboard(
+				point.y, (uint32_t)atlas_slot);
+		} else {
+			sf_web_world_renderer_append_last_billboard(point.y);
+		}
+	}
 }

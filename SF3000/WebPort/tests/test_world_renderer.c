@@ -29,6 +29,9 @@ int main(void)
 	uint8_t terrain_tiles[SF_WEB_TERRAIN_HEIGHT_MAP_DIMENSION *
 		SF_WEB_TERRAIN_HEIGHT_MAP_DIMENSION];
 	int32_t terrain_height_offsets[SF_WEB_TERRAIN_TILE_COUNT * 4];
+	const int32_t model_view_x[4] = { -100, 100, 100, -100 };
+	const int32_t model_view_y[4] = { 200, 200, 200, 200 };
+	const int32_t model_view_z[4] = { -100, -100, 100, 100 };
 
 	memset(&last_command, 0, sizeof(last_command));
 	last_command.x[0] = 160;
@@ -41,12 +44,79 @@ int main(void)
 	last_command.y[3] = 312;
 
 	sf_web_world_renderer_initialise();
+	if (sf_web_world_renderer_append_last_quad(model_view_x, model_view_y,
+		model_view_z) != 0 ||
+	    sf_web_world_renderer_command_count() != 1 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD) == 0 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD_BILLBOARD) != 0) {
+		fail("model quad was incorrectly classified as a billboard");
+	}
+
+	sf_web_world_renderer_reset();
+	last_command.encoding = 0;
+	last_command.shade = 7;
+	if (sf_web_world_renderer_append_last_particle_billboard(100, 12) != 0 ||
+	    sf_web_world_renderer_command_count() != 1 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD_PARTICLE) == 0 ||
+	    ((uint32_t)last_command.shade >>
+	     SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT) != 12) {
+		fail("particle billboard did not retain its atlas slot");
+	}
+
+	sf_web_world_renderer_reset();
+	last_command.encoding = 0;
+	last_command.shade = 7;
+	if (sf_web_world_renderer_append_last_particle_billboard_transformed(
+		100, 24, 5) != 0 ||
+	    ((uint32_t)last_command.shade >>
+	     SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT & 0xffu) != 24 ||
+	    ((uint32_t)last_command.shade >>
+	     SF_WEB_RENDER_PARTICLE_ATLAS_TRANSFORM_SHIFT & 0x7u) != 5) {
+		fail("particle billboard did not retain its atlas transform");
+	}
+
+	sf_web_world_renderer_reset();
+	last_command.encoding = 0;
+	last_command.shade = 7;
+	if (sf_web_world_renderer_append_last_precise_particle_billboard(
+		123, 100, 234, 24, 5) != 0) {
+		fail("could not append precise particle billboard");
+	}
+	commands = sf_web_world_renderer_commands();
+	if (commands[0].view_x[0] != 123.0f ||
+	    commands[0].view_x[1] != 223.0f ||
+	    commands[0].view_z[0] != 234.0f ||
+	    commands[0].view_z[2] != 334.0f) {
+		fail("precise particle billboard did not retain camera coordinates");
+	}
+
+	sf_web_world_renderer_reset();
+	last_command.encoding = 0;
+	last_command.shade = 7;
+	if (sf_web_world_renderer_append_last_sky_particle_billboard(1) != 0 ||
+	    sf_web_world_renderer_command_count() != 1 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD_SKY) == 0 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD_PARTICLE) == 0 ||
+	    ((uint32_t)last_command.shade >>
+	     SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT) != 1) {
+		fail("sky particle billboard did not retain its background encoding");
+	}
+
+	commands = sf_web_world_renderer_commands();
+	if (commands[0].view_y[0] != SF_WEB_WORLD_FAR_DEPTH ||
+	    commands[0].view_y[3] != SF_WEB_WORLD_FAR_DEPTH) {
+		fail("sky particle billboard did not use the far sky depth");
+	}
+
+	sf_web_world_renderer_reset();
+	last_command.encoding = 0;
 	if (sf_web_world_renderer_append_last_billboard(100) != 0)
 		fail("could not append billboard");
 
 	commands = sf_web_world_renderer_commands();
 	if (sf_web_world_renderer_command_count() != 1 ||
 	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD) == 0 ||
+	    (last_command.encoding & SF_WEB_RENDER_ENCODING_WORLD_BILLBOARD) == 0 ||
 	    commands[0].view_x[0] != 0 || commands[0].view_x[1] != 100 ||
 	    commands[0].view_z[0] != 0 || commands[0].view_z[2] != 100 ||
 	    commands[0].view_y[0] != 100 || commands[0].view_y[3] != 100) {

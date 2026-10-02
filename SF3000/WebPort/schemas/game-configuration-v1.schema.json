@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/game-configuration-v1.schema.json",
+  "title": "Star Fighter game configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "version", "reserved", "language", "control_method",
+    "music_volume", "sound_volume", "music_on", "sound_on", "video_on",
+    "flight_controls", "stick_bounds", "music_tracks", "pilot", "high_scores"
+  ],
+  "properties": {
+    "schema": { "const": "game-configuration-v1" },
+    "version": { "$ref": "#/$defs/byte" },
+    "reserved": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/byte" },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "language": { "$ref": "#/$defs/byte" },
+    "control_method": { "$ref": "#/$defs/byte" },
+    "music_volume": { "$ref": "#/$defs/byte" },
+    "sound_volume": { "$ref": "#/$defs/byte" },
+    "music_on": { "$ref": "#/$defs/byte" },
+    "sound_on": { "$ref": "#/$defs/byte" },
+    "video_on": { "$ref": "#/$defs/byte" },
+    "flight_controls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/byte" },
+      "minItems": 12,
+      "maxItems": 12
+    },
+    "stick_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"],
+      "properties": {
+        "x_min": { "$ref": "#/$defs/int32" },
+        "x_max": { "$ref": "#/$defs/int32" },
+        "y_min": { "$ref": "#/$defs/int32" },
+        "y_max": { "$ref": "#/$defs/int32" },
+        "z_min": { "$ref": "#/$defs/int32" },
+        "z_max": { "$ref": "#/$defs/int32" }
+      }
+    },
+    "music_tracks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/byte" },
+      "minItems": 8,
+      "maxItems": 8
+    },
+    "pilot": { "$ref": "#/$defs/name" },
+    "high_scores": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "score"],
+          "properties": {
+            "name": { "$ref": "#/$defs/name" },
+            "score": { "$ref": "#/$defs/int32" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "byte": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "int32": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+    "name": { "type": "string", "maxLength": 19, "pattern": "^[\\x20-\\x7E]*$" }
+  }
+}

@@ -25,6 +25,7 @@ set(SF_WEB_PORT_SOURCES
     sf_web_port_renderer.c
     sf_web_runtime.c
     sf_web_fixed_step.c
+    sf_web_simulation.c
     sf_web_world_renderer.c
 )
 
@@ -41,6 +42,7 @@ if(MSVC)
 else()
     target_compile_options(starfighter_web_port PRIVATE -Wall -Wextra -Werror)
     target_compile_options(starfighter_web_port PUBLIC -funsigned-char)
+    target_link_libraries(starfighter_web_port PUBLIC m)
 endif()
 
 include(CTest)
@@ -52,6 +54,7 @@ if(BUILD_TESTING)
         SF_ARMLink.c
         Collision.c
     )
+    target_link_libraries(portable_arm_tests PRIVATE m)
     add_test(NAME portable_arm_tests COMMAND portable_arm_tests)
 
     add_executable(terrain_port_tests Plot_Land_test.c)
@@ -105,12 +108,14 @@ if(BUILD_TESTING)
 
     add_executable(renderer_port_tests
         tests/test_renderer_ports.c
+        Maths_Stuff.c
         sf3000_webport_plot_graphic.c
         sf3000_webport_sky.c
         sf3000_webport_laser.c
         sf3000_webport_smoke.c
         sf_web_fixed_step.c
     )
+    target_link_libraries(renderer_port_tests PRIVATE m)
     add_test(NAME renderer_port_tests COMMAND renderer_port_tests)
 
     add_executable(world_renderer_tests
@@ -124,6 +129,16 @@ if(BUILD_TESTING)
         sf_web_fixed_step.c
     )
     add_test(NAME fixed_step_scheduler_tests COMMAND fixed_step_scheduler_tests)
+
+    add_executable(float_simulation_tests
+        tests/test_float_simulation.c
+        sf_web_simulation.c
+        sf_web_fixed_step.c
+        Maths_Stuff.c
+    )
+    target_compile_definitions(float_simulation_tests PRIVATE SF_WEB_PORT)
+    target_link_libraries(float_simulation_tests PRIVATE m)
+    add_test(NAME float_simulation_tests COMMAND float_simulation_tests)
 
     add_executable(three_do_compat_tests tests/test_3do_compat.c)
     target_link_libraries(three_do_compat_tests PRIVATE starfighter_web_port)

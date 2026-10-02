@@ -5,6 +5,7 @@ param(
     [switch]$DebugSymbols,
     [switch]$SkipAssets,
     [switch]$SkipMedia,
+    [switch]$RefreshUiTextures,
     [string]$Ffmpeg
 )
 
@@ -13,13 +14,13 @@ $webPortRoot = Split-Path -Parent $PSCommandPath
 $repositoryRoot = Resolve-Path (Join-Path $webPortRoot "..\..")
 $webRoot = Join-Path $webPortRoot "web"
 $emcc = Join-Path $EmsdkRoot "upstream\emscripten\emcc.exe"
+$rawAssetRoot = Join-Path $repositoryRoot "web-assets\raw"
 
 if (-not (Test-Path -LiteralPath $emcc -PathType Leaf)) {
     throw "Emscripten was not found at $emcc."
 }
 
 if ([string]::IsNullOrWhiteSpace($AssetRoot)) {
-    $rawAssetRoot = Join-Path $repositoryRoot "web-assets\raw"
     $AssetRoot = Join-Path $repositoryRoot "web-assets\runtime"
     if (-not $SkipAssets) {
         & python (Join-Path $repositoryRoot "tools\convert_assets.py") `
@@ -38,6 +39,21 @@ foreach ($directory in "Music", "Video", "Voices", "Samples") {
     if (Test-Path -LiteralPath (Join-Path $resources $directory)) {
         throw "AssetRoot must be media-free; found SF_Resources\$directory."
     }
+}
+$uiTextureArguments = @(
+    (Join-Path $repositoryRoot "tools\convert_assets.py"),
+    "--ui-textures-only",
+    "--raw-root",
+    $rawAssetRoot,
+    "--ui-output",
+    (Join-Path $webRoot "ui-assets")
+)
+if ($RefreshUiTextures) {
+    $uiTextureArguments += "--refresh-ui-textures"
+}
+& python @uiTextureArguments
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate editable browser UI textures."
 }
 $soundEffectsRoot = Join-Path $webRoot "audio"
 & python (Join-Path $repositoryRoot "tools\convert_assets.py") `
@@ -95,6 +111,7 @@ $webSources = @(
     "sf_web_port_renderer.c",
     "sf_web_runtime.c",
     "sf_web_fixed_step.c",
+    "sf_web_simulation.c",
     "sf_web_world_renderer.c"
 )
 $legacySources = @(
@@ -143,6 +160,15 @@ $legacySources = @(
     "SFlib\Weapons.c"
 )
 
+$hasPreloadAssets = [bool](Get-ChildItem -LiteralPath $resources -Recurse -File |
+    Select-Object -First 1)
+if (-not $hasPreloadAssets) {
+    $staleData = Join-Path $webRoot "starfighter.data"
+    if (Test-Path -LiteralPath $staleData -PathType Leaf) {
+        Remove-Item -LiteralPath $staleData -Force
+    }
+}
+
 $arguments = @(
     "-std=c11",
     "-funsigned-char",
@@ -157,7 +183,9 @@ $arguments = @(
     "-sEXPORTED_RUNTIME_METHODS=UTF8ToString,HEAPU8",
     "-o", (Join-Path $webRoot "starfighter.js")
 )
-$arguments += "--preload-file", "$resources@/"
+if ($hasPreloadAssets) {
+    $arguments += "--preload-file", "$resources@/"
+}
 
 if ($DebugSymbols) {
     $arguments += "-gsource-map"

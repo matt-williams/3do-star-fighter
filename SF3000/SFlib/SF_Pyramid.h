@@ -1,4 +1,5 @@
 /* File : Pyramid header file */
+#include "../WebPort/sf_web_math.h"
 
 #ifndef __SF_PYRAMID
 #define __SF_PYRAMID
@@ -39,8 +40,6 @@ typedef struct	pyramid							// Pyramid structure data
 // External Definitions
 
 extern cel_celdata			cel_quad;
-extern long cosine_table	[2048];
-extern long *sine_table;
 extern long cheat_feature1;
 
 // Function Prototypes

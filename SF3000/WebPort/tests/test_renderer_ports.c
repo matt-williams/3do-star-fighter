@@ -1,6 +1,7 @@
 #include "../sf3000_webport_renderer.h"
 #include "../sf_web_fixed_step.h"
 #include "../sf_web_world_renderer.h"
+#include "../../SFlib/Ship_Struct.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,14 @@ extern long planet_1_z_pos;
 extern long planet_2_x_pos;
 extern long planet_2_y_pos;
 extern long planet_2_z_pos;
+extern long are_we_in_space_or_wot;
+extern long air_to_ground_scan_temp;
+extern long air_to_ground_x;
+extern long atg_selected;
+extern long ata_selected;
+void sf3000_webport_begin_target_selection(void);
+void sf3000_webport_consider_static_target(void *grid_reference);
+ship_stack *players_ship;
 
 static long game_calls;
 static long polygon_calls;
@@ -30,6 +39,8 @@ static uint32_t renderer_command_count;
 static long world_quad_calls;
 static long world_billboard_calls;
 static long world_projected_calls;
+static long world_sky_particle_billboard_calls;
+static uint32_t world_particle_atlas_slot;
 static int32_t world_view_y[4];
 static int32_t world_projected_depths[4];
 static int32_t world_billboard_depth;
@@ -124,12 +135,46 @@ int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
 	return 0;
 }
 
+int32_t sf_web_world_renderer_append_last_model_quad(
+	const int32_t view_x[4], const int32_t view_y[4],
+	const int32_t view_z[4])
+{
+	return sf_web_world_renderer_append_last_quad(view_x, view_y, view_z);
+}
+
 int32_t sf_web_world_renderer_append_last_billboard(int32_t view_depth)
 {
 	world_billboard_depth = view_depth;
 	++world_quad_calls;
 	++world_billboard_calls;
 	return 0;
+}
+
+int32_t sf_web_world_renderer_append_last_particle_billboard(
+	int32_t view_depth, uint32_t atlas_slot)
+{
+	world_particle_atlas_slot = atlas_slot;
+	return sf_web_world_renderer_append_last_billboard(view_depth);
+}
+
+int32_t sf_web_world_renderer_append_last_precise_particle_billboard(
+	int32_t view_x, int32_t view_y, int32_t view_z, uint32_t atlas_slot,
+	uint32_t atlas_transform)
+{
+	(void)view_x;
+	(void)view_z;
+	(void)atlas_transform;
+	world_particle_atlas_slot = atlas_slot;
+	return sf_web_world_renderer_append_last_billboard(view_y);
+}
+
+int32_t sf_web_world_renderer_append_last_sky_particle_billboard(
+	uint32_t atlas_slot)
+{
+	++world_sky_particle_billboard_calls;
+	world_particle_atlas_slot = atlas_slot;
+	return sf_web_world_renderer_append_last_billboard(
+		SF_WEB_WORLD_FAR_DEPTH);
 }
 
 int32_t sf_web_world_renderer_append_last_projected_quad(
@@ -194,10 +239,11 @@ static void test_sky_plot(void)
 	arm_rendersky(0, 3);
 	arm_plotsky(&cel_quad);
 	if (cel_quad.temp_cels != 1 || sky_commands != 1 ||
-	    sky_command.source == 0 || sky_command.width != 1 ||
+	    sky_command.source == 0 || sky_command.palette == 0 ||
+	    sky_command.width != 1 ||
 	    sky_command.height != 3 ||
 	    sky_command.blend != SF_WEB_RENDER_BLEND_OPAQUE ||
-	    sky_command.encoding != SF_WEB_RENDER_ENCODING_DIRECT_16_SKY ||
+	    sky_command.encoding != SF_WEB_RENDER_ENCODING_SKY_GRADIENT ||
 	    sky_command.shade != 7 ||
 	    sky_command.x[0] != 0 || sky_command.y[0] != 0 ||
 	    sky_command.x[1] != 320 || sky_command.y[1] != 0 ||
@@ -219,6 +265,7 @@ static void test_smoke_and_laser(void)
 	renderer_command_count = 0;
 	world_billboard_calls = 0;
 	world_projected_calls = 0;
+	world_particle_atlas_slot = UINT32_MAX;
 	set_word(smoke, 12 + 4, 9000 << 12);
 	set_word(smoke, 12 + 24, 2);
 	set_word(smoke, 12 + 28, 78);
@@ -226,7 +273,7 @@ static void test_smoke_and_laser(void)
 	plot_smoke(smoke);
 	if (game_calls != 1 || last_sprite != 78 || last_scale_x != 32768 ||
 	    last_scale_y != 32768 || last_shade != 2 ||
-	    world_billboard_calls != 1) {
+	    world_billboard_calls != 1 || world_particle_atlas_slot != 12) {
 		fail("plot_smoke did not select the small-thruster cel and shade");
 	}
 
@@ -247,17 +294,13 @@ static void test_smoke_and_laser(void)
 
 static void test_stars(void)
 {
-	static int32_t cosine[2048];
 	static int32_t stars[128][4];
 	static int32_t sky[256];
 	void *constants[16] = { 0 };
 
-	memset(cosine, 0, sizeof(cosine));
 	memset(stars, 0, sizeof(stars));
-	cosine[0] = 4096;
 	stars[0][1] = 2048;
 	stars[0][3] = 1 << 24;
-	constants[0] = cosine;
 	constants[5] = &cel_quad;
 	constants[12] = stars;
 	constants[14] = sky;
@@ -271,9 +314,14 @@ static void test_stars(void)
 	game_calls = 0;
 	renderer_command_count = 0;
 	world_billboard_calls = 0;
+	world_sky_particle_billboard_calls = 0;
+	world_particle_atlas_slot = UINT32_MAX;
 	plot_stars();
 	if (game_calls != 1 || last_sprite != 1 || last_shade != 2 ||
-	    world_billboard_calls != 1) {
+	    world_billboard_calls != 1 ||
+	    world_sky_particle_billboard_calls != 1 ||
+	    world_particle_atlas_slot != 1 ||
+	    world_billboard_depth != SF_WEB_WORLD_FAR_DEPTH) {
 		fail("plot_stars did not project the visible star with its shade");
 	}
 
@@ -283,19 +331,24 @@ static void test_stars(void)
 	camera_x_velocity = 1 << 14;
 	camera_y_velocity = 0;
 	camera_z_velocity = 1 << 14;
+	are_we_in_space_or_wot = 0;
 	sf_web_fixed_step_simulation_reset();
-	for (int step = 0; step < 4; ++step) {
+	for (int step = 0; step < 5; ++step) {
 		sf_web_fixed_step_begin_simulation_step();
 		sf3000_webport_advance_world_animation_state();
 	}
 	if (stars[0][0] != (1 << 15) || stars[0][1] != (1 << 15) ||
 	    stars[0][2] != (1 << 15)) {
-		fail("space stars advanced before the reference simulation step");
+		fail("ground stars advanced with the camera");
 	}
-	sf_web_fixed_step_begin_simulation_step();
-	sf3000_webport_advance_world_animation_state();
+
+	are_we_in_space_or_wot = 1;
+	for (int step = 0; step < 5; ++step) {
+		sf_web_fixed_step_begin_simulation_step();
+		sf3000_webport_advance_world_animation_state();
+	}
 	if (stars[0][0] != 1 || stars[0][1] != 0 || stars[0][2] != -1) {
-		fail("world animation update did not advance space stars");
+		fail("world animation update did not advance space stars once");
 	}
 	plot_space_stars();
 	if (stars[0][0] != 1 || stars[0][1] != 0 || stars[0][2] != -1) {
@@ -320,23 +373,20 @@ static void test_stars(void)
 
 static void test_static_graphic(void)
 {
-	static int32_t cosine[2048];
 	static int32_t rotated[256][4];
 	static int32_t screen[256][2];
 	static uint8_t graphics[256];
 	static uint8_t graphic[80];
-	static uint8_t heights[1024];
-	static uint8_t poly_map[129];
+	static uint8_t heights[8192];
+	static uint8_t poly_map[1025];
 	void *constants[16] = { 0 };
 
-	memset(cosine, 0, sizeof(cosine));
 	memset(rotated, 0, sizeof(rotated));
 	memset(screen, 0, sizeof(screen));
 	memset(graphics, 0, sizeof(graphics));
 	memset(graphic, 0, sizeof(graphic));
 	memset(heights, 0, sizeof(heights));
 	memset(poly_map, 0, sizeof(poly_map));
-	cosine[0] = 4096;
 	set_word(graphics, 0, 64);
 	set_word(graphics, 4, 128);
 	set_word(graphics, 8, 192);
@@ -357,7 +407,6 @@ static void test_static_graphic(void)
 
 	resolved_graphic = graphic;
 	sf3000_webport_set_pointer_resolver(resolve_graphic_address);
-	constants[0] = cosine;
 	constants[1] = pex_table;
 	constants[3] = heights;
 	constants[5] = &cel_quad;
@@ -371,6 +420,36 @@ static void test_static_graphic(void)
 	camera_z_rotation = 0;
 	setup_rotations();
 
+	atg_selected = 1;
+	ata_selected = 0;
+	are_we_in_space_or_wot = 0;
+	camera_x_position = 0;
+	camera_y_position = 0;
+	camera_z_position = 0;
+	set_word(graphics, 64, 0);
+	sf3000_webport_begin_target_selection();
+	sf3000_webport_consider_static_target((void *)(uintptr_t)513);
+	sf3000_webport_consider_static_target((void *)(uintptr_t)1024);
+	if (air_to_ground_scan_temp != 1024) {
+		fail("target selection did not retain the most centred target");
+	}
+
+	set_word(graphics, 64, 16384 << 12);
+	sf3000_webport_begin_target_selection();
+	sf3000_webport_consider_static_target((void *)(uintptr_t)513);
+	sf3000_webport_consider_static_target((void *)(uintptr_t)1024);
+	if (air_to_ground_scan_temp != 513) {
+		fail("target selection did not use player distance to break an angle tie");
+	}
+
+	sf3000_webport_begin_target_selection();
+	sf3000_webport_consider_static_target((void *)(uintptr_t)514);
+	if (air_to_ground_scan_temp != 0 || air_to_ground_x != (1 << 30)) {
+		fail("target selection admitted a centre outside the original aim cone");
+	}
+	atg_selected = 0;
+	camera_z_position = 1L << 28;
+
 	polygon_calls = 0;
 	renderer_command_count = 0;
 	world_quad_calls = 0;
@@ -380,11 +459,18 @@ static void test_static_graphic(void)
 		fail("plot_static_graphic did not emit its visible face to the world queue");
 	}
 
+	polygon_calls = 0;
+	plot_static_graphic(0, 512, 0, 0);
+	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17 ||
+	    world_quad_calls != 2 || world_view_y[0] >= 1280) {
+		fail("plot_static_graphic discarded a near-plane face from the world queue");
+	}
+
 	heights[512] = 145;
 	polygon_calls = 0;
 	plot_static_from_grid((void *)(uintptr_t)128);
 	if (polygon_calls != 1 || last_sprite != 0 || last_shade != 17 ||
-	    world_quad_calls != 2) {
+	    world_quad_calls != 3) {
 		fail("plot_static_from_grid did not emit its visible face to the world queue");
 	}
 
@@ -394,8 +480,8 @@ static void test_static_graphic(void)
 	set_be_word(graphic, 68, 1);
 	polygon_calls = 0;
 	plot_static_graphic(0, 8192, 0, 0);
-	if (polygon_calls != 0 || world_quad_calls != 2) {
-		fail("plot_static_graphic did not reject a back-facing world face");
+	if (polygon_calls != 1 || world_quad_calls != 4) {
+		fail("plot_static_graphic did not queue a back-facing world face");
 	}
 }
 

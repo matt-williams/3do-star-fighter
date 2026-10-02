@@ -115,6 +115,32 @@ static void test_packed_game_cel_destination_width(void)
     assert(commands[0].blend == SF_WEB_RENDER_BLEND_OPAQUE);
 }
 
+static void test_game_cel_command_records_sprite(void)
+{
+    SFArmCellData cel_data = {0};
+    SFWebRenderQuad commands[1] = {0};
+    unsigned char game_cels[256] = {0};
+    unsigned char *resource = game_cels + 112;
+    unsigned char *source = resource + 72;
+    uint32_t offsets[] = {8u, 112u};
+
+    memcpy(game_cels, offsets, sizeof(offsets));
+    store_be32(resource + 4, UINT32_C(0x00804200));
+    store_be32(source, UINT32_C(0x00000003));
+    source[4] = 0u;
+    source[5] = 0x40u;
+    source[6] = 0xfcu;
+    source[7] = 0x8fu;
+    source[8] = 0u;
+    cel_data.cel_game = game_cels;
+    sf_web_renderer_initialise(commands, 1);
+
+    arm_addgamecel(&cel_data, 1, 1024, 1024);
+
+    assert((commands[0].encoding & SF_WEB_RENDER_GAME_CEL_SPRITE_MASK) ==
+           (UINT32_C(1) << SF_WEB_RENDER_GAME_CEL_SPRITE_SHIFT));
+}
+
 static void test_packed_game_cel_single_literal_width(void)
 {
     SFArmCellData cel_data = {0};
@@ -254,6 +280,116 @@ static void test_opaque_polycel_blend(void)
 
     assert(commands[0].blend == SF_WEB_RENDER_BLEND_OPAQUE);
     assert(commands[0].pixc == UINT32_C(0x08D10BC1));
+    assert(commands[0].encoding == SF_WEB_RENDER_ENCODING_STATIC_CEL_32);
+}
+
+static void test_static_terrain_cel_marker(void)
+{
+    SFArmCellData cel_data = {0};
+    SFWebRenderQuad material = {0};
+    unsigned char cels[64] = {0};
+    uint32_t offset = 4u;
+
+    memcpy(cels, &offset, sizeof(offset));
+    cel_data.cel_list16 = cels;
+
+    assert(sf_armcell_terrain_material(&cel_data, 0, &material) == 0);
+    assert(material.encoding ==
+           (SF_WEB_RENDER_ENCODING_STATIC_CEL_16 |
+            SF_WEB_RENDER_ENCODING_TERRAIN));
+}
+
+static void test_monochrome_cel_target_overlay(void)
+{
+    SFArmCellData cel_data = {0};
+    SFWebRenderQuad commands[1] = {0};
+    unsigned char palette[72] = {0};
+
+    cel_data.cel_palette = palette;
+    cel_data.shade = 4;
+    sf_web_renderer_initialise(commands, 1);
+
+    arm_addmonocel(&cel_data, 0, 8, 2);
+
+    assert(commands[0].source == (uint32_t)(uintptr_t)(palette + 64));
+    assert(commands[0].width == 2u);
+    assert(commands[0].height == 2u);
+    assert(commands[0].blend == SF_WEB_RENDER_BLEND_ADDITIVE);
+    assert(commands[0].encoding ==
+           (SF_WEB_RENDER_ENCODING_DIRECT_16_RAW |
+            SF_WEB_RENDER_ENCODING_TARGET_OVERLAY));
+}
+
+static void test_font_metrics_data_layout(void)
+{
+    enum {
+        first_char = 32,
+        last_char = 33,
+        char_info_offset = 84,
+        font_size = char_info_offset + 2 * 4
+    };
+    uint8 *data = AllocMem(font_size, MEMTYPE_ANY);
+    FontDescriptor *font;
+    TextCel *text_cel;
+    long width;
+    long height;
+
+    assert(data != NULL);
+    store_be32(data, UINT32_C(0x464f4e54));
+    store_be32(data + 4, font_size);
+    store_be32(data + 8, 1u);
+    store_be32(data + 16, 14u);
+    store_be32(data + 20, 11u);
+    store_be32(data + 24, 5u);
+    store_be32(data + 28, first_char);
+    store_be32(data + 32, last_char);
+    store_be32(data + 36, 1u);
+    store_be32(data + 48, 2u);
+    store_be32(data + 52, char_info_offset);
+    store_be32(data + 56, 8u);
+    store_be32(data + 60, font_size);
+    store_be32(data + char_info_offset, 4u);
+    store_be32(data + char_info_offset + 4, 7u);
+
+    font = LoadFontData(data, font_size);
+    assert(font != NULL);
+    text_cel = CreateTextCel(font, 0, 0, 0);
+    assert(text_cel != NULL);
+    UpdateTextInCel(text_cel, TRUE, " !\n!");
+    GetTextCelSize(text_cel, &width, &height);
+    assert(width == 12L);
+    assert(height == 30L);
+    DeleteTextCel(text_cel);
+    UnloadFont(font);
+}
+
+static void test_alphabet_font_metrics_commands(void)
+{
+    SFArmCellData cel_data = {0};
+    SFWebRenderQuad commands[1] = {0};
+    uint8 metrics[SF_ARMCELL_ALPHABET_GLYPH_COUNT *
+                  SF_ARMCELL_ALPHABET_METRIC_BYTES] = {0};
+
+    for (size_t index = 0; index < SF_ARMCELL_ALPHABET_GLYPH_COUNT; ++index) {
+        metrics[index * SF_ARMCELL_ALPHABET_METRIC_BYTES] = 8u;
+        metrics[index * SF_ARMCELL_ALPHABET_METRIC_BYTES + 1u] = 9u;
+        metrics[index * SF_ARMCELL_ALPHABET_METRIC_BYTES + 2u] = 16u;
+    }
+    assert(sf_armcell_set_alphabet_metrics(metrics, sizeof(metrics)) == 0);
+    sf_armcell_set_alphabet_active(1);
+    sf_web_renderer_initialise(commands, 1);
+
+    arm_addgamecel(&cel_data, 10, 1024, 1024);
+
+    assert(commands[0].source == 0u);
+    assert(commands[0].width == 9u);
+    assert(commands[0].height == 16u);
+    assert(commands[0].encoding ==
+           (SF_WEB_RENDER_ENCODING_INDEXED_4 |
+            SF_WEB_RENDER_ENCODING_GAME_CEL |
+            SF_WEB_RENDER_ENCODING_TRANSPARENT_ZERO |
+            (UINT32_C(10) << SF_WEB_RENDER_GAME_CEL_SPRITE_SHIFT)));
+    sf_armcell_set_alphabet_active(0);
 }
 
 int main(void)
@@ -322,10 +458,15 @@ int main(void)
 
     assert(OpenGraphics(&screen_context, 2) == 1);
     assert(screen_context.sc_Bitmaps[0] != NULL);
+#if defined(__EMSCRIPTEN__)
+    assert(screen_context.sc_Bitmaps[0]->bm_Buffer == NULL);
+    assert(screen_context.sc_nFrameBufferPages == 0);
+#else
     SetVRAMPages(0, screen_context.sc_Bitmaps[0]->bm_Buffer,
                  UINT32_C(0x11223344), 1, 0);
     assert(((uint32 *)screen_context.sc_Bitmaps[0]->bm_Buffer)[0] ==
            UINT32_C(0x11223344));
+#endif
     initial_frames = sf_3do_frame_count();
     vbl_request = GetVBLIOReq();
     assert(vbl_request > 0);
@@ -395,11 +536,16 @@ int main(void)
     test_generated_map_bounds();
     test_map_command_source_layout();
     test_packed_game_cel_destination_width();
+    test_game_cel_command_records_sprite();
     test_packed_game_cel_single_literal_width();
     test_additive_game_cel_pixc();
     test_direct_packed_game_cel_destination_width();
     test_packed_game_cel_transparency();
     test_background_zero_opaque_direct_game_cel();
     test_opaque_polycel_blend();
+    test_static_terrain_cel_marker();
+    test_monochrome_cel_target_overlay();
+    test_font_metrics_data_layout();
+    test_alphabet_font_metrics_commands();
     return 0;
 }

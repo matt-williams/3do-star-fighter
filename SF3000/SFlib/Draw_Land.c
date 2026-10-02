@@ -194,10 +194,7 @@ if (ata_selected != 0 || atg_selected != 0)
 		atg_selected != 0 ||
 		( which_graphics_set == SPACE_GRAPHICS && ata_selected != 0 ) )
 	{
-		if (air_to_ground_x<0) air_to_ground_x = -air_to_ground_x;
-		if (air_to_air_x<0) air_to_air_x = -air_to_air_x;
-
-		if (air_to_air_x<air_to_ground_x)
+		if (sf3000_webport_target_selection_prefers_air())
 		{
 			players_ship->target = (void*) air_to_air_scan;
 			air_to_ground_scan = (long) NULL;

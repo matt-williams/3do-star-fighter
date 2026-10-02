@@ -10,6 +10,7 @@
 #include "SF_ScreenUtils.h"
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_runtime.h"
+#include "../WebPort/SF_ARMCell_portable.h"
 #endif
 #include <string.h>
 
@@ -27,7 +28,11 @@ long		cel_alphacount,					// Total number of alpha-characters in char map
 alpha_char	cel_alphamap [MAX_ALPHACHARS];	// Character array map
 alpha_char	cel_character;					// Cel Character for adding
 
-char		alpha_widths [] = {8,6,8,8,8,8,8,8,8,8,11,10,10,10,9,9,11,10,4,7,11,9,12,10,12,9,12,10,10,9,10,10,13,10,10,9,11,11, 10};
+#if defined(SF_WEB_PORT)
+char		alpha_widths [39];
+#else
+char		alpha_widths [] = {8,6,8,8,8,8,8,8,8,8,11,10,10,10,9,9,11,10,4,7,11,9,12,10,12,9,12,10,10,9,10,10,13,10,10,9,11,11,10};
+#endif
 
 /**************************************/
 
@@ -43,7 +48,18 @@ long 	cel_loop;
 CCB*	cel_temp;
 
 #if defined(SF_WEB_PORT)
+uint8	alphabet_metrics [SF_ARMCELL_ALPHABET_GLYPH_COUNT * SF_ARMCELL_ALPHABET_METRIC_BYTES];
+
 	sf_web_runtime_initialise();
+	if (sf_web_runtime_load_alphabet_font_metrics(alphabet_metrics,
+			SF_ARMCELL_ALPHABET_GLYPH_COUNT * SF_ARMCELL_ALPHABET_METRIC_BYTES) !=
+			SF_ARMCELL_ALPHABET_GLYPH_COUNT * SF_ARMCELL_ALPHABET_METRIC_BYTES ||
+		sf_armcell_set_alphabet_metrics(alphabet_metrics,
+			SF_ARMCELL_ALPHABET_GLYPH_COUNT * SF_ARMCELL_ALPHABET_METRIC_BYTES) != 0)
+		return (0);
+	for (cel_loop = 0; cel_loop < 39; cel_loop++)
+		alpha_widths [cel_loop] =
+			alphabet_metrics [cel_loop * SF_ARMCELL_ALPHABET_METRIC_BYTES];
 #endif
 
 // Allocate memory for fixed game cels, 32x32 and 16x16 landscape / polygon cels and creation cels
@@ -296,8 +312,8 @@ long	ang;
 			
 		case ALPHA_CIRCLE :								// Arrange in a circle ?
 			ang = ((cel_alphaaddmodecount<<4) & 1023);
-			alpha_character->x_dist = ((((160*(*(sine_table + ang )))>>12)+160) - alpha_character->end_x_pos);
-			alpha_character->y_dist = ((((120*cosine_table [ang] )>>12)+120) - alpha_character->end_y_pos);
+			alpha_character->x_dist = ((((160*(sf_sin_q12(ang)))>>12)+160) - alpha_character->end_x_pos);
+			alpha_character->y_dist = ((((120*sf_cos_q12(ang) )>>12)+120) - alpha_character->end_y_pos);
 			alpha_character->size_dist = (8192 - alpha_character->end_size);
 			break;
 			

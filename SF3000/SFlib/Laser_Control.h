@@ -1,10 +1,9 @@
 #include "Laser_Struct.h"
+#include "../WebPort/sf_web_math.h"
 #include "Ship_Struct.h"
 #include "Graphic_Struct.h"
 
 extern laser_list lasers ;
-extern long cosine_table [ 2048 ] ;
-extern long *sine_table ;
 
 extern char height_map [ 256 ] [ 256 ] ;
 

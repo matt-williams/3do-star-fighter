@@ -2,6 +2,7 @@
 #include "../SFlib/SF_ARMLink.h"
 
 #include <stddef.h>
+#include <math.h>
 
 extern unsigned char height_map[256][256];
 extern unsigned char poly_map[128][128];
@@ -44,11 +45,13 @@ static sf_arm_i32 sf_collision_height(sf_arm_i32 x_position,
     sf_arm_i32 top_right;
     sf_arm_i32 bottom_right;
     sf_arm_i32 bottom_left;
+#if !defined(SF_WEB_PORT)
     sf_arm_i32 x_fraction;
     sf_arm_i32 y_fraction;
     sf_arm_i32 left_delta;
     sf_arm_i32 right_delta;
     sf_arm_i32 result;
+#endif
 
     if (top_left < 0) {
         top_left = 0;
@@ -67,6 +70,21 @@ static sf_arm_i32 sf_collision_height(sf_arm_i32 x_position,
         bottom_left = 0;
     }
 
+#if defined(SF_WEB_PORT)
+    {
+        float x_fraction_float = (float)((sf_arm_u32)x_position & 0x00ffffffU) /
+            16777216.0f;
+        float y_fraction_float = (float)((sf_arm_u32)y_position & 0x00ffffffU) /
+            16777216.0f;
+        float top = (float)top_left + ((float)top_right - (float)top_left) *
+            x_fraction_float;
+        float bottom = (float)bottom_left +
+            ((float)bottom_right - (float)bottom_left) * x_fraction_float;
+        float height = top + (bottom - top) * y_fraction_float;
+
+        return (sf_arm_i32)lroundf(height * (float)(1 << 21));
+    }
+#else
     x_fraction = (sf_arm_i32)(((sf_arm_u32)x_position << 8U) >> 22U);
     y_fraction = (sf_arm_i32)(((sf_arm_u32)y_position << 8U) >> 22U);
     left_delta = sf_arm_sub(bottom_left, top_left);
@@ -86,6 +104,7 @@ static sf_arm_i32 sf_collision_height(sf_arm_i32 x_position,
                               y_fraction)));
     result = sf_arm_add(sf_arm_lsl(result, 1), sf_arm_lsl(top_left, 21));
     return result < 0 ? 0 : result;
+#endif
 }
 
 long find_ground_height(long x_position, long y_position)

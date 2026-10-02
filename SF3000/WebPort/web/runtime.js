@@ -1,4 +1,5 @@
 import { createWebGLRenderer } from "./webgl_renderer.js";
+import { createBakedUiAssets } from "./ui_assets.js";
 
 const CONTROL = {
   up: 0x00000001,
@@ -20,6 +21,9 @@ const TEXTURE_ATLAS_SIZE = 2048;
 const TEXTURE_ATLAS_PADDING = 1;
 const RENDER_TRACE_CAPACITY = 240;
 const NVRAM_STORAGE_PREFIX = "starfighter:nvram:";
+const CONFIGURATION_STORAGE_KEY = "starfighter:configuration-v1";
+const LEGACY_CONFIGURATION_NVRAM_NAME = "SFC:StarFighter.Config";
+const GAME_CONFIGURATION_SIZE = 556;
 const MAX_SOUND_VOICES = 6;
 const SOUND_EFFECT_SOURCES = [
   "Laser.aiff", "Missile.aiff", "Thud.aiff", "Engine.aiff", "Beep.aiff",
@@ -64,11 +68,14 @@ function clamp(value, minimum, maximum) {
 function createAudioMixer() {
   let audioContext;
   let masterGain;
+  let userActivated = false;
   const busGains = new Map();
+  const busVolumes = new Map();
   const resumeListeners = new Set();
 
   function ensure() {
     if (audioContext !== undefined) return true;
+    if (!userActivated) return false;
     const AudioContextConstructor =
       globalThis.AudioContext ?? globalThis.webkitAudioContext;
     if (AudioContextConstructor === undefined) {
@@ -80,6 +87,7 @@ function createAudioMixer() {
     masterGain.connect(audioContext.destination);
     for (const name of ["effects", "music", "voice", "cinematic"]) {
       const gain = audioContext.createGain();
+      gain.gain.value = busVolumes.get(name) ?? 1;
       gain.connect(masterGain);
       busGains.set(name, gain);
     }
@@ -87,6 +95,7 @@ function createAudioMixer() {
   }
 
   function resume() {
+    userActivated = true;
     if (!ensure()) return;
     const operation = audioContext.state === "suspended" ? audioContext.resume() :
       Promise.resolve();
@@ -100,6 +109,9 @@ function createAudioMixer() {
   return {
     ensure,
     resume,
+    isRunning() {
+      return audioContext?.state === "running";
+    },
     context() {
       return ensure() ? audioContext : undefined;
     },
@@ -107,10 +119,10 @@ function createAudioMixer() {
       return ensure() ? busGains.get(name) : undefined;
     },
     setBusVolume(name, volume) {
+      const normalized = clamp(volume, 0, 128) / 128;
+      busVolumes.set(name, normalized);
       if (!ensure()) return;
-      busGains.get(name).gain.setValueAtTime(
-        clamp(volume, 0, 128) / 128, audioContext.currentTime
-      );
+      busGains.get(name).gain.setValueAtTime(normalized, audioContext.currentTime);
     },
     onResume(listener) {
       resumeListeners.add(listener);
@@ -224,6 +236,10 @@ function createSoundEffects(mixer) {
     loadSamples();
     mixer.resume();
   }
+
+  mixer.onResume(() => {
+    if (initialised) loadSamples();
+  });
 
   return {
     load() {
@@ -339,11 +355,8 @@ function createStreamingPlayer(mixer, bus, label) {
 
   function ensure() {
     if (element !== undefined) return true;
-    if (!mixer.ensure()) return false;
     element = document.createElement("audio");
     element.preload = "metadata";
-    source = mixer.context().createMediaElementSource(element);
-    source.connect(mixer.bus(bus));
     element.addEventListener("ended", () => {
       if (desired) {
         desired = false;
@@ -361,8 +374,20 @@ function createStreamingPlayer(mixer, bus, label) {
     return true;
   }
 
+  function connectAudio() {
+    if (source !== undefined) return true;
+    const context = mixer.context();
+    const destination = mixer.bus(bus);
+    if (context === undefined || destination === undefined) return false;
+    source = context.createMediaElementSource(element);
+    source.connect(destination);
+    return true;
+  }
+
   function attemptPlay() {
-    if (!desired || element === undefined) return;
+    if (!desired || element === undefined || !mixer.isRunning() || !connectAudio()) {
+      return;
+    }
     element.play().catch((error) => {
       if (error.name !== "NotAllowedError" && error.name !== "AbortError") {
         console.error(`Unable to start Star Fighter ${label}.`, error);
@@ -470,7 +495,6 @@ function createStreamedMedia(mixer) {
 
   return {
     initialise() {
-      mixer.ensure();
     },
     terminate() {
       musicGeneration += 1;
@@ -593,7 +617,7 @@ function createCinematicPlayer(mixer, renderer, status) {
     renderer.stopCinematic();
     if (message !== undefined) status.textContent = message;
     else if (playback.awaitingAudioActivation) {
-      status.textContent = "Running - arrows/WASD move, Z/X/C act, Enter starts";
+      status.textContent = "Controls: arrows/WASD move, Z/X/C act, Enter starts";
     }
     playback.resolve(result);
   }
@@ -609,12 +633,9 @@ function createCinematicPlayer(mixer, renderer, status) {
 
   function ensure() {
     if (element !== undefined) return true;
-    if (!mixer.ensure()) return false;
     element = document.createElement("video");
     element.playsInline = true;
     element.preload = "auto";
-    source = mixer.context().createMediaElementSource(element);
-    source.connect(mixer.bus("cinematic"));
     element.addEventListener("ended", () => finish(0));
     element.addEventListener("error", () => {
       if (active !== undefined) {
@@ -622,6 +643,16 @@ function createCinematicPlayer(mixer, renderer, status) {
         finish(0, "Unable to play cinematic.");
       }
     });
+    return true;
+  }
+
+  function connectAudio() {
+    if (source !== undefined) return true;
+    const context = mixer.context();
+    const destination = mixer.bus("cinematic");
+    if (context === undefined || destination === undefined) return false;
+    source = context.createMediaElementSource(element);
+    source.connect(destination);
     return true;
   }
 
@@ -653,7 +684,7 @@ function createCinematicPlayer(mixer, renderer, status) {
         const playback = { resolve, awaitingAudioActivation: false };
         active = playback;
         element.pause();
-        element.muted = mixer.context().state !== "running";
+        element.muted = !mixer.isRunning() || !connectAudio();
         element.src = url;
         element.load();
         renderer.startCinematic(element);
@@ -678,17 +709,19 @@ function createCinematicPlayer(mixer, renderer, status) {
       if (active.awaitingAudioActivation) {
         const playback = active;
         mixer.resume();
+        if (!connectAudio()) {
+          beginMuted(playback);
+          return true;
+        }
         element.muted = false;
         element.play().then(() => {
           if (active === playback) {
             playback.awaitingAudioActivation = false;
-            status.textContent = "Playing cinematic";
+            status.textContent = "";
           }
         }).catch((error) => {
           if (active === playback && error.name !== "AbortError") {
-            element.muted = true;
-            status.textContent = "Press any key/click to enable audio";
-            console.error("Unable to enable Star Fighter cinematic audio.", error);
+            beginMuted(playback);
           }
         });
         return true;
@@ -1078,6 +1111,41 @@ function direct16Pixels(memory, command, sourceOffset = 8,
   return { pixels, width: command.width, height: command.height };
 }
 
+function skyGradientPixels(memory, command) {
+  if (command.width !== 1 || command.height === 0 ||
+      command.height > 400 || command.source < 0 || command.palette < 0 ||
+      command.source + 8 + 256 * 4 > memory.length ||
+      command.palette + (command.height + 1) * 4 > memory.length) {
+    return null;
+  }
+
+  const bands = new Uint32Array(memory.buffer, command.palette,
+                                command.height + 1);
+  const pixels = new Uint8Array(command.height * 4);
+  for (let y = 0; y < command.height; y += 1) {
+    const position = bands[y + 1];
+    const band = position >>> 10;
+    const nextBand = Math.min(band + 1, 255);
+    const fraction = (position & 1023) / 1024;
+    const lower = rgb555ToRgba(memory, command.source + 8 + band * 4);
+    const upper = rgb555ToRgba(memory, command.source + 8 + nextBand * 4);
+    if (lower === null || upper === null) return null;
+
+    const destination = y * 4;
+    pixels[destination] = Math.round(
+      lower[0] + (upper[0] - lower[0]) * fraction
+    );
+    pixels[destination + 1] = Math.round(
+      lower[1] + (upper[1] - lower[1]) * fraction
+    );
+    pixels[destination + 2] = Math.round(
+      lower[2] + (upper[2] - lower[2]) * fraction
+    );
+    pixels[destination + 3] = 255;
+  }
+  return { pixels, width: 1, height: command.height };
+}
+
 function createIndexedTexture(gl, memory, command) {
   if (command.source === 0) return null;
   const encoding = command.encoding & 0xff;
@@ -1104,6 +1172,18 @@ function createIndexedTexture(gl, memory, command) {
   }
   if (encoding === 9) {
     return direct16Pixels(memory, command, 8, 8);
+  }
+  if (encoding === 11) {
+    return skyGradientPixels(memory, command);
+  }
+  if (encoding === 12) {
+    if (command.palette === 0) return null;
+    return indexed4Pixels(memory, command);
+  }
+  if (encoding === 13) {
+    if (command.palette === 0) return null;
+    return (command.ccbFlags & 0x00000200) !== 0 ?
+      indexed4PackedPixels(memory, command) : indexed4Pixels(memory, command);
   }
   return null;
 }
@@ -1147,6 +1227,7 @@ export function createStarFighterRuntime(canvas, status) {
   });
   const textureAtlas = createTextureAtlas(gl);
   const frameTextureAtlas = createTextureAtlas(gl);
+  const bakedUiAssets = createBakedUiAssets(gl);
   const audioMixer = createAudioMixer();
   const soundEffects = createSoundEffects(audioMixer);
   const streamedMedia = createStreamedMedia(audioMixer);
@@ -1155,11 +1236,18 @@ export function createStarFighterRuntime(canvas, status) {
     height: 1,
     pixels: new Uint8Array([255, 255, 255, 255])
   });
+  const decodeTexture = (command, memory) => {
+    const sky = bakedUiAssets.skyGradient(memory, command);
+    return sky ?? createIndexedTexture(gl, memory, command);
+  };
   const renderer = createWebGLRenderer(canvas, (command, memory) => {
     const encoding = command.encoding & 0xff;
-    const isTransientTexture = encoding === 1 || encoding === 9;
+    const isTransientTexture = encoding === 1 || encoding === 9 ||
+      encoding === 11;
+    const bakedTexture = bakedUiAssets.textureFor(command);
+    if (bakedTexture !== undefined) return bakedTexture;
     const key = `${command.source}:${command.palette}:${command.width}:${command.height}:${command.encoding}`;
-    const decoded = createIndexedTexture(gl, memory, command);
+    const decoded = decodeTexture(command, memory);
     if (decoded === null) return fallbackTexture;
     if (isTransientTexture) {
       return frameTextureAtlas.store(decoded) ?? fallbackTexture;
@@ -1172,15 +1260,388 @@ export function createStarFighterRuntime(canvas, status) {
     textures.set(key, region);
     return region;
   }, (command) => module.UTF8ToString(command.source),
-  (command, memory) => createIndexedTexture(gl, memory, command));
+  decodeTexture);
+  bakedUiAssets.setRenderer(renderer);
+
+  function configurationInteger(value, name, minimum, maximum) {
+    if (!Number.isInteger(value) || value < minimum || value > maximum) {
+      throw new Error(`Game configuration ${name} is invalid`);
+    }
+    return value;
+  }
+
+  function configurationString(value, name) {
+    if (typeof value !== "string" || value.length >= 20 ||
+        ![...value].every((character) => {
+          const code = character.codePointAt(0);
+          return code >= 32 && code <= 126;
+        })) {
+      throw new Error(`Game configuration ${name} is invalid`);
+    }
+    return value;
+  }
+
+  function configurationToBytes(configuration) {
+    if (configuration?.schema !== "game-configuration-v1") {
+      throw new Error("Game configuration has an unsupported schema");
+    }
+    const data = new Uint8Array(GAME_CONFIGURATION_SIZE);
+    const words = new DataView(data.buffer);
+    if (!Array.isArray(configuration.reserved) ||
+        configuration.reserved.length !== 4) {
+      throw new Error("Game configuration reserved bytes are invalid");
+    }
+    [1, 2, 3, 11].forEach((offset, index) => {
+      data[offset] = configurationInteger(configuration.reserved[index],
+                                          `reserved byte ${index}`, 0, 255);
+    });
+    for (const name of ["version", "language", "control_method", "music_volume",
+                        "sound_volume", "music_on", "sound_on", "video_on"]) {
+      const offsets = {
+        version: 0, language: 4, control_method: 5, music_volume: 6,
+        sound_volume: 7, music_on: 8, sound_on: 9, video_on: 10
+      };
+      data[offsets[name]] = configurationInteger(configuration[name], name, 0, 255);
+    }
+    if (!Array.isArray(configuration.flight_controls) ||
+        configuration.flight_controls.length !== 12) {
+      throw new Error("Game configuration flight controls are invalid");
+    }
+    configuration.flight_controls.forEach((control, index) => {
+      data[12 + index] = configurationInteger(control, `flight control ${index}`, 0, 255);
+    });
+    const bounds = configuration.stick_bounds;
+    if (bounds === null || typeof bounds !== "object") {
+      throw new Error("Game configuration stick bounds are invalid");
+    }
+    for (const [name, offset] of Object.entries({
+      x_min: 24, x_max: 28, y_min: 32, y_max: 36, z_min: 40, z_max: 44
+    })) {
+      words.setInt32(offset, configurationInteger(bounds[name], `stick ${name}`,
+                                                   -0x80000000, 0x7fffffff), true);
+    }
+    if (!Array.isArray(configuration.music_tracks) ||
+        configuration.music_tracks.length !== 8) {
+      throw new Error("Game configuration music tracks are invalid");
+    }
+    configuration.music_tracks.forEach((track, index) => {
+      data[48 + index] = configurationInteger(track, `music track ${index}`, 0, 255);
+    });
+    const encoder = new TextEncoder();
+    data.set(encoder.encode(configurationString(configuration.pilot, "pilot")), 56);
+    if (!Array.isArray(configuration.high_scores) ||
+        configuration.high_scores.length !== 4) {
+      throw new Error("Game configuration high scores are invalid");
+    }
+    configuration.high_scores.forEach((level, levelIndex) => {
+      if (!Array.isArray(level) || level.length !== 5) {
+        throw new Error(`Game configuration high scores for level ${levelIndex} are invalid`);
+      }
+      level.forEach((score, scoreIndex) => {
+        const offset = 76 + (levelIndex * 5 + scoreIndex) * 24;
+        data.set(encoder.encode(configurationString(score?.name,
+                                                    `high-score name ${levelIndex}/${scoreIndex}`)),
+                 offset);
+        words.setInt32(offset + 20, configurationInteger(
+          score?.score, `high score ${levelIndex}/${scoreIndex}`,
+          -0x80000000, 0x7fffffff
+        ), true);
+      });
+    });
+    return data;
+  }
+
+  function fixedConfigurationString(data, offset) {
+    let end = offset;
+    while (end < offset + 20 && data[end] !== 0) end += 1;
+    return configurationString(new TextDecoder("ascii", { fatal: true }).decode(
+      data.subarray(offset, end)
+    ), "stored string");
+  }
+
+  function configurationFromBytes(data) {
+    if (!(data instanceof Uint8Array) || data.length !== GAME_CONFIGURATION_SIZE) {
+      throw new Error("Stored game configuration has an invalid size");
+    }
+    const words = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const configuration = {
+      schema: "game-configuration-v1",
+      version: data[0],
+      reserved: [data[1], data[2], data[3], data[11]],
+      language: data[4],
+      control_method: data[5],
+      music_volume: data[6],
+      sound_volume: data[7],
+      music_on: data[8],
+      sound_on: data[9],
+      video_on: data[10],
+      flight_controls: Array.from(data.subarray(12, 24)),
+      stick_bounds: {
+        x_min: words.getInt32(24, true),
+        x_max: words.getInt32(28, true),
+        y_min: words.getInt32(32, true),
+        y_max: words.getInt32(36, true),
+        z_min: words.getInt32(40, true),
+        z_max: words.getInt32(44, true)
+      },
+      music_tracks: Array.from(data.subarray(48, 56)),
+      pilot: fixedConfigurationString(data, 56),
+      high_scores: []
+    };
+    for (let level = 0; level < 4; level += 1) {
+      const scores = [];
+      for (let entry = 0; entry < 5; entry += 1) {
+        const offset = 76 + (level * 5 + entry) * 24;
+        scores.push({
+          name: fixedConfigurationString(data, offset),
+          score: words.getInt32(offset + 20, true)
+        });
+      }
+      configuration.high_scores.push(scores);
+    }
+    configurationToBytes(configuration);
+    return configuration;
+  }
+
+  function copyConfiguration(configuration, destination, capacity) {
+    if (module === undefined) return 0;
+    const bytes = configurationToBytes(configuration);
+    if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+        destination < 0 || capacity < bytes.length ||
+        destination + bytes.length > module.HEAPU8.length) {
+      throw new Error("Game configuration destination is outside WebAssembly memory");
+    }
+    module.HEAPU8.set(bytes, destination);
+    return 1;
+  }
+
+  function serializeLegacyText(strings, indexed) {
+    const encodedLines = strings.map((line, index) =>
+      `${indexed ? `${String(index).padStart(3, "0")} ` : ""}${line}\r\n`);
+    return new TextEncoder().encode(`${encodedLines.join("")}#`);
+  }
+
+  function textureAnimationInteger(value, name) {
+    if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+      throw new Error(`Texture animation ${name} is invalid`);
+    }
+    return value;
+  }
+
+  function serializeTextureAnimations(document) {
+    if (document?.schema !== "texture-animation-v1" ||
+        !Array.isArray(document.animations)) {
+      throw new Error("Texture animation document has an unsupported schema");
+    }
+    const records = document.animations.map((animation, animationIndex) => {
+      if (typeof animation?.enabled !== "boolean" ||
+          !Array.isArray(animation.sprites)) {
+        throw new Error(`Texture animation ${animationIndex} is invalid`);
+      }
+      const frameCount = textureAnimationInteger(animation.frame_count,
+                                                 `${animationIndex} frame count`);
+      if (frameCount === 0 || frameCount > 255 ||
+          textureAnimationInteger(animation.initial_frame,
+                                  `${animationIndex} initial frame`) >= frameCount ||
+          textureAnimationInteger(animation.loop_frame,
+                                  `${animationIndex} loop frame`) >= frameCount) {
+        throw new Error(`Texture animation ${animationIndex} has an invalid loop`);
+      }
+      const sprites = animation.sprites.map((sprite, spriteIndex) => {
+        const destination = textureAnimationInteger(
+          sprite?.destination, `${animationIndex}/${spriteIndex} destination`
+        );
+        if (destination >= 256 || !Array.isArray(sprite.frames) ||
+            sprite.frames.length !== frameCount) {
+          throw new Error(`Texture animation ${animationIndex}/${spriteIndex} is invalid`);
+        }
+        const frames = sprite.frames.map((frame, frameIndex) => {
+          const source = textureAnimationInteger(
+            frame, `${animationIndex}/${spriteIndex}/${frameIndex} frame`
+          );
+          if (source >= 256) {
+            throw new Error(`Texture animation ${animationIndex}/${spriteIndex} source is invalid`);
+          }
+          return source;
+        });
+        return { destination, frames };
+      });
+      return {
+        enabled: animation.enabled ? 1 : 0,
+        countdown: textureAnimationInteger(animation.initial_countdown,
+                                           `${animationIndex} initial countdown`),
+        interval: textureAnimationInteger(animation.frame_interval,
+                                          `${animationIndex} frame interval`),
+        frame: textureAnimationInteger(animation.initial_frame,
+                                       `${animationIndex} initial frame`),
+        frameCount,
+        loopFrame: animation.loop_frame,
+        sprites
+      };
+    });
+    let byteLength = 4 + records.length * 4;
+    for (const record of records) {
+      byteLength += 28 + record.sprites.length * (record.frameCount + 1) * 4;
+    }
+    const bytes = new Uint8Array(byteLength);
+    const words = new DataView(bytes.buffer);
+    words.setUint32(0, records.length, true);
+    let recordOffset = 4 + records.length * 4;
+    records.forEach((record, animationIndex) => {
+      words.setUint32(4 + animationIndex * 4, recordOffset - 4, true);
+      words.setUint32(recordOffset, record.enabled, true);
+      words.setUint32(recordOffset + 4, record.countdown, true);
+      words.setUint32(recordOffset + 8, record.interval, true);
+      words.setUint32(recordOffset + 12, record.sprites.length, true);
+      words.setUint32(recordOffset + 16, record.frame, true);
+      words.setUint32(recordOffset + 20, record.frameCount, true);
+      words.setUint32(recordOffset + 24, record.loopFrame, true);
+      let spriteOffset = recordOffset + 28;
+      record.sprites.forEach((sprite) => {
+        words.setUint32(spriteOffset, sprite.destination, true);
+        sprite.frames.forEach((frame, frameIndex) => {
+          words.setUint32(spriteOffset + 4 + frameIndex * 4, frame, true);
+        });
+        spriteOffset += (record.frameCount + 1) * 4;
+      });
+      recordOffset = spriteOffset;
+    });
+    return bytes;
+  }
+
+  async function loadBinaryAsset(load, description, destination, capacity) {
+    if (module === undefined) return 0;
+    try {
+      const bytes = await load();
+      if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+          destination < 0 || capacity < 0) {
+        throw new Error(`${description} destination is outside WebAssembly memory`);
+      }
+      if (capacity < bytes.length) {
+        throw new Error(`${description} requires ${bytes.length} bytes, ` +
+                        `but its destination holds ${capacity}`);
+      }
+      if (destination + bytes.length > module.HEAPU8.length) {
+        throw new Error(`${description} destination is outside WebAssembly memory`);
+      }
+      module.HEAPU8.set(bytes, destination);
+      return 1;
+    } catch (error) {
+      console.error(`Unable to load ${description}:`, error);
+      return 0;
+    }
+  }
+
+  async function loadMessageFontMetrics(destination, capacity) {
+    if (module === undefined) return 0;
+    try {
+      const metrics = await bakedUiAssets.loadMessageFont();
+      const glyphCount = metrics.last_char - metrics.first_char + 1;
+      const charInfoOffset = 84;
+      const byteLength = charInfoOffset + glyphCount * Uint32Array.BYTES_PER_ELEMENT;
+      if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+          destination < 0 || capacity < byteLength ||
+          destination + byteLength > module.HEAPU8.length) {
+        throw new Error("Message font metrics destination is outside WebAssembly memory");
+      }
+      const data = new Uint8Array(byteLength);
+      const words = new DataView(data.buffer);
+      words.setUint32(0, 0x464f4e54);
+      words.setUint32(4, byteLength);
+      words.setUint32(8, 1);
+      words.setUint32(16, metrics.char_height);
+      words.setUint32(20, metrics.char_width);
+      words.setUint32(24, 5);
+      words.setUint32(28, metrics.first_char);
+      words.setUint32(32, metrics.last_char);
+      words.setUint32(36, metrics.char_extra);
+      words.setUint32(48, metrics.leading);
+      words.setUint32(52, charInfoOffset);
+      words.setUint32(56, glyphCount * Uint32Array.BYTES_PER_ELEMENT);
+      words.setUint32(60, byteLength);
+      for (let index = 0; index < glyphCount; index += 1) {
+        const glyph = metrics.glyphs[String(metrics.first_char + index)];
+        if (glyph === undefined || glyph.advance > 255) {
+          throw new Error(`Message font glyph ${index} is invalid`);
+        }
+        words.setUint32(charInfoOffset + index * Uint32Array.BYTES_PER_ELEMENT,
+                        glyph.advance);
+      }
+      module.HEAPU8.set(data, destination);
+      return byteLength;
+    } catch (error) {
+      console.error("Unable to load Message font metrics:", error);
+      return 0;
+    }
+  }
+
+  async function loadAlphabetFontMetrics(destination, capacity) {
+    if (module === undefined) return 0;
+    try {
+      const { metrics: alphabetMetrics } = await bakedUiAssets.loadAlphabetFont();
+      const glyphs = alphabetMetrics.glyphs;
+      const glyphCount = 40;
+      const glyphSize = 3;
+      const byteLength = glyphCount * glyphSize;
+      if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+          destination < 0 || capacity < byteLength ||
+          destination + byteLength > module.HEAPU8.length) {
+        throw new Error("Alphabet font metrics destination is outside WebAssembly memory");
+      }
+      const data = new Uint8Array(byteLength);
+      for (let index = 0; index < glyphCount; index += 1) {
+        const glyph = glyphs[String(index)];
+        if (glyph === undefined || !Number.isInteger(glyph.advance) ||
+            glyph.advance < 0 || glyph.advance > 255 ||
+            !Number.isInteger(glyph.draw_width) || glyph.draw_width > 255 ||
+            !Number.isInteger(glyph.draw_height) || glyph.draw_height > 255) {
+          throw new Error(`Alphabet font glyph ${index} is invalid`);
+        }
+        data[index * glyphSize] = glyph.advance;
+        data[index * glyphSize + 1] = glyph.draw_width;
+        data[index * glyphSize + 2] = glyph.draw_height;
+      }
+      module.HEAPU8.set(data, destination);
+      return byteLength;
+    } catch (error) {
+      console.error("Unable to load Alphabet font metrics:", error);
+      return 0;
+    }
+  }
+
   const cinematics = createCinematicPlayer(audioMixer, renderer, status);
 
   window.addEventListener("keydown", (event) => {
-    if (cinematics.handleUserInput()) {
+    if (event.code === "F3") {
+      if (!event.repeat) {
+        console.info(`Terrain shading: ${renderer.toggleTerrainShading()}`);
+      }
+      event.preventDefault();
+      return;
+    }
+    if (event.code === "F4") {
+      if (!event.repeat) {
+        console.info(`Model shading: ${
+          renderer.toggleDirectionalFlatModelShading()
+        }`);
+      }
+      event.preventDefault();
+      return;
+    }
+    if (event.code === "F5") {
+      if (!event.repeat) {
+        console.info(`Billboard textures: ${
+          renderer.toggleHighResolutionBillboards()
+        }`);
+      }
       event.preventDefault();
       return;
     }
     audioMixer.resume();
+    if (cinematics.handleUserInput()) {
+      event.preventDefault();
+      return;
+    }
     const control = KEY_CONTROLS.get(event.code);
     if (control === undefined) return;
     keyboardControls |= control;
@@ -1196,6 +1657,7 @@ export function createStarFighterRuntime(canvas, status) {
     keyboardControls = 0;
   });
   window.addEventListener("pointerdown", (event) => {
+    audioMixer.resume();
     if (cinematics.handleUserInput()) {
       event.preventDefault();
       event.stopPropagation();
@@ -1232,7 +1694,7 @@ export function createStarFighterRuntime(canvas, status) {
       if (textFont !== undefined) {
         renderer.setTextFont(module.HEAPU8, textFont.source, textFont.size);
       }
-      status.textContent = "Running - arrows/WASD move, Z/X/C act, Enter starts";
+      status.textContent = "Controls: arrows/WASD move, Z/X/C act, Enter starts";
     },
     controlPadState() {
       return keyboardControls | gamepadControls();
@@ -1386,6 +1848,7 @@ export function createStarFighterRuntime(canvas, status) {
       textFont = { source, size };
       if (module !== undefined) {
         renderer.setTextFont(module.HEAPU8, source, size);
+        bakedUiAssets.applyFont();
       }
     },
     resetTextures() {
@@ -1397,37 +1860,290 @@ export function createStarFighterRuntime(canvas, status) {
         height: 1,
         pixels: new Uint8Array([255, 255, 255, 255])
       });
+      bakedUiAssets.reset();
     },
-    copyVram(bank, source) {
-      if (module === undefined || source === 0) return;
-      renderer.copyVram(bank, module.HEAPU8, source);
+    setGameCels(name) {
+      bakedUiAssets.setGameCels(name);
     },
-    clearBank(bank, value) {
-      renderer.clearBank(bank, value);
+    setWorldResources(planet, location, variation, sky) {
+      bakedUiAssets.setWorldResources(planet, location, variation, sky);
     },
-    fillRect(bank, colour, left, top, right, bottom) {
-      renderer.fillRect(bank, colour, left, top, right, bottom);
+    async loadWorldGraphics(planet, destination, capacity) {
+      return loadBinaryAsset(
+        () => bakedUiAssets.loadWorldGraphics(planet),
+        `world graphics ${planet}`, destination, capacity
+      );
     },
-    queueScreenCel(target, source, x, y, hdx, vdy, pixc, ccbFlags) {
-      renderer.queueScreenCel(target, source, x, y, hdx, vdy, pixc, ccbFlags);
+    async loadGameCels(name, destination, capacity) {
+      return loadBinaryAsset(
+        () => bakedUiAssets.loadGameCels(name),
+        `Game CELs ${name}`, destination, capacity
+      );
+    },
+    async loadSky(name, destination, capacity) {
+      return loadBinaryAsset(
+        () => bakedUiAssets.loadSky(name), `sky data ${name}`, destination, capacity
+      );
+    },
+    async loadMonochromePalette(destination, capacity) {
+      return loadBinaryAsset(
+        () => bakedUiAssets.loadMonochromePalette(),
+        "monochrome palette", destination, capacity
+      );
+    },
+    async loadText(language, name, destination, capacity, indexed) {
+      if (module === undefined) return 0;
+      try {
+        if (indexed !== 0 && indexed !== 1) {
+          throw new Error("Text resource encoding is invalid");
+        }
+        const bytes = serializeLegacyText(
+          await bakedUiAssets.loadText(language, name), indexed === 1
+        );
+        if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+            destination < 0 || capacity < bytes.length ||
+            destination + bytes.length > module.HEAPU8.length) {
+          throw new Error(`Text resource ${language}/${name} destination is outside WebAssembly memory`);
+        }
+        module.HEAPU8.set(bytes, destination);
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load text resource ${language}/${name}:`, error);
+        return 0;
+      }
+    },
+    async loadDefaultConfiguration(destination, capacity) {
+      try {
+        return copyConfiguration(await bakedUiAssets.loadGameConfiguration(),
+                                 destination, capacity);
+      } catch (error) {
+        console.error("Unable to load default game configuration:", error);
+        return 0;
+      }
+    },
+    async loadSavedConfiguration(destination, capacity) {
+      try {
+        const saved = localStorage.getItem(CONFIGURATION_STORAGE_KEY);
+        if (saved !== null) {
+          return copyConfiguration(JSON.parse(saved), destination, capacity);
+        }
+        const legacy = localStorage.getItem(
+          NVRAM_STORAGE_PREFIX + LEGACY_CONFIGURATION_NVRAM_NAME
+        );
+        if (legacy === null) return 0;
+
+        const configuration = configurationFromBytes(decodeNVRAMData(legacy));
+        localStorage.setItem(CONFIGURATION_STORAGE_KEY, JSON.stringify(configuration));
+        localStorage.removeItem(
+          NVRAM_STORAGE_PREFIX + LEGACY_CONFIGURATION_NVRAM_NAME
+        );
+        return copyConfiguration(configuration, destination, capacity);
+      } catch (error) {
+        logNVRAMFailure("configuration read", error);
+        return 0;
+      }
+    },
+    saveConfiguration(source, size) {
+      try {
+        if (module === undefined || !Number.isInteger(source) ||
+            !Number.isInteger(size) || source < 0 ||
+            size !== GAME_CONFIGURATION_SIZE ||
+            source + size > module.HEAPU8.length) {
+          throw new Error("Game configuration source is outside WebAssembly memory");
+        }
+        const configuration = configurationFromBytes(
+          module.HEAPU8.slice(source, source + size)
+        );
+        localStorage.setItem(CONFIGURATION_STORAGE_KEY, JSON.stringify(configuration));
+        localStorage.removeItem(
+          NVRAM_STORAGE_PREFIX + LEGACY_CONFIGURATION_NVRAM_NAME
+        );
+        return 1;
+      } catch (error) {
+        logNVRAMFailure("configuration write", error);
+        return 0;
+      }
+    },
+    async loadWorldMetadata(world, destination, capacity) {
+      if (module === undefined) return 0;
+      try {
+        const metadata = (await bakedUiAssets.loadWorldMetadata())[world];
+        const validWord = (value, name) => {
+          if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+            throw new Error(`World metadata ${world} ${name} is invalid`);
+          }
+          return value;
+        };
+        const validByte = (value, name) => validWord(value, name) <= 0xff ?
+          value : (() => { throw new Error(`World metadata ${world} ${name} is invalid`); })();
+        if (metadata === undefined || !Number.isInteger(destination) ||
+            !Number.isInteger(capacity) || destination < 0 || capacity < 24 ||
+            destination + 24 > module.HEAPU8.length ||
+            !Array.isArray(metadata.reserved) || metadata.reserved.length !== 2) {
+          throw new Error(`World metadata ${world} is invalid`);
+        }
+        const data = new Uint8Array(24);
+        const words = new DataView(data.buffer);
+        for (const [name, offset] of Object.entries({
+          explosion1_data1: 0, explosion1_data2: 4,
+          explosion2_data1: 8, explosion2_data2: 12, comet_rate: 20
+        })) {
+          words.setUint32(offset, validWord(metadata[name], name), true);
+        }
+        data[16] = validByte(metadata.explosion_heightcheck, "explosion height check");
+        data[17] = validByte(metadata.space_mission, "space mission");
+        data[18] = validByte(metadata.reserved[0], "reserved value 0");
+        data[19] = validByte(metadata.reserved[1], "reserved value 1");
+        module.HEAPU8.set(data, destination);
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load world metadata ${world}:`, error);
+        return 0;
+      }
+    },
+    async loadTextureAnimations(world, destination, capacity) {
+      if (module === undefined) return 0;
+      try {
+        const bytes = serializeTextureAnimations(
+          await bakedUiAssets.loadTextureAnimations(world)
+        );
+        if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+            destination < 0 || capacity < bytes.length ||
+            destination + bytes.length > module.HEAPU8.length) {
+          throw new Error(`Texture animation ${world} destination is outside WebAssembly memory`);
+        }
+        module.HEAPU8.set(bytes, destination);
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load texture animations ${world}:`, error);
+        return 0;
+      }
+    },
+    loadMessageFontMetrics,
+    loadAlphabetFontMetrics,
+    async loadMissionMaps(location, variation, heightDestination, tileDestination) {
+      if (module === undefined) return 0;
+      try {
+        const maps = await bakedUiAssets.loadMissionMaps(location, variation);
+        const mapBytes = 256 * 256;
+        if (!Number.isInteger(heightDestination) || !Number.isInteger(tileDestination) ||
+            heightDestination < 0 || tileDestination < 0 ||
+            heightDestination + mapBytes > module.HEAPU8.length ||
+            tileDestination + mapBytes > module.HEAPU8.length) {
+          throw new Error("Mission map destination is outside WebAssembly memory");
+        }
+        for (let index = 0; index < mapBytes; index += 1) {
+          module.HEAPU8[heightDestination + index] = maps.height[index * 4];
+          module.HEAPU8[tileDestination + index] = maps.tile[index * 4];
+        }
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load mission terrain maps ${location}/${variation}:`, error);
+        return 0;
+      }
+    },
+    async loadMissionRecord(level, number, destination, capacity) {
+      if (module === undefined) return 0;
+      try {
+        const record = await bakedUiAssets.loadMissionRecord(level, number);
+        if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+            destination < 0 || capacity < record.length ||
+            destination + record.length > module.HEAPU8.length) {
+          throw new Error("Mission record destination is outside WebAssembly memory");
+        }
+        module.HEAPU8.set(record, destination);
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load mission record ${level}/${number}:`, error);
+        return 0;
+      }
+    },
+    async loadWorldMaterials(planet, destination, capacity) {
+      if (module === undefined) return 0;
+      try {
+        const descriptors = await bakedUiAssets.loadWorldMaterials(planet);
+        if (!Number.isInteger(destination) || !Number.isInteger(capacity) ||
+            destination < 0 || capacity !== descriptors.length ||
+            destination + descriptors.length > module.HEAPU8.length) {
+          throw new Error("World material descriptor destination is outside WebAssembly memory");
+        }
+        module.HEAPU8.set(descriptors, destination);
+        return descriptors.length;
+      } catch (error) {
+        console.error(`Unable to load world material descriptors ${planet}:`, error);
+        return 0;
+      }
+    },
+    async loadMissionPolygonMap(location, variation, destination) {
+      if (module === undefined) return 0;
+      try {
+        const pixels = await bakedUiAssets.loadPolygonMap(location, variation);
+        const mapBytes = 128 * 128;
+        if (!Number.isInteger(destination) || destination < 0 ||
+            destination + mapBytes > module.HEAPU8.length) {
+          throw new Error("Polygon map destination is outside WebAssembly memory");
+        }
+        for (let index = 0; index < mapBytes; index += 1) {
+          module.HEAPU8[destination + index] = pixels[index * 4];
+        }
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load polygon map ${location}/${variation}:`, error);
+        return 0;
+      }
+    },
+    async loadBackdrop(name) {
+      if (module === undefined) return 0;
+      try {
+        await bakedUiAssets.loadBackdrop(name);
+        return 1;
+      } catch (error) {
+        console.error(`Unable to load backdrop ${name}:`, error);
+        return 0;
+      }
+    },
+    setBackdropName(name) {
+      bakedUiAssets.setBackdropName(name);
+    },
+    setBackdrop(source) {
+      if (module === undefined) return;
+      const image = bakedUiAssets.backdrop();
+      if (image !== undefined) {
+        renderer.setBackdropImage(image);
+      } else if (source !== 0) {
+        renderer.setBackdrop(module.HEAPU8, source);
+      }
+    },
+    clear(value) {
+      renderer.clear(value);
+    },
+    fillRect(colour, left, top, right, bottom) {
+      renderer.fillRect(colour, left, top, right, bottom);
+    },
+    blurScreen() {
+      renderer.blurScreen();
+    },
+    zoomScreen() {
+      renderer.zoomScreen();
     },
     setFade(opacity) {
       renderer.setFade(opacity);
     },
     present(commandAddress, commandCount, worldCommandAddress, worldCommandCount,
-            bank, terrainFrameAddress, terrainHeightAddress, terrainTileAddress,
+            terrainFrameAddress, terrainHeightAddress, terrainTileAddress,
             terrainX, terrainY, terrainWidth, terrainHeight, terrainFull) {
       if (module === undefined) return;
       if (terrainHeightAddress !== 0) {
         renderer.updateTerrainState(
           module.HEAPU8, terrainHeightAddress, terrainTileAddress, terrainX, terrainY,
-          terrainWidth, terrainHeight, terrainFull
+          terrainWidth, terrainHeight, terrainFull, bakedUiAssets.terrainMaps()
         );
       }
-      renderer.updateTerrainFrame(module.HEAPU8, terrainFrameAddress);
+      renderer.updateTerrainFrame(module.HEAPU8, terrainFrameAddress,
+                                  bakedUiAssets.terrainAtlas());
       frameTextureAtlas.clear();
       renderer.present(module.HEAPU8, commandAddress, commandCount,
-                       worldCommandAddress, worldCommandCount, bank);
+                       worldCommandAddress, worldCommandCount);
       renderTrace.push({
         frame: ++renderedFrameCount,
         ...renderer.worldStats()

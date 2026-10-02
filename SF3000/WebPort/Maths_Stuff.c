@@ -1,4 +1,7 @@
 #include "sf_arm_port.h"
+#include "sf_web_math.h"
+
+#include <math.h>
 
 #if defined(SF_WEB_PORT)
 #include "sf_web_fixed_step.h"
@@ -7,13 +10,6 @@
 #define SF_SIMULATION_DELTA(value) (value)
 #endif
 
-/*
- * These globals retain their original ARM/3DO storage formats.  In
- * particular tangent_table is a byte array containing 1,025 little-endian
- * words, despite the historic C declaration using char.
- */
-extern sf_arm_i32 cosine_table[2048];
-extern unsigned char tangent_table[4100];
 extern unsigned char poly_map[128][128];
 extern sf_arm_i32 camera_x_rotation;
 extern sf_arm_i32 camera_y_rotation;
@@ -21,20 +17,57 @@ extern sf_arm_i32 camera_z_rotation;
 
 static sf_arm_vec3 sf_camera_rotations[3];
 
-static sf_arm_i32 sf_tangent(unsigned int index)
+float sf_normalize_radians(float radians)
 {
-    const unsigned char *entry = tangent_table + index * 4U;
+    const float turn = 6.28318530717958647692f;
+    float normalized = remainderf(radians, turn);
 
-    return (sf_arm_i32)((sf_arm_u32)entry[0] |
-                        ((sf_arm_u32)entry[1] << 8U) |
-                        ((sf_arm_u32)entry[2] << 16U) |
-                        ((sf_arm_u32)entry[3] << 24U));
+    return normalized < 0.0f ? normalized + turn : normalized;
+}
+
+float sf_legacy_rotation_to_radians(long rotation)
+{
+    return sf_normalize_radians((float)(rotation & (SF_LEGACY_TURN_UNITS - 1L)) *
+        (6.28318530717958647692f / (float)SF_LEGACY_TURN_UNITS));
+}
+
+long sf_radians_to_legacy_rotation(float radians)
+{
+    return (long)lroundf(sf_normalize_radians(radians) *
+        ((float)SF_LEGACY_TURN_UNITS / 6.28318530717958647692f)) &
+        (SF_LEGACY_TURN_UNITS - 1L);
+}
+
+float sf_heading_radians(float x, float y)
+{
+    return sf_normalize_radians(atan2f(-x, y));
+}
+
+long sf_sin_q12(long table_rotation)
+{
+    return (long)lroundf(sinf((float)(table_rotation &
+        (SF_LEGACY_TABLE_TURN_UNITS - 1L)) *
+        (6.28318530717958647692f / (float)SF_LEGACY_TABLE_TURN_UNITS)) *
+        (float)SF_TRIG_Q12_ONE);
+}
+
+long sf_cos_q12(long table_rotation)
+{
+    return (long)lroundf(cosf((float)(table_rotation &
+        (SF_LEGACY_TABLE_TURN_UNITS - 1L)) *
+        (6.28318530717958647692f / (float)SF_LEGACY_TABLE_TURN_UNITS)) *
+        (float)SF_TRIG_Q12_ONE);
+}
+
+long sf_hypot_q12(long x, long y)
+{
+    return (long)lroundf(hypotf((float)x, (float)y));
 }
 
 void sf_arm_rotate_coords_x(sf_arm_vec3 *coords, sf_arm_i32 rotation)
 {
-    sf_arm_i32 cosine = cosine_table[(sf_arm_u32)rotation];
-    sf_arm_i32 sine = cosine_table[768U + (sf_arm_u32)rotation];
+    sf_arm_i32 cosine = (sf_arm_i32)sf_cos_q12(rotation);
+    sf_arm_i32 sine = (sf_arm_i32)sf_sin_q12(rotation);
     sf_arm_i32 x_cos = sf_arm_asr(sf_arm_mul(coords->x, cosine), 12);
     sf_arm_i32 y_sin = sf_arm_asr(sf_arm_mul(coords->y, sine), 12);
     sf_arm_i32 x_sin = sf_arm_asr(sf_arm_mul(coords->x, sine), 12);
@@ -46,8 +79,8 @@ void sf_arm_rotate_coords_x(sf_arm_vec3 *coords, sf_arm_i32 rotation)
 
 void sf_arm_rotate_coords_y(sf_arm_vec3 *coords, sf_arm_i32 rotation)
 {
-    sf_arm_i32 cosine = cosine_table[(sf_arm_u32)rotation];
-    sf_arm_i32 sine = cosine_table[768U + (sf_arm_u32)rotation];
+    sf_arm_i32 cosine = (sf_arm_i32)sf_cos_q12(rotation);
+    sf_arm_i32 sine = (sf_arm_i32)sf_sin_q12(rotation);
     sf_arm_i32 y_cos = sf_arm_asr(sf_arm_mul(coords->y, cosine), 12);
     sf_arm_i32 z_sin = sf_arm_asr(sf_arm_mul(coords->z, sine), 12);
     sf_arm_i32 y_sin = sf_arm_asr(sf_arm_mul(coords->y, sine), 12);
@@ -59,8 +92,8 @@ void sf_arm_rotate_coords_y(sf_arm_vec3 *coords, sf_arm_i32 rotation)
 
 void sf_arm_rotate_coords_z(sf_arm_vec3 *coords, sf_arm_i32 rotation)
 {
-    sf_arm_i32 cosine = cosine_table[(sf_arm_u32)rotation];
-    sf_arm_i32 sine = cosine_table[768U + (sf_arm_u32)rotation];
+    sf_arm_i32 cosine = (sf_arm_i32)sf_cos_q12(rotation);
+    sf_arm_i32 sine = (sf_arm_i32)sf_sin_q12(rotation);
     sf_arm_i32 x_cos = sf_arm_asr(sf_arm_mul(coords->x, cosine), 12);
     sf_arm_i32 z_sin = sf_arm_asr(sf_arm_mul(coords->z, sine), 12);
     sf_arm_i32 x_sin = sf_arm_asr(sf_arm_mul(coords->x, sine), 12);
@@ -278,47 +311,18 @@ long find_rotation(long x_value, long y_value)
 {
     sf_arm_i32 x = (sf_arm_i32)x_value;
     sf_arm_i32 y = (sf_arm_i32)y_value;
-    sf_arm_i32 absolute_x;
-    sf_arm_i32 absolute_y;
-    sf_arm_i32 tangent;
-    sf_arm_i32 ratio;
 
     if (x == 0 && y == 0) {
         return 0;
     }
 
-    absolute_x = sf_arm_abs(x);
-    absolute_y = sf_arm_abs(y);
-    if (absolute_x <= absolute_y) {
-        ratio = sf_arm_divide(sf_arm_lsl(absolute_x, 10), absolute_y).quotient;
-        tangent = sf_tangent((unsigned int)ratio);
-        if (y > 0) {
-            tangent = x < 0 ? tangent : sf_arm_neg(tangent);
-            return (long)(tangent < 0 ? sf_arm_add(tangent, 1024 * 1024) : tangent);
-        }
-        return (long)(x >= 0 ? sf_arm_add(tangent, 512 * 1024)
-                             : sf_arm_sub(512 * 1024, tangent));
-    }
-
-    ratio = sf_arm_divide(sf_arm_lsl(absolute_y, 10), absolute_x).quotient;
-    tangent = sf_tangent((unsigned int)ratio);
-    if (x < 0) {
-        return (long)(y < 0 ? sf_arm_add(tangent, 256 * 1024)
-                            : sf_arm_sub(256 * 1024, tangent));
-    }
-    return (long)(y >= 0 ? sf_arm_add(tangent, 256 * 3 * 1024)
-                         : sf_arm_sub(256 * 3 * 1024, tangent));
+    return sf_radians_to_legacy_rotation(sf_heading_radians((float)x,
+        (float)y));
 }
 
 static sf_arm_i32 sf_arm_planar_distance(sf_arm_i32 x, sf_arm_i32 y)
 {
-    sf_arm_i32 rotation = (sf_arm_i32)find_rotation(x, y);
-    sf_arm_i32 cosine = sf_arm_abs(cosine_table[(sf_arm_u32)sf_arm_asr(rotation, 10)]);
-    sf_arm_i32 sine = sf_arm_abs(cosine_table[768U + (sf_arm_u32)sf_arm_asr(rotation, 10)]);
-    sf_arm_i32 scaled_y = sf_arm_mul(sf_arm_abs(y), cosine);
-    sf_arm_i32 scaled_x = sf_arm_mul(sf_arm_abs(x), sine);
-
-    return sf_arm_asr(sf_arm_add(scaled_y, scaled_x), 12);
+    return (sf_arm_i32)sf_hypot_q12(x, y);
 }
 
 long find_2d_distance(long x, long y)
@@ -335,13 +339,10 @@ int target_finder(void *data)
     sf_arm_i32 x_rotation = (sf_arm_i32)find_rotation(x, y);
     sf_arm_i32 planar = sf_arm_planar_distance(x, y);
     sf_arm_i32 y_rotation = (sf_arm_i32)find_rotation(z, planar);
-    sf_arm_i32 cosine = sf_arm_abs(cosine_table[(sf_arm_u32)sf_arm_asr(y_rotation, 10)]);
-    sf_arm_i32 sine = sf_arm_abs(cosine_table[768U + (sf_arm_u32)sf_arm_asr(y_rotation, 10)]);
-
     target[6] = x_rotation;
     target[7] = y_rotation;
-    target[8] = sf_arm_lsl(sf_arm_add(sf_arm_mul(planar, cosine),
-                                      sf_arm_mul(sf_arm_abs(z), sine)), 2);
+    target[8] = sf_arm_lsl((sf_arm_i32)lroundf(hypotf((float)planar,
+        (float)z) * (float)SF_TRIG_Q12_ONE), 2);
     return 0;
 }
 

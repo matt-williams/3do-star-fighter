@@ -13,9 +13,9 @@
 
 typedef struct SFWebWorldQuad {
 	SFWebRenderQuad material;
-	int32_t view_x[4];
-	int32_t view_y[4];
-	int32_t view_z[4];
+	float view_x[4];
+	float view_y[4];
+	float view_z[4];
 } SFWebWorldQuad;
 
 typedef struct SFWebTerrainStateUpload {
@@ -62,7 +62,18 @@ void sf_web_world_renderer_initialise(void);
 void sf_web_world_renderer_reset(void);
 int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
 	const int32_t view_y[4], const int32_t view_z[4]);
+int32_t sf_web_world_renderer_append_last_model_quad(const int32_t view_x[4],
+	const int32_t view_y[4], const int32_t view_z[4]);
 int32_t sf_web_world_renderer_append_last_billboard(int32_t view_depth);
+int32_t sf_web_world_renderer_append_last_particle_billboard(
+	int32_t view_depth, uint32_t atlas_slot);
+int32_t sf_web_world_renderer_append_last_particle_billboard_transformed(
+	int32_t view_depth, uint32_t atlas_slot, uint32_t atlas_transform);
+int32_t sf_web_world_renderer_append_last_precise_particle_billboard(
+	int32_t view_x, int32_t view_y, int32_t view_z, uint32_t atlas_slot,
+	uint32_t atlas_transform);
+int32_t sf_web_world_renderer_append_last_sky_particle_billboard(
+	uint32_t atlas_slot);
 int32_t sf_web_world_renderer_append_last_projected_quad(
 	const int32_t view_depth[4]);
 void sf_web_world_renderer_suppress_last_legacy_quad(void);

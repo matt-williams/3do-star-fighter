@@ -2,16 +2,21 @@
 
 char skyfile[1024];
 
-static uint8_t sky_render_data[400][8];
+static uint32_t sky_gradient_bands[400];
 static int32_t sky_render_height;
 
-static void sf3000_webport_write_sky_colour(uint8_t *destination,
-					     uint32_t colour)
+static uint32_t sf3000_webport_clamp_sky_gradient_band(
+	int32_t colour_band, int32_t maximum_band)
 {
-	destination[0] = (uint8_t)(colour >> 24);
-	destination[1] = (uint8_t)(colour >> 16);
-	destination[2] = (uint8_t)(colour >> 8);
-	destination[3] = (uint8_t)colour;
+	uint32_t maximum_position = (uint32_t)maximum_band << 10;
+
+	if (colour_band <= 0) {
+		return 0;
+	}
+	if ((uint32_t)colour_band >= maximum_position) {
+		return maximum_position;
+	}
+	return (uint32_t)colour_band;
 }
 
 void arm_rendersky(long height, long horizon)
@@ -50,19 +55,8 @@ void arm_rendersky(long height, long horizon)
 
 	sky_render_height = row;
 	while (row > 0) {
-		int32_t band = sf3000_webport_asr32(colour_band, 10);
-
-		if (band > maximum_band) {
-			band = maximum_band;
-		}
-		if (band < 0) {
-			band = 0;
-		}
-		uint32_t colour = (uint32_t)sf3000_webport_read_be_i32(
-			sky, 8 + ((size_t)band * 4));
-
-		sf3000_webport_write_sky_colour(sky_render_data[row], colour);
-		sf3000_webport_write_sky_colour(sky_render_data[row] + 2u, colour);
+		sky_gradient_bands[row] = sf3000_webport_clamp_sky_gradient_band(
+			colour_band, maximum_band);
 		--row;
 		colour_band = sf3000_webport_add32(
 			colour_band, sf3000_webport_asr32(colour_step, 1));
@@ -98,7 +92,8 @@ void arm_plotsky(void *cel_data)
 	points[6] = sf3000_webport_i32(quad->x_pos3);
 	points[7] = sf3000_webport_i32(quad->y_pos3);
 
-	command.source = (uint32_t)(uintptr_t)sky_render_data;
+	command.source = (uint32_t)(uintptr_t)skyfile;
+	command.palette = (uint32_t)(uintptr_t)sky_gradient_bands;
 	command.x[0] = sf3000_webport_add32(points[0], 160);
 	command.y[0] = sf3000_webport_add32(points[1], 120);
 	command.x[1] = sf3000_webport_add32(points[2], 160);
@@ -111,7 +106,7 @@ void arm_plotsky(void *cel_data)
 	command.width = 1;
 	command.height = (uint32_t)height;
 	command.blend = SF_WEB_RENDER_BLEND_OPAQUE;
-	command.encoding = SF_WEB_RENDER_ENCODING_DIRECT_16_SKY;
+	command.encoding = SF_WEB_RENDER_ENCODING_SKY_GRADIENT;
 	command.pixc = UINT32_C(0x1F001F00);
 	if (sf_web_renderer_append(&command) >= 0) {
 		++quad->temp_cels;

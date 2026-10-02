@@ -54,6 +54,7 @@
 #if defined(SF_WEB_PORT)
 #include "WebPort/sf_web_runtime.h"
 #include "WebPort/sf_web_fixed_step.h"
+#include "WebPort/sf_web_simulation.h"
 #endif
 
 #include <timerutils.h>									// System routines
@@ -218,7 +219,12 @@ long	selection,
 	#endif
 	config_version = configuration.version;						// Get current version of config file
 	
+	#if defined(SF_WEB_PORT)
+	configure_waiting = sf_web_runtime_load_saved_configuration(
+		(uint8_t *)&configuration, sizeof(configuration));
+	#else
 	configure_waiting = nvram_load ("StarFighter.Config", "SFC:", (char*) &configuration, sizeof (game_configuration));
+	#endif
 	#if defined(SF_WEB_PORT)
 	sf_web_runtime_set_status("Applying game configuration...");
 	#endif
@@ -235,7 +241,7 @@ long	selection,
 	#endif
 	game_intro ();												// Do initial intro
 	#if defined(SF_WEB_PORT)
-	sf_web_runtime_set_status("Running - arrows/WASD move, Z/X/C act, Enter starts");
+	sf_web_runtime_set_status("Controls: arrows/WASD move, Z/X/C act, Enter starts");
 	#endif
 
 	// TO INITIALISE CHEATS - DO IT HERE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -252,6 +258,9 @@ long	selection,
 	io_resetvideocounter (MAX_WAITBEFOREVIDEO);					// Reset timeout counter
 	control_initialisecameras ();								// Reset default cameras at start of game
 	control_startgame (0);										// Setup player for new game
+	#if defined(SF_WEB_PORT)
+	menu_seed_developer_saves ();								// Provide browser mission-select saves
+	#endif
 	
 /****************************************************************************************************
 /											MAIN MENU LOOP											/
@@ -762,6 +771,7 @@ SFWebFixedStepRate browser_visual_step_rate;
 	sf_web_real_time_step_clock_reset (&browser_fixed_step_clock);
 	sf_web_fixed_step_rate_reset (&browser_visual_step_rate);
 	sf_web_fixed_step_simulation_reset ();
+	sf_web_simulation_reset ();
 	browser_wave_phase_remainder = 0;
 	browser_visual_state_dirty = 1;
 	browser_camera_state_dirty = 1;
@@ -807,7 +817,9 @@ SFWebFixedStepRate browser_visual_step_rate;
 				++browser_step)
 				{
 				sf_web_fixed_step_begin_simulation_step ();
+				sf_web_simulation_begin_step ();
 				game_advance_mission_state (keypad_constant);
+				sf_web_simulation_project_compatibility_step ();
 				draw_frame_update_camera_state (
 					game_select_mission_camera ());
 				browser_camera_state_dirty = 0;
@@ -1148,9 +1160,23 @@ void game_failed (void)
 
 {
 
+#if defined(SF_WEB_PORT)
+	if (configuration.video_on == 1)
+		{
+		/*
+		 * Fade the final gameplay frame before the browser video takes over.
+		 * The subsequent screen swap then fades the newly rendered menu in.
+		 */
+		sf_web_runtime_fade_to_black(20);
+		video_play ("Failure");
+		}
+	else
+		screen_setswap (1);
+#else
 	screen_setswap (1);
 	if (configuration.video_on == 1)
 		video_play ("Failure");					// Play failure video
+#endif
 	screen_setswap (1);
 	game_checkforhighscore (1);					// Did player get a high score ?
 }
@@ -1168,6 +1194,19 @@ void game_debrief (void)
 {
 	status.missions_completed+=1;						// Missions completed
 	
+#if defined(SF_WEB_PORT)
+	if (configuration.video_on == 1)
+		{
+		/* Fade gameplay out before the browser video replaces the canvas. */
+		sf_web_runtime_fade_to_black(20);
+		if (return_mission (&pyramids [parameters.level]) & 1)
+			video_play ("Victory1");					// Play victory video (1 or the other)
+		else
+			video_play ("Victory0");
+		}
+	else
+		screen_setswap (1);
+#else
 	screen_setswap (1);
 	
 	if (configuration.video_on == 1)
@@ -1177,6 +1216,7 @@ void game_debrief (void)
 		else
 			video_play ("Victory0");
 		}
+#endif
 		
 	menus [DEBRIEF_MENU].items [1].selectable = ITEM_OK;
 	

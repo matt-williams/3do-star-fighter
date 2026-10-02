@@ -41,7 +41,6 @@ typedef struct land_context {
 	long *quick_height_table;
 	uint8_t *sprite_map;
 	void *cel_quad;
-	long *cosine_table;
 	uintptr_t space_mission;
 	int32_t resolution;
 	int32_t land_x_pos;
@@ -1156,7 +1155,6 @@ void plot_land_constants(void *constants)
 	land.quick_height_table = (long *)values[4];
 	land.sprite_map = (uint8_t *)values[6];
 	land.cel_quad = values[7];
-	land.cosine_table = (long *)values[8];
 	land.space_mission = (uintptr_t)values[9];
 #if defined(SF_WEB_PORT)
 	sf_web_world_renderer_set_terrain_static_data(land.sprite_map,

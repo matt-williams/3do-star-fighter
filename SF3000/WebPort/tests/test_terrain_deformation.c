@@ -13,8 +13,6 @@ char poly_map[128][128];
 char collision_map[128][128];
 
 #if defined(_MSC_VER)
-long cosine_table[2048];
-long *sine_table;
 long which_graphics_set;
 long *static_graphics_adr;
 long *ships_adr;

@@ -1,10 +1,9 @@
 #ifndef __SOUND_UPDATE_H
+#include "../WebPort/sf_web_math.h"
 #define __SOUND_UPDATE_H
 
 #include "Ship_Struct.h" 
 
-extern long cosine_table [ 2048 ] ;
-extern long* sine_table ;
 
 typedef struct sound_details 
 					{

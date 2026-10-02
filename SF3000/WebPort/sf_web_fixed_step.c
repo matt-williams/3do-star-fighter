@@ -10,6 +10,7 @@ enum {
 
 static uint32_t simulation_step_phase;
 static int simulation_step_active;
+static uint64_t simulation_tick;
 
 static int64_t sf_web_truncate_divide_by_five(int64_t value)
 {
@@ -71,16 +72,33 @@ void sf_web_fixed_step_simulation_reset(void)
 {
     simulation_step_phase = 0;
     simulation_step_active = 0;
+    simulation_tick = 0;
 }
 
 void sf_web_fixed_step_begin_simulation_step(void)
 {
+    ++simulation_tick;
     if (simulation_step_active) {
         simulation_step_phase = (simulation_step_phase + 1) %
             SF_WEB_FIXED_STEPS_PER_REFERENCE_UPDATE;
     } else {
         simulation_step_active = 1;
     }
+}
+
+uint64_t sf_web_fixed_step_tick(void)
+{
+    return simulation_tick;
+}
+
+uint64_t sf_web_fixed_step_deadline_after(uint64_t ticks)
+{
+    return simulation_tick + ticks;
+}
+
+int sf_web_fixed_step_deadline_reached(uint64_t deadline)
+{
+    return simulation_tick >= deadline;
 }
 
 long sf_web_fixed_step_scale_legacy_delta(long legacy_delta)

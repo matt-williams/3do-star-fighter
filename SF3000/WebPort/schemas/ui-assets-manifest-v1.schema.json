@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/ui-assets-manifest-v1.schema.json",
+  "title": "Star Fighter browser UI asset manifest v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "generator"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generator": { "type": "string", "minLength": 1 },
+    "schema_paths": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "configuration": { "$ref": "#/$defs/asset" },
+    "world_metadata": { "$ref": "#/$defs/asset" },
+    "texture_animations": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/asset" }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/asset" }
+    },
+    "fonts": { "type": "object" },
+    "world_sets": { "type": "object" },
+    "game_sets": { "type": "object" },
+    "game_atlases": { "type": "array" },
+    "shared_world_atlases": { "type": "object" },
+    "world_graphics": { "type": "object" },
+    "compatibility": { "type": "object" },
+    "sky": { "type": "object" },
+    "backdrops": { "type": "object" },
+    "maps": { "type": "object" },
+    "missions": { "type": "object" }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "sha256", "size"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size": { "type": "integer", "minimum": 1 },
+        "byte_length": { "type": "integer", "minimum": 1 },
+        "schema": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

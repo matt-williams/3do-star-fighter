@@ -10,6 +10,7 @@
 
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_simulation.h"
 #define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
 #define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
 #else
@@ -44,7 +45,12 @@ while ((smoke->header).status==1)
  //smoke->counter -= 1 ;
 
 // All the above is replaced in machine code
- mc_smoke_mover( smoke );
+#if defined(SF_WEB_PORT)
+ if (sf_web_simulation_is_enabled())
+	sf_web_simulation_advance_smoke(smoke);
+ else
+#endif
+	mc_smoke_mover( smoke );
 
 
 // Certain types of smoke add more smoke
@@ -70,8 +76,12 @@ if (which_graphics_set != SPACE_GRAPHICS)
 	coll_check = find_ground_height(smoke->x_pos,smoke->y_pos) ;
 	if (coll_check>smoke->z_pos)
 	{
+#if defined(SF_WEB_PORT)
+		sf_web_simulation_clamp_smoke_to_height(smoke, coll_check);
+#else
 		smoke->z_pos = coll_check ;
 		if ( smoke->z_vel < 0 ) smoke->z_vel = - smoke->z_vel ;
+#endif
 	}
 }
 
@@ -123,8 +133,8 @@ for (loop2 = ((7-smoke->counter)<<1) ; loop2 <= (((7-smoke->counter)<<1)+1) ; lo
 	else
 	{
 	// Setup the details for the cloud at top
-		z_pos = (8<<24) + ((sine_table [ (loop2-8)<<7 ])<<12) ;
-		size = (1<<(24-12)) + (sine_table [ (loop2-8)<<6 ]<<2) ;
+		z_pos = (8<<24) + ((sf_sin_q12( (loop2-8)<<7 ))<<12) ;
+		size = (1<<(24-12)) + (sf_sin_q12( (loop2-8)<<6 )<<2) ;
 
 		//##################################################
 		//##################################################		
@@ -157,8 +167,8 @@ for (loop2 = ((7-smoke->counter)<<1) ; loop2 <= (((7-smoke->counter)<<1)+1) ; lo
 	for ( loop = 0 ; loop <= counter ; loop +=1 )
 	{
 
-		x_pos = smoke->x_pos + (size * cosine_table [ x_rot ]) ;
-		y_pos = smoke->y_pos + (size * sine_table [ x_rot ]) ;
+		x_pos = smoke->x_pos + (size * sf_cos_q12( x_rot )) ;
+		y_pos = smoke->y_pos + (size * sf_sin_q12( x_rot )) ;
 
 		add_smoke( x_pos , y_pos , z_pos ,
 					0 ,0 ,0 ,
@@ -380,6 +390,9 @@ if (smoke != NULL)
 			smoke->z_pos = coll_check ;
 		}
 	}
+#if defined(SF_WEB_PORT)
+	sf_web_simulation_spawn_smoke(smoke);
+#endif
 
 	}
 

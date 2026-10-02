@@ -11,6 +11,7 @@
 
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_simulation.h"
 #define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
 #define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
 #else
@@ -36,6 +37,22 @@ while ((bit->header).status==1)
 
 //Bit types 0 - 11 0 = smallest 11 = biggest
 
+#if defined(SF_WEB_PORT)
+if (sf_web_simulation_is_enabled())
+{
+if (which_graphics_set != SPACE_GRAPHICS)
+{
+	temp_long = -((1<<19) + (((bit->type)>>2)<<18));
+}
+else
+{
+	temp_long = 0;
+}
+sf_web_simulation_advance_bit(bit, temp_long);
+}
+else
+#endif
+{
 // add on bit position velocitys
 bit->x_pos += SF_SIMULATION_DELTA(bit->x_vel) ;
 bit->y_pos += SF_SIMULATION_DELTA(bit->y_vel) ;
@@ -61,6 +78,8 @@ if ( which_graphics_set != SPACE_GRAPHICS )
 	// Gravity on bits - the bigger the bit the bigger the gravity
 	bit->z_vel += SF_SIMULATION_DELTA(
 		-((1<<19) + ( ((bit->type)>>2)<<18 ))) ;
+}
+
 }
 
 // Smoke from explosion bits
@@ -94,7 +113,11 @@ if ( coll_check != 0 )
 			}
 		}
 		
+#if defined(SF_WEB_PORT)
+		sf_web_simulation_set_bit_lifetime(bit, 0);
+#else
 		bit->counter = 0 ;
+#endif
 		
 	}
 	else
@@ -107,6 +130,30 @@ if ( coll_check != 0 )
 		add_smoke( 	bit->x_pos , bit->y_pos , bit->z_pos ,
 					0 , 0 , 0 ,
 					EXPLOSION_SMOKE , 0 );
+#if defined(SF_WEB_PORT)
+		{
+			long x_angular_velocity = ((arm_random())&131071)-65536;
+			long y_angular_velocity = ((arm_random())&131071)-65536;
+			long z_angular_velocity = ((arm_random())&131071)-65536;
+			long bounced_z_velocity = -bit->z_vel;
+			long x_velocity_delta;
+			long y_velocity_delta;
+
+			coll_check = -coll_check;
+			coll_check_2 = find_ground_height(
+				(bit->x_pos)+(1<<24), bit->y_pos);
+			x_velocity_delta = ((coll_check-coll_check_2)>>14) *
+				(bounced_z_velocity>>14);
+			coll_check_2 = find_ground_height(
+				bit->x_pos, (bit->y_pos)+(1<<24));
+			y_velocity_delta = ((coll_check-coll_check_2)>>14) *
+				(bounced_z_velocity>>14);
+			sf_web_simulation_bounce_bit(bit, x_velocity_delta,
+				y_velocity_delta, x_angular_velocity,
+				y_angular_velocity, z_angular_velocity);
+			sf_web_simulation_adjust_bit_lifetime(bit, -16);
+		}
+#else
 		bit->z_vel = -bit->z_vel ;
 		bit->counter -= 16 ;
 
@@ -126,12 +173,17 @@ if ( coll_check != 0 )
 		
 		bit->y_vel +=(	((coll_check-coll_check_2)>>14) *
 							((bit->z_vel)>>14) ) ;
+#endif
 	}
 }
 
 
 // update the counter for the bit when <0 then delete
+#if defined(SF_WEB_PORT)
+sf_web_simulation_age_bit(bit);
+#else
 bit->counter += SF_SIMULATION_DELTA(-3) ;
+#endif
 
 // Get the adr of the next before any deleting is done
 bit_temp=(bit->header).next_address ;
@@ -215,11 +267,11 @@ bit = new_bit ;
 	// arm_randomom velocity adder based on arm_randomom x,y rot
 	// and base arm_randomom velocity 
 	// Max value = 1 sprite map unit (1<<24)
-	x_dir = (	cosine_table [ x_rot ] * cosine_table [ y_rot ]
+	x_dir = (	sf_cos_q12( x_rot ) * sf_cos_q12( y_rot )
 				* velocity )>>5 ;
-	y_dir = (	sine_table [ x_rot ] * cosine_table [ y_rot ]
+	y_dir = (	sf_sin_q12( x_rot ) * sf_cos_q12( y_rot )
 				* velocity )>>5 ;
-	z_dir = ( sine_table [ y_rot ] *velocity )<< 7 ;
+	z_dir = ( sf_sin_q12( y_rot ) *velocity )<< 7 ;
 
 	pointer = ((arm_random())&(MAX_BITS-1)) ;
 
@@ -288,6 +340,9 @@ bit = new_bit ;
 	break ;
 	
 	}
+#if defined(SF_WEB_PORT)
+	sf_web_simulation_spawn_bit(bit);
+#endif
 //}
 
 }

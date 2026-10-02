@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/font-metrics-v1.schema.json",
+  "title": "Star Fighter bitmap font metrics v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema", "render_style", "image", "atlas_width", "atlas_height",
+    "texture_scale", "glyphs"
+  ],
+  "properties": {
+    "schema": { "const": "font-metrics-v1" },
+    "render_style": { "enum": ["text-weights", "texture-coverage"] },
+    "image": { "type": "string", "minLength": 1 },
+    "atlas_width": { "type": "integer", "minimum": 1 },
+    "atlas_height": { "type": "integer", "minimum": 1 },
+    "texture_scale": { "type": "integer", "minimum": 1 },
+    "first_char": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "last_char": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "char_width": { "type": "integer", "minimum": 1 },
+    "char_height": { "type": "integer", "minimum": 1 },
+    "char_extra": { "type": "integer", "minimum": 0 },
+    "leading": { "type": "integer", "minimum": 0 },
+    "glyphs": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/glyph" }
+    }
+  },
+  "$defs": {
+    "glyph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_rect", "advance", "draw_width", "draw_height"],
+      "properties": {
+        "source_rect": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "advance": { "type": "integer", "minimum": 0 },
+        "draw_width": { "type": "integer", "minimum": 1 },
+        "draw_height": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

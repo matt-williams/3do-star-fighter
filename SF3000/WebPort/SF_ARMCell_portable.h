@@ -11,6 +11,8 @@ extern "C" {
 #endif
 
 #define SF_ARMCELL_MAX_TEMP_CELS 1024u
+#define SF_ARMCELL_ALPHABET_GLYPH_COUNT 40u
+#define SF_ARMCELL_ALPHABET_METRIC_BYTES 3u
 
 /*
  * The legacy cel_celdata ABI uses 32-bit long values and this exact field
@@ -82,6 +84,12 @@ void arm_addmonocel(void *, long, long, long);
 void arm_setcel_hw(void *, long, long);
 void arm_interceptplot(void *);
 void arm_setgamecelpalette(void *, long);
+uint8_t *sf_armcell_world_material_buffer(uint32_t *capacity);
+int32_t sf_armcell_use_world_material_buffer(uint32_t size);
+void sf_armcell_initialise_world_texture_indices(void *texture_indices,
+                                                 uint32_t count);
+int32_t sf_armcell_set_alphabet_metrics(const uint8_t *metrics, uint32_t size);
+void sf_armcell_set_alphabet_active(int32_t active);
 
 #ifdef __cplusplus
 }

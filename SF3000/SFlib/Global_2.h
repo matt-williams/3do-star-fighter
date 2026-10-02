@@ -80,12 +80,9 @@ ship_stack* ship_viewed_last_frame ;
 
 
 // Setup data tables for quick reference look up
-long cosine_table [ 2048 ] ;
-long *sine_table = &cosine_table [ 256*3 ] ;
 long pex_table [ 16384 ] ;
 long pex_table_near [ 2048 ] ;
 long quick_height_table [ 256 ] [ 4 ] ;
-char tangent_table [ 4100 ] ;
 
 // Collision table for static ground obejcts
 char collision_map [ 128 ] [ 128 ] ;

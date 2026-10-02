@@ -10,6 +10,8 @@
 #define SF_CCB_PACKED UINT32_C(0x00000200)
 #define SF_CCB_LOAD_PLUT UINT32_C(0x00800000)
 #define SF_CCB_BACKGROUND_ZERO_OPAQUE UINT32_C(0x00004000)
+#define SF_STATIC_CEL_MATERIAL_COUNT 256u
+#define SF_STATIC_CEL_MATERIAL_BYTES 4108u
 typedef struct SFArmCellCommandState {
     const void *cel_data;
     uint32_t queue_index;
@@ -22,10 +24,22 @@ typedef struct SFArmCellCommandState {
     uint8_t is_game_cel;
 } SFArmCellCommandState;
 
+typedef struct SFStaticCelMaterial {
+    uint32_t ccb_flags;
+    uint8_t transparency;
+    uint8_t valid;
+} SFStaticCelMaterial;
+
 static SFWebRenderQuad *sf_web_renderer_queue;
 static uint32_t sf_web_renderer_queue_capacity;
 static uint32_t sf_web_renderer_queue_count;
 static SFArmCellCommandState sf_armcell_command_states[SF_ARMCELL_STATE_LIMIT];
+static uint8_t sf_static_cel_material_bytes[SF_STATIC_CEL_MATERIAL_BYTES];
+static SFStaticCelMaterial sf_static_cel_materials16[SF_STATIC_CEL_MATERIAL_COUNT];
+static SFStaticCelMaterial sf_static_cel_materials32[SF_STATIC_CEL_MATERIAL_COUNT];
+static uint8_t sf_alphabet_metrics[SF_ARMCELL_ALPHABET_GLYPH_COUNT]
+                                  [SF_ARMCELL_ALPHABET_METRIC_BYTES];
+static int32_t sf_alphabet_active;
 
 static const uint32_t sf_pixc_type1[32] = {
     UINT32_C(0x03011001), UINT32_C(0x08010B01), UINT32_C(0x08011801),
@@ -76,10 +90,84 @@ static void sf_store_be32(uint8_t *destination, uint32_t value)
     destination[3] = (uint8_t)value;
 }
 
+static uint32_t sf_load_le32(const uint8_t *value)
+{
+    return (uint32_t)value[0] | ((uint32_t)value[1] << 8) |
+           ((uint32_t)value[2] << 16) | ((uint32_t)value[3] << 24);
+}
+
+static void sf_store_le32(uint8_t *destination, uint32_t value)
+{
+    destination[0] = (uint8_t)value;
+    destination[1] = (uint8_t)(value >> 8);
+    destination[2] = (uint8_t)(value >> 16);
+    destination[3] = (uint8_t)(value >> 24);
+}
+
 static int32_t sf_i32(long value)
 {
     return (int32_t)(uint32_t)value;
 }
+
+uint8_t *sf_armcell_world_material_buffer(uint32_t *capacity)
+{
+    if (capacity != NULL)
+        *capacity = SF_STATIC_CEL_MATERIAL_BYTES;
+    return sf_static_cel_material_bytes;
+}
+
+int32_t sf_armcell_use_world_material_buffer(uint32_t size)
+{
+    const uint8_t *source = sf_static_cel_material_bytes;
+    SFStaticCelMaterial *destinations[] = {
+        sf_static_cel_materials16, sf_static_cel_materials32
+    };
+    uint32_t category;
+    uint32_t index;
+
+    if (size != SF_STATIC_CEL_MATERIAL_BYTES ||
+        memcmp(source, "SFCM", 4) != 0 ||
+        sf_load_le32(source + 4u) != 1u ||
+        source[8] != 0u || source[9] != 1u ||
+        source[10] != 0u || source[11] != 1u) {
+        return -1;
+    }
+    source += 12u;
+    for (category = 0; category < 2u; ++category) {
+        for (index = 0; index < SF_STATIC_CEL_MATERIAL_COUNT; ++index) {
+            destinations[category][index].ccb_flags = sf_load_le32(source);
+            destinations[category][index].transparency = source[4];
+            destinations[category][index].valid = source[4] != 0u;
+            source += 8u;
+        }
+    }
+    return 0;
+}
+
+void sf_armcell_initialise_world_texture_indices(void *texture_indices,
+                                                 uint32_t count)
+{
+    uint8_t *destination = (uint8_t *)texture_indices;
+    uint32_t index;
+
+    if (destination == NULL)
+        return;
+    for (index = 0; index < count; ++index)
+        sf_store_le32(destination + (size_t)index * 4u, index);
+}
+
+#if defined(SF_WEB_PORT)
+static int32_t sf_world_texture_index(const SFArmCellData *cel, int32_t index)
+{
+    uint32_t mapped;
+
+    if (cel == NULL || cel->cel_list32 == NULL || index < 0 ||
+        (uint32_t)index >= SF_STATIC_CEL_MATERIAL_COUNT)
+        return -1;
+    mapped = sf_load_le32(cel->cel_list32 + (size_t)index * 4u);
+    return mapped < SF_STATIC_CEL_MATERIAL_COUNT ? (int32_t)mapped : -1;
+}
+#endif
 
 static int32_t sf_add32(int32_t left, int32_t right)
 {
@@ -381,13 +469,39 @@ int32_t sf_armcell_terrain_material(void *cel_data, long texture,
                                     SFWebRenderQuad *material)
 {
     SFArmCellData *cel = (SFArmCellData *)cel_data;
+#if defined(SF_WEB_PORT)
+    const SFStaticCelMaterial *descriptor;
+    int32_t index;
+#else
     const uint8_t *resource;
     const uint8_t *source;
     uint32_t preamble0;
     uint32_t preamble1;
+#endif
 
     if (cel == NULL || material == NULL)
         return -1;
+#if defined(SF_WEB_PORT)
+    index = sf_i32(texture);
+    if (index < 0 || (uint32_t)index >= SF_STATIC_CEL_MATERIAL_COUNT)
+        return -1;
+    descriptor = &sf_static_cel_materials16[index];
+    if (descriptor->valid == 0u)
+        return -1;
+    material->source = 0u;
+    material->palette = 0u;
+    material->shade = sf_clamp_shade(cel->shade, 31);
+    material->width = 16u;
+    material->height = 16u;
+    material->blend = SF_WEB_RENDER_BLEND_OPAQUE;
+    material->encoding = SF_WEB_RENDER_ENCODING_STATIC_CEL_16 |
+                         SF_WEB_RENDER_ENCODING_TERRAIN |
+                         ((uint32_t)index <<
+                          SF_WEB_RENDER_STATIC_CEL_INDEX_SHIFT);
+    material->pixc = sf_pixc_type1[material->shade];
+    material->ccb_flags = descriptor->ccb_flags;
+    return 0;
+#else
     resource = sf_indexed_resource(cel->cel_list16, sf_i32(texture));
     if (resource == NULL)
         return -1;
@@ -402,26 +516,35 @@ int32_t sf_armcell_terrain_material(void *cel_data, long texture,
     material->width = 16u;
     material->height = 16u;
     material->blend = SF_WEB_RENDER_BLEND_OPAQUE;
-    material->encoding = SF_WEB_RENDER_ENCODING_INDEXED_4 |
-                         SF_WEB_RENDER_ENCODING_TERRAIN;
+    material->encoding = SF_WEB_RENDER_ENCODING_STATIC_CEL_16 |
+                         SF_WEB_RENDER_ENCODING_TERRAIN |
+                         ((uint32_t)sf_i32(texture) <<
+                          SF_WEB_RENDER_STATIC_CEL_INDEX_SHIFT);
     material->pixc = sf_pixc_type1[material->shade];
     material->ccb_flags = sf_load_be32(resource);
     (void)preamble0;
     (void)preamble1;
     return 0;
+#endif
 }
 
 void arm_addpolycel16(void *cel_data, long texture)
 {
     SFArmCellData *cel = (SFArmCellData *)cel_data;
     SFWebRenderQuad command = {0};
+#if !defined(SF_WEB_PORT)
     const uint8_t *resource;
     const uint8_t *source;
     uint32_t preamble0;
     uint32_t preamble1;
+#endif
 
     if (sf_armcell_terrain_material(cel_data, texture, &command) != 0)
         return;
+#if defined(SF_WEB_PORT)
+    sf_set_polygon_vertices(&command, cel);
+    sf_emit(cel, &command, NULL, 0u, 0u, 0, 0, 0, 0);
+#else
     resource = sf_indexed_resource(cel->cel_list16, sf_i32(texture));
     if (resource == NULL)
         return;
@@ -431,12 +554,18 @@ void arm_addpolycel16(void *cel_data, long texture)
     sf_set_polygon_vertices(&command, cel);
     sf_emit(cel, &command, (uint8_t *)source, preamble0, preamble1, 0, 0,
             1, 0);
+#endif
 }
 
 void arm_addpolycel32(void *cel_data, long texture)
 {
     SFArmCellData *cel = (SFArmCellData *)cel_data;
     SFWebRenderQuad command = {0};
+#if defined(SF_WEB_PORT)
+    const SFStaticCelMaterial *material;
+    int32_t texture_index;
+    int32_t shade;
+#else
     const uint8_t *resource;
     const uint8_t *source;
     uint32_t descriptor;
@@ -444,9 +573,36 @@ void arm_addpolycel32(void *cel_data, long texture)
     uint32_t extent;
     uint32_t transparency;
     int32_t shade;
+#endif
 
     if (cel == NULL)
         return;
+#if defined(SF_WEB_PORT)
+    texture_index = sf_world_texture_index(cel, sf_i32(texture));
+    if (texture_index < 0)
+        return;
+    material = &sf_static_cel_materials32[texture_index];
+    if (material->valid == 0u)
+        return;
+    shade = sf_clamp_shade(cel->shade, material->transparency == 1u ? 31 : 10);
+    command.source = 0u;
+    command.palette = 0u;
+    command.shade = shade;
+    command.width = 32u;
+    command.height = 32u;
+    command.blend = material->transparency == 1u ? SF_WEB_RENDER_BLEND_OPAQUE :
+                    (material->transparency == 2u ? SF_WEB_RENDER_BLEND_ADDITIVE :
+                                                     SF_WEB_RENDER_BLEND_MIX);
+    command.encoding = SF_WEB_RENDER_ENCODING_STATIC_CEL_32 |
+                        ((uint32_t)texture_index <<
+                         SF_WEB_RENDER_STATIC_CEL_INDEX_SHIFT);
+    command.pixc = material->transparency == 1u ? sf_pixc_type1[shade] :
+                   (material->transparency == 2u ? sf_pixc_type3[shade] :
+                                                    sf_pixc_type4[shade]);
+    command.ccb_flags = material->ccb_flags;
+    sf_set_polygon_vertices(&command, cel);
+    sf_emit(cel, &command, NULL, 0u, 0u, 0, 0, 0, 0);
+#else
     resource = sf_indexed_resource(cel->cel_list32, sf_i32(texture));
     if (resource == NULL)
         return;
@@ -467,9 +623,9 @@ void arm_addpolycel32(void *cel_data, long texture)
     command.blend = transparency == 0u ? SF_WEB_RENDER_BLEND_OPAQUE :
                     (transparency == 1u ? SF_WEB_RENDER_BLEND_ADDITIVE :
                                          SF_WEB_RENDER_BLEND_MIX);
-    command.encoding = (sf_load_be32(resource + 4u) & SF_CCB_PACKED) != 0u ?
-                       SF_WEB_RENDER_ENCODING_INDEXED_4_PACKED :
-                       SF_WEB_RENDER_ENCODING_INDEXED_4;
+    command.encoding = SF_WEB_RENDER_ENCODING_STATIC_CEL_32 |
+                        ((uint32_t)sf_i32(texture) <<
+                         SF_WEB_RENDER_STATIC_CEL_INDEX_SHIFT);
     command.pixc = transparency == 0u ? sf_pixc_type1[shade] :
                    (transparency == 1u ? sf_pixc_type3[shade] :
                                        sf_pixc_type4[shade]);
@@ -477,23 +633,40 @@ void arm_addpolycel32(void *cel_data, long texture)
     sf_set_polygon_vertices(&command, cel);
     sf_emit(cel, &command, (uint8_t *)source, sf_load_be32(source),
             sf_load_be32(source + 4u), 0, 0, 1, 0);
+#endif
 }
 
 void arm_setpolycel32palette(void *cel_data, long palette)
 {
     SFArmCellData *cel = (SFArmCellData *)cel_data;
     SFWebRenderQuad *command;
+#if !defined(SF_WEB_PORT)
     const uint8_t *resource;
+#endif
 
     if (cel == NULL)
         return;
     command = sf_last_command(cel, NULL);
     if (command == NULL)
         return;
+#if defined(SF_WEB_PORT)
+    /*
+     * World CEL atlases are pre-baked RGBA.  Preserve the static texture
+     * identity and carry the legacy palette-record index symbolically so the
+     * browser can resolve the matching pre-baked debris variant.
+     */
+    if (sf_i32(palette) < 0 || sf_i32(palette) >= 256)
+        return;
+    command->palette = (uint32_t)sf_i32(palette) + 1u;
+#else
     resource = sf_indexed_resource(cel->cel_list32, sf_i32(palette));
     if (resource == NULL)
         return;
+    command->encoding = (command->ccb_flags & SF_CCB_PACKED) != 0u ?
+                        SF_WEB_RENDER_ENCODING_INDEXED_4_PACKED :
+                        SF_WEB_RENDER_ENCODING_INDEXED_4;
     command->palette = sf_pointer32(resource + 8u);
+#endif
 }
 
 void arm_addgamecel(void *cel_data, long sprite, long x_scale, long y_scale)
@@ -510,6 +683,30 @@ void arm_addgamecel(void *cel_data, long sprite, long x_scale, long y_scale)
 
     if (cel == NULL)
         return;
+#if defined(SF_WEB_PORT)
+    if (sf_alphabet_active != 0 && sf_i32(sprite) >= 0 &&
+        (uint32_t)sf_i32(sprite) < SF_ARMCELL_ALPHABET_GLYPH_COUNT) {
+        const uint8_t *glyph = sf_alphabet_metrics[sf_i32(sprite)];
+
+        command.source = 0u;
+        command.palette = 0u;
+        command.shade = sf_clamp_shade(cel->shade, 10);
+        command.width = glyph[1];
+        command.height = glyph[2];
+        command.encoding = SF_WEB_RENDER_ENCODING_INDEXED_4 |
+            SF_WEB_RENDER_ENCODING_GAME_CEL |
+            SF_WEB_RENDER_ENCODING_TRANSPARENT_ZERO |
+            (((uint32_t)sf_i32(sprite) << SF_WEB_RENDER_GAME_CEL_SPRITE_SHIFT) &
+             SF_WEB_RENDER_GAME_CEL_SPRITE_MASK);
+        command.blend = SF_WEB_RENDER_BLEND_OPAQUE;
+        command.pixc = UINT32_C(0x00800080) | sf_pixc_type2[command.shade];
+        command.ccb_flags = UINT32_C(0x3FAE4300);
+        sf_set_game_vertices(&command, cel, x_scale32, y_scale32);
+        sf_emit(cel, &command, NULL, UINT32_C(0x000003C3),
+                UINT32_C(0x00C80000), x_scale32, y_scale32, 1, 1);
+        return;
+    }
+#endif
     resource = sf_indexed_resource(cel->cel_game, sf_i32(sprite));
     if (resource == NULL)
         return;
@@ -536,7 +733,9 @@ void arm_addgamecel(void *cel_data, long sprite, long x_scale, long y_scale)
         ((flags & SF_CCB_PACKED) != 0u ?
          SF_WEB_RENDER_ENCODING_DIRECT_16_PACKED :
          SF_WEB_RENDER_ENCODING_DIRECT_16)) |
-        SF_WEB_RENDER_ENCODING_GAME_CEL;
+        SF_WEB_RENDER_ENCODING_GAME_CEL |
+        (((uint32_t)sf_i32(sprite) << SF_WEB_RENDER_GAME_CEL_SPRITE_SHIFT) &
+         SF_WEB_RENDER_GAME_CEL_SPRITE_MASK);
     /*
      * Palette-loaded game CELs encode transparent backgrounds as index zero.
      * Packed CELs also encode transparent runs directly in their bitstream.
@@ -552,6 +751,31 @@ void arm_addgamecel(void *cel_data, long sprite, long x_scale, long y_scale)
     sf_set_game_vertices(&command, cel, x_scale32, y_scale32);
     sf_emit(cel, &command, (uint8_t *)source, sf_load_be32(source),
             sf_load_be32(source + 4u), x_scale32, y_scale32, 1, 1);
+}
+
+int32_t sf_armcell_set_alphabet_metrics(const uint8_t *metrics, uint32_t size)
+{
+    size_t index;
+
+    if (metrics == NULL ||
+        size != SF_ARMCELL_ALPHABET_GLYPH_COUNT *
+                SF_ARMCELL_ALPHABET_METRIC_BYTES) {
+        return -1;
+    }
+    for (index = 0; index < SF_ARMCELL_ALPHABET_GLYPH_COUNT; ++index) {
+        const uint8_t *glyph = metrics +
+            index * SF_ARMCELL_ALPHABET_METRIC_BYTES;
+
+        if (glyph[1] == 0u || glyph[2] == 0u)
+            return -1;
+    }
+    memcpy(sf_alphabet_metrics, metrics, sizeof(sf_alphabet_metrics));
+    return 0;
+}
+
+void sf_armcell_set_alphabet_active(int32_t active)
+{
+    sf_alphabet_active = active != 0;
 }
 
 void arm_setgamecelpalette(void *cel_data, long palette)
@@ -592,7 +816,8 @@ void arm_addmonocel(void *cel_data, long unused, long colour, long plot_type)
     command.blend = type <= 0 ? SF_WEB_RENDER_BLEND_OPAQUE :
                     (type == 1 ? SF_WEB_RENDER_BLEND_MIX :
                                  SF_WEB_RENDER_BLEND_ADDITIVE);
-    command.encoding = SF_WEB_RENDER_ENCODING_DIRECT_16_RAW;
+    command.encoding = SF_WEB_RENDER_ENCODING_DIRECT_16_RAW |
+                       SF_WEB_RENDER_ENCODING_TARGET_OVERLAY;
     command.pixc = type <= 0 ? sf_pixc_type1[shade] :
                    (type == 1 ? sf_pixc_type4[shade] : sf_pixc_type3[shade]);
     command.ccb_flags = UINT32_C(0x3F664530);

@@ -26,6 +26,7 @@
 
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_simulation.h"
 #define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
 #else
 #define SF_SIMULATION_DELTA(value) (value)
@@ -100,91 +101,91 @@ if ( (camera[camera_number].type) == CAMERA_NORMAL && docked_camera == 0 && came
 
 	if ( camera_y_rotation >512*1024 ) camera_y_rotation -= 1024*1024 ;
 
-	camera_y_rotation = ((camera_y_rotation * 
-						cosine_table [ ( (camera[camera_number].x_rot)&ROT_LIMIT )>>10 ])>>12)
+	camera_y_rotation = ((camera_y_rotation *
+						sf_cos_q12( ( (camera[camera_number].x_rot)&ROT_LIMIT )>>10 ))>>12)
 						&ROT_LIMIT ;
 
-	//Setup the x,y,z distances from the ship being viewed		
+	//Setup the x,y,z distances from the ship being viewed
 	// Defualt pos can be overwritten if its a big ship or weapon
 
 	//Move the camera to the left or right based on climb / dive when banked over
-	node_data.x_pos = ( (view_ship->y_control)*( sine_table [ (view_ship->z_rot)>>10 ] ) )>>1;
+	node_data.x_pos = ( (view_ship->y_control)*( sf_sin_q12( (view_ship->z_rot)>>10 ) ) )>>1;
 
 	//Move the camera back from the ship based on the zoom and duration thrust is used
 	node_data.y_pos =  -( ( (camera[camera_number].zoom * ship_size )>>10 )+engine_zoom)<<12 ;
-					
+
 	//Move the camera up/down based on climb / dive when banked flat
 	//Plus move the camera above the ship based on zoom and cosine camera y
-	node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) * 
-						( cosine_table [ ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ] )) + 
-						(( (view_ship->y_control)*( cosine_table [ (view_ship->z_rot)>>10 ] ) )>>3) ;
-	
+	node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) *
+						( sf_cos_q12( ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ) )) +
+						(( (view_ship->y_control)*( sf_cos_q12( (view_ship->z_rot)>>10 ) ) )>>3) ;
+
 	if ( (view_ship->type>>4) == BIG_SHIP )
 	{
 		//Move the camera to the left or right based on climb / dive when banked over
-		node_data.x_pos = ( (view_ship->y_control)*( sine_table [ (view_ship->z_rot)>>10 ] ) )>>2;
-	
+		node_data.x_pos = ( (view_ship->y_control)*( sf_sin_q12( (view_ship->z_rot)>>10 ) ) )>>2;
+
 		//Move the camera back from the ship based on the zoom and duration thrust is used
 		node_data.y_pos =  -( ( (camera[camera_number].zoom * ship_size )>>10 )+engine_zoom)<<12 ;
-						
+
 		//Move the camera up/down based on climb / dive when banked flat
 		//Plus move the camera above the ship based on zoom and cosine camera y
-		node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) * 
-							( cosine_table [ ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ] )) + 
-							(( (view_ship->y_control)*( cosine_table [ (view_ship->z_rot)>>10 ] ) )>>4) ;
+		node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) *
+							( sf_cos_q12( ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ) )) +
+							(( (view_ship->y_control)*( sf_cos_q12( (view_ship->z_rot)>>10 ) ) )>>4) ;
 	}
 
 	if ( (view_ship->type>>4) == WEAPON )
 	{
 		//Move the camera to the left or right based on climb / dive when banked over
 		node_data.x_pos = 0 ;
-	
+
 		//Move the camera back from the ship based on the zoom and duration thrust is used
 		node_data.y_pos =  -( ( (camera[camera_number].zoom * ship_size )>>10 )+engine_zoom)<<12 ;
-						
+
 		//Move the camera up/down based on climb / dive when banked flat
 		//Plus move the camera above the ship based on zoom and cosine camera y
-		node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) * 
-							( cosine_table [ ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ] )) ;
+		node_data.z_pos =  ( (( (camera[camera_number].zoom * ship_size)>>10 )>>2) *
+							( sf_cos_q12( ((camera[camera_number].y_rot)&ROT_LIMIT)>>10 ) )) ;
 	}
 
 
 
 	camera_x_rotation = ((512+((camera[camera_number].x_rot)>>10)+((view_ship->x_rot)>>10))&1023) ;
 	camera_y_rotation = camera_y_rotation>>10 ;
-	
+
 	// Limit the rate of change of x rot when on external cam to avoid captain flipper
 	if ( ship_viewed_last_frame == view_ship )
 	{
 		temp_long = camera_x_rotation - ship_viewed_last_frame_x_rot ;
 
 		if (temp_long > 512) temp_long -= 1024 ;
-		if (temp_long < -512) temp_long += 1024 ;		
-		
+		if (temp_long < -512) temp_long += 1024 ;
+
 		if ( temp_long > 32 )
 		{
 			temp_long -= ((temp_long-32)>>1) ;
-			if ( temp_long > 48 ) temp_long -= ((temp_long-48)>>1) ; 
+			if ( temp_long > 48 ) temp_long -= ((temp_long-48)>>1) ;
 			if ( temp_long > 64 ) temp_long = 64 ;
 		}
-	
+
 		if ( temp_long < -32 )
 		{
 			temp_long -= ((temp_long+32)>>1) ;
-			if ( temp_long < -48 ) temp_long -= ((temp_long+48)>>1) ; 
+			if ( temp_long < -48 ) temp_long -= ((temp_long+48)>>1) ;
 			if ( temp_long < -64 ) temp_long = -64 ;
 		}
-	
+
 		camera_x_rotation = (ship_viewed_last_frame_x_rot + temp_long)&1023 ;
 	}
 	ship_viewed_last_frame_x_rot = camera_x_rotation ;
-	
-	
+
+
 	//Setup the x,y rot around the ship being viewed
 	//node_data.x_rot = ((view_ship->x_rot)+(camera[camera_number].x_rot))&ROT_LIMIT ;
-	
+
 	node_data.x_rot = ((camera_x_rotation-512)<<10)&ROT_LIMIT ;
-	
+
 	node_data.y_rot = camera_y_rotation<<10 ;
 	node_data.z_rot = 0 ;
 
@@ -194,14 +195,14 @@ if ( (camera[camera_number].type) == CAMERA_NORMAL && docked_camera == 0 && came
 	camera_y_position = (view_ship->y_pos) + ((node_data.y_pos)) ;
 	camera_z_position = (view_ship->z_pos) + ((node_data.z_pos)) ;
 
-	
+
 	// Nice rolly the horizon effect for these types of ship - else keep it flat
 	if (	(view_ship->type>>4) == BIG_SHIP ||
 			(view_ship->type>>4) == SMALL_SHIP ||
 			(view_ship->type>>4) == PLAYERS_SHIP )
 	{
-		camera_z_rotation = ( sine_table [ (view_ship->z_rot)>>10 ] 
-							* cosine_table [ ( (camera[camera_number].x_rot)&ROT_LIMIT )>>10 ]
+		camera_z_rotation = ( sf_sin_q12( (view_ship->z_rot)>>10 )
+							* sf_cos_q12( ( (camera[camera_number].x_rot)&ROT_LIMIT )>>10 )
 							>>19 )&1023 ;
 	}
 	else
@@ -215,7 +216,7 @@ if ( (camera[camera_number].type) == CAMERA_NORMAL && docked_camera == 0 && came
 
 
 // Is it camera type 1+ - tracking camera / fly by
-if ( 	(camera[camera_number].type)==CAMERA_TRACKING || 
+if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 		(camera[camera_number].type)==CAMERA_FLYBY ||
 		docked_camera != 0 ||
 		camera[camera_number].counter2 > 0 )
@@ -223,7 +224,7 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 
 	ship_viewed_last_frame = NULL ;
 
-	
+
 	// Is it a fixed tracking camera
 	if ( (camera[camera_number].type)==CAMERA_TRACKING || camera[camera_number].counter2 > 0 )
 	{
@@ -245,7 +246,7 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 	}
 
 
-	// Has the camera just been switched to fly by - if so then define position 
+	// Has the camera just been switched to fly by - if so then define position
 	// Or is the camera counter less than 0
 	if ( (camera[camera_number].type)==CAMERA_FLYBY && camera[camera_number].counter2 == 0 )
 	{
@@ -255,15 +256,15 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 			if ( ((view_ship->type)>>4) == BIG_SHIP )
 			{
 				// Flyby cam for big ships
-				
+
 				temp_long = (( ( (arm_random()) &127) +128)<<18) ;
 				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_x_position = (view_ship->x_pos)+((view_ship->x_vel)<<6)+temp_long ;
-				
+
 				temp_long = (( ( (arm_random()) &127) +128)<<18) ;
 				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_y_position = (view_ship->y_pos)+((view_ship->y_vel)<<6)+temp_long ;
-				
+
 				temp_long = (( ( (arm_random()) &127) +128)<<18) ;
 				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_z_position = (view_ship->z_pos)+((view_ship->z_vel)<<6)+temp_long ;
@@ -275,16 +276,16 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 				temp_long = (( ( (arm_random()) &127) +128)<<16) ;
 				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_x_position = (view_ship->x_pos)+((view_ship->x_vel)<<4)+temp_long ;
-				
+
 				temp_long = (( ( (arm_random()) &127) +128)<<16) ;
-				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;				
+				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_y_position = (view_ship->y_pos)+((view_ship->y_vel)<<4)+temp_long ;
-				
+
 				temp_long = (( ( (arm_random()) &127) +128)<<16) ;
-				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;				
+				if ( (arm_random()&1) == 0 ) temp_long = -temp_long ;
 				camera_z_position = (view_ship->z_pos)+((view_ship->z_vel)<<4)+temp_long ;
 				camera[camera_number].counter = 32 ;
-			}			
+			}
 #if defined(SF_WEB_PORT)
 			/* Camera state now advances five times per legacy update, so
 			   remember this selection immediately rather than re-rolling
@@ -317,8 +318,8 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 		dead_cam_rot += SF_SIMULATION_DELTA(16) ;
 		if (dead_cam_rot >= 1024) dead_cam_rot -= 1024 ;
 
-		camera_x_position =  camera[camera_number].x_pos + (cosine_table [ dead_cam_rot ]<<15) ;
-		camera_y_position =  camera[camera_number].y_pos + (sine_table [ dead_cam_rot ]<<15) ;
+		camera_x_position =  camera[camera_number].x_pos + (sf_cos_q12( dead_cam_rot )<<15) ;
+		camera_y_position =  camera[camera_number].y_pos + (sf_sin_q12( dead_cam_rot )<<15) ;
 		camera_z_position =  camera[camera_number].z_pos + (8<<24) ;
 	}
 
@@ -330,9 +331,9 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 		coll_check = find_ground_height( camera_x_position , camera_y_position ) ;
 		if (camera_z_position < (coll_check+(1<<24)) ) camera_z_position = coll_check + (1<<24) ;
 	}
-	
 
-	
+
+
 	// Use the target finder to calculate the cameras x,y rotation
 	// Note the x and y positions are flipped over compared to
 	// normal as used in targeting missiles etc.
@@ -344,7 +345,7 @@ if ( 	(camera[camera_number].type)==CAMERA_TRACKING ||
 	{
 		tracking_camera.x_pos = camera[camera_number].x_pos ;
 		tracking_camera.y_pos = camera[camera_number].y_pos ;
-		tracking_camera.z_aim = camera[camera_number].z_pos ;	
+		tracking_camera.z_aim = camera[camera_number].z_pos ;
 	}
 	else
 	{
@@ -367,20 +368,20 @@ else
 	{
 		// Check that the camera is above the hill level if less than set to min height
 		coll_check = find_ground_height( camera_x_position , camera_y_position ) ;
-		
-		if (camera_z_position < (coll_check+(1<<21)) ) 
+
+		if (camera_z_position < (coll_check+(1<<21)) )
 		{
 			camera_z_position = coll_check + (1<<21) ;
-		
+
 			tracking_camera.x_aim = camera_x_position ;
 			tracking_camera.y_aim = camera_y_position ;
 			tracking_camera.z_pos = camera_z_position ;
 			tracking_camera.x_pos = view_ship->x_pos ;
 			tracking_camera.y_pos = view_ship->y_pos ;
 			tracking_camera.z_aim = view_ship->z_pos ;
-		
+
 			target_finder( &tracking_camera );
-		
+
 			camera_x_rotation = (tracking_camera.x_rot)>>10 ;
 			camera_y_rotation = (tracking_camera.y_rot)>>10 ;
 		}
@@ -429,7 +430,15 @@ else
 	land_sort_offset = (camera_z_position>>24) + 4 ;
 }
 
-
+#if defined(SF_WEB_PORT)
+	sf_web_simulation_set_camera_pose(&camera[camera_number],
+		camera_x_position, camera_y_position, camera_z_position,
+		camera_x_rotation << 10, camera_y_rotation << 10,
+		camera_z_rotation << 10);
+	sf_web_simulation_project_camera_pose(&camera[camera_number],
+		&camera_x_position, &camera_y_position, &camera_z_position,
+		&camera_x_rotation, &camera_y_rotation, &camera_z_rotation);
+#endif
 }
 
 void draw_frame_advance_wave_state(void)

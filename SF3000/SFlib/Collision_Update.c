@@ -28,6 +28,7 @@
 
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_simulation.h"
 #define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
 #else
 #define SF_SIMULATION_REFERENCE_TICK() 1
@@ -134,7 +135,14 @@ while (start_of_collision_stack < end_of_collision_stack )
 		if ( coll_check != 0 && ( (ship->type>>4) != PLAYERS_SHIP || docked.status == DOCKING_OUT ) &&
 			(laser->type != BEAM_LASER || SF_SIMULATION_REFERENCE_TICK()) )
 		{
+#if defined(SF_WEB_PORT)
+			if (laser->type == BEAM_LASER)
+				laser->counter = 0;
+			else
+				sf_web_simulation_set_laser_lifetime(laser, -1);
+#else
 			laser->counter = laser->type == BEAM_LASER ? 0 : -1 ;
+#endif
 			ship->shields -= laser->type ;
 			ship->z_roller = 32 * ( (arm_random()&2047) -1024 ) ;
 			ship->who_hit_me = (long) laser->who_owns_me ;

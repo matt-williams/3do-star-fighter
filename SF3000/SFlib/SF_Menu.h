@@ -218,6 +218,7 @@ void	menu_displayjukebox (void);			// Display currently playing track
 void	menu_loadgame (long);				// Load a previously saved game
 void	menu_savegamefile (long);			// Gets filename & saves (If no room, goes into replace menu)
 void	menu_savegame (long);				// Save a game
+void	menu_seed_developer_saves (void);	// Seed browser mission-selection saves
 
 // Configure functions
 

@@ -374,9 +374,9 @@ else
 setup_collision_constants( (long) planet_info.space_mission);
 
 // Setup machine code with all the required constants
-// To save setting up another array use cosine_table as a temp store
+// The legacy ARM setup routine's first parameter is not used by the Web port.
 
-memptr [ 0 ] = &cosine_table ;
+memptr [ 0 ] = NULL ;
 memptr [ 1 ] = &pex_table ;
 memptr [ 2 ] = &rotated_coords ;
 memptr [ 3 ] = &height_map ;
@@ -411,7 +411,7 @@ memptr [ 4 ] = &quick_height_table ;
 memptr [ 5 ] = &poly_map ;
 memptr [ 6 ] = &sprite_map ;
 memptr [ 7 ] = &cel_quad ;
-memptr [ 8 ] = &cosine_table ;
+memptr [ 8 ] = NULL ;
 memptr [ 9 ] = (void*) planet_info.space_mission ;
 
 plot_land_constants (&memptr) ;
@@ -657,9 +657,9 @@ for ( loop = 0 ; loop <= 127 ; loop += 1 )
 	}
 	else
 	{
-		star_coords [loop] [0]= (((cosine_table[temp_long])*(cosine_table[temp_long2])))>>10;
-		star_coords [loop] [1]= (((sine_table[temp_long])*(cosine_table[temp_long2])))>>10;
-		star_coords [loop] [2]= -(sine_table[temp_long2])<<2;
+		star_coords [loop] [0]= (((sf_cos_q12(temp_long))*(sf_cos_q12(temp_long2))))>>10;
+		star_coords [loop] [1]= (((sf_sin_q12(temp_long))*(sf_cos_q12(temp_long2))))>>10;
+		star_coords [loop] [2]= -(sf_sin_q12(temp_long2))<<2;
 	}
 
 	// Set the value of the type of star to plot
@@ -674,13 +674,13 @@ for ( loop = 0 ; loop <= 127 ; loop += 1 )
 temp_long = ((arm_random())&1023) ;
 temp_long2 = (temp_long + 512 + (arm_random()&511))&1023 ;
 
-planet_1_x_pos = (cosine_table [ temp_long ])<<2 ;
-planet_1_y_pos = (sine_table [ temp_long ])<<2 ;
-planet_1_z_pos = -(sine_table [ (32+((arm_random())&63)) ]<<2) ;
+planet_1_x_pos = (sf_cos_q12( temp_long ))<<2 ;
+planet_1_y_pos = (sf_sin_q12( temp_long ))<<2 ;
+planet_1_z_pos = -(sf_sin_q12( (32+((arm_random())&63)) )<<2) ;
 
-planet_2_x_pos = (cosine_table [ temp_long2 ])<<2 ;
-planet_2_y_pos = (sine_table [ temp_long2 ])<<2 ;
-planet_2_z_pos = -(sine_table [ (32+((arm_random())&63)) ]<<2) ;
+planet_2_x_pos = (sf_cos_q12( temp_long2 ))<<2 ;
+planet_2_y_pos = (sf_sin_q12( temp_long2 ))<<2 ;
+planet_2_z_pos = -(sf_sin_q12( (32+((arm_random())&63)) )<<2) ;
 
 /* Exit with cosine + perspective table setup + temp test hills */	
 }

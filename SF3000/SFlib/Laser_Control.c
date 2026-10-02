@@ -17,6 +17,7 @@
 
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_fixed_step.h"
+#include "../WebPort/sf_web_simulation.h"
 #define SF_SIMULATION_DELTA(value) sf_web_fixed_step_scale_legacy_delta(value)
 #define SF_SIMULATION_REFERENCE_TICK() sf_web_fixed_step_is_reference_tick()
 #else
@@ -48,6 +49,14 @@ while ((laser->header).status==1)
 	}
 
  // add on laser velocitys to start and end points of laser
+#if defined(SF_WEB_PORT)
+ if (laser->type != BEAM_LASER && sf_web_simulation_is_enabled())
+ {
+	sf_web_simulation_advance_laser(laser);
+ }
+ else
+#endif
+ {
  laser->x_pos += SF_SIMULATION_DELTA(laser->x_vel) ;
  laser->y_pos += SF_SIMULATION_DELTA(laser->y_vel) ;
  laser->z_pos += SF_SIMULATION_DELTA(laser->z_vel) ;
@@ -55,8 +64,9 @@ while ((laser->header).status==1)
  laser->x_pos2 += SF_SIMULATION_DELTA(laser->x_vel) ;
  laser->y_pos2 += SF_SIMULATION_DELTA(laser->y_vel) ;
  laser->z_pos2 += SF_SIMULATION_DELTA(laser->z_vel) ;
+ }
 
- // Check for any ground / object collisions	
+ // Check for any ground / object collisions
  temp_long = check_collision ( laser->x_pos , laser->y_pos , laser->z_pos ) ;
 
  if ( temp_long != 0 && laser->who_owns_me != temp_long &&
@@ -72,30 +82,34 @@ while ((laser->header).status==1)
 	 }
 	 else
 	 {
+#if defined(SF_WEB_PORT)
+		 sf_web_simulation_set_laser_lifetime(laser, -1);
+#else
 		 laser->counter = -1 ;
+#endif
 	 }
 
 	if (	bonus_collision_ref >= 2 && laser->who_owns_me == (long) players_ship &&
-			(temp_long&16383) == temp_long ) 
+			(temp_long&16383) == temp_long )
 	{
 		add_bonus_from_collision_box( bonus_collision_ref , temp_long );
  	}
-	
+
 	 // If the collision check returns a positive value then this means you have hit
 	 // a static ground object with the address offset returned
 	 // Call static_explode to update the objects hit counter and blow up and delete
 	 // the object. Call with object ref and damage ( Max hits counter 254 - average 100)
 	 if ( temp_long > 0 )
 	 {
- 
+
 		 // Laser fired from ground guns don't effect ground objects hits counter
 		 if ( laser->who_owns_me > 16384 )
 		 static_explode ( temp_long , laser->type ) ;
- 
+
  	 }
  	 else
 	 {
- 
+
  		// If its not hit a object then its a ground hit
  		// In which case do ground explosion
  		dent_ground( laser->x_pos , laser->y_pos , laser->type ) ;
@@ -105,7 +119,12 @@ while ((laser->header).status==1)
 
 
  // update the counter for the laser when <0 then delete
- laser->counter += SF_SIMULATION_DELTA(-1) ;
+#if defined(SF_WEB_PORT)
+ if (laser->type != BEAM_LASER && sf_web_simulation_is_enabled())
+	sf_web_simulation_age_laser(laser);
+ else
+#endif
+	laser->counter += SF_SIMULATION_DELTA(-1) ;
 
 	if ( (laser->counter) < 0 && laser->type != BEAM_LASER )
 	{
@@ -143,13 +162,13 @@ target.z_aim = z_aim ;
 
 target_finder( &target );
 
-//x_dist = ((x_pos-x_aim)>>12)*cosine_table [ target.x_rot>>10 ] ;
+//x_dist = ((x_pos-x_aim)>>12)*sf_cos_q12( target.x_rot>>10 ) ;
 //if (x_dist < 0) x_dist = -x_dist ;
 
-//y_dist = ((y_pos-y_aim)>>12)*sine_table [ target.x_rot>>10 ] ;
+//y_dist = ((y_pos-y_aim)>>12)*sf_sin_q12( target.x_rot>>10 ) ;
 //if (y_dist < 0) y_dist = -y_dist ;
 
-//z_dist = ((z_pos-z_aim)>>12)*sine_table [ target.y_rot>>10 ] ;
+//z_dist = ((z_pos-z_aim)>>12)*sf_sin_q12( target.y_rot>>10 ) ;
 //if (z_dist < 0) z_dist = -z_dist ;
 
 //distance = x_dist + y_dist + z_dist ;
@@ -184,7 +203,7 @@ void add_laser( long x_pos , long y_pos , long z_pos ,
 				long x_vel , long y_vel , long z_vel ,
 				long x_rot , long y_rot ,
 				long type , long ref , long laser_ref )
-				
+
 {
 
 // This is the general purpose laser adding routine which will
@@ -207,24 +226,24 @@ if (laser != NULL)
 {
 	// Setup the direction of the laser based on the x and y rotations given
 	// Max value = 4096 ( << 12 = 1 map unit )
- 
+
 	if (laser_ref == LASER_TYPE_GUN_BASE)
 	{
 		// Max value = 8192 ( << 12 = 2 map units )
-		x_dir =	( sine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )>>11 ;
-		y_dir = ( cosine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )>>11 ;
-		z_dir = (sine_table [ y_rot>>10 ])<<1 ;
+		x_dir =	( sf_sin_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )>>11 ;
+		y_dir = ( sf_cos_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )>>11 ;
+		z_dir = (sf_sin_q12( y_rot>>10 ))<<1 ;
 	}
 	else
 	{
 		// Max value = 4096 ( << 12 = 1 map unit )
-		x_dir =	( sine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )>>12 ;
-		y_dir = ( cosine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )>>12 ;
-		z_dir = sine_table [ y_rot>>10 ] ;
+		x_dir =	( sf_sin_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )>>12 ;
+		y_dir = ( sf_cos_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )>>12 ;
+		z_dir = sf_sin_q12( y_rot>>10 ) ;
 	}
 
 	// Set start point of laser
@@ -232,7 +251,7 @@ if (laser != NULL)
 	laser->y_pos = y_pos ;
 	laser->z_pos = z_pos ;
 
-	// Set end point of laser 
+	// Set end point of laser
 	laser->x_pos2 = x_pos - (x_dir<<12) - (x_dir<<11) ;
 	laser->y_pos2 = y_pos - (y_dir<<12) - (y_dir<<11) ;
 	laser->z_pos2 = z_pos + (z_dir<<12) + (z_dir<<11) ;
@@ -248,6 +267,9 @@ if (laser != NULL)
 
 	// Set the non collision flag
 	laser->who_owns_me = ref ;
+#if defined(SF_WEB_PORT)
+	sf_web_simulation_spawn_laser(laser);
+#endif
 }
 
 }
@@ -388,8 +410,8 @@ y_rot += ((target.y_rot * (loop+8) )>>5) ;
 // Add on the x and y benders
 //x_rot = (x_rot + ((beam_laser.x_rot_bend * (loop-32) )>>4))&ROT_LIMIT ;
 //y_rot = (y_rot + ((beam_laser.y_rot_bend * (loop-32) )>>5))&ROT_LIMIT ;
-x_rot = (x_rot + ( cosine_table [ ( (loop<<6) + (beam_laser.x_rot_bend>>8) )&1023 ] << 3 ))&ROT_LIMIT ;
-y_rot = (y_rot + ( sine_table [ ( (loop<<6) + (beam_laser.y_rot_bend>>8) )&1023 ] << 3 ))&ROT_LIMIT ;
+x_rot = (x_rot + ( sf_cos_q12( ( (loop<<6) + (beam_laser.x_rot_bend>>8) )&1023 ) << 3 ))&ROT_LIMIT ;
+y_rot = (y_rot + ( sf_sin_q12( ( (loop<<6) + (beam_laser.y_rot_bend>>8) )&1023 ) << 3 ))&ROT_LIMIT ;
 
 // Set start and end points for this laser section
 laser = beam_lasers [ loop ] ;
@@ -399,16 +421,17 @@ laser->y_pos = y_pos ;
 laser->z_pos = z_pos ;
 if (laser->z_pos < 0) laser->z_pos = -laser->z_pos ;
 
-x_pos -= (( sine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )<<1) ;
-y_pos -= (( cosine_table [ x_rot>>10 ] * 
-		cosine_table [ y_rot>>10 ] )<<1) ;
-z_pos += (sine_table [ y_rot>>10 ]<<13) ;
+x_pos -= (( sf_sin_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )<<1) ;
+y_pos -= (( sf_cos_q12( x_rot>>10 ) *
+		sf_cos_q12( y_rot>>10 ) )<<1) ;
+z_pos += (sf_sin_q12( y_rot>>10 )<<13) ;
 
 laser->x_pos2 = x_pos ;
 laser->y_pos2 = y_pos ;
 laser->z_pos2 = z_pos ;
 if (laser->z_pos2 < 0) laser->z_pos2 = -laser->z_pos2 ;
+
 
 }
 

@@ -11,6 +11,7 @@
 #if defined(SF_WEB_PORT)
 #include "../WebPort/sf_web_runtime.h"
 #include "../WebPort/sf_web_world_renderer.h"
+#include "../WebPort/SF_ARMCell_portable.h"
 #endif
 #include "varargs.h"
 #include "types.h"
@@ -37,26 +38,6 @@ _Static_assert(sizeof(ship_sdb) == 44u,
 			   "ship_sdb must match the 3DO file layout");
 _Static_assert(sizeof(flight_path) == 260u,
 			   "flight_path must match the 3DO file layout");
-
-static void sf_web_uppercase_asset_id(char *value, size_t capacity)
-{
-	size_t character;
-
-	for (character = 0; character < capacity && value[character] != '\0';
-		 ++character)
-		if (value[character] >= 'a' && value[character] <= 'z')
-			value[character] = (char)(value[character] - ('a' - 'A'));
-}
-
-static void sf_web_graphics_asset_id(char *destination, size_t capacity,
-				     const char *source)
-{
-	if (capacity == 0)
-		return;
-	strncpy(destination, source, capacity - 1);
-	destination[capacity - 1] = '\0';
-	sf_web_uppercase_asset_id(destination, capacity);
-}
 
 static long sf_web_validate_normalized_mission(const mission_data *loaded_mission)
 {
@@ -98,8 +79,14 @@ long load_mission(long load_level, long load_mission)
 	
 	// Load in mission file
 	
+#if defined(SF_WEB_PORT)
+	if (sf_web_runtime_load_mission_record(decode_level(load_level), load_mission,
+					       (uint8_t *)&mission, sizeof(mission)) != 1)
+		return (0);
+#else
 	if (load_fileat(&mission, "%s%c/MISS_%d",MIS_ROOT,decode_level(load_level),load_mission) == NULL)
 		return (0);
+#endif
 
 #if defined(SF_WEB_PORT)
 	if (!sf_web_validate_normalized_mission(&mission))
@@ -122,14 +109,33 @@ static	long	cache_loadlevel=-1;
 static	long	cache_loadmission=-1;
 static	char	cache_planet [16] = "";
 static	char	cache_sky [16] = "";
+
 #if defined(SF_WEB_PORT)
-char		graphics_asset [sizeof(mission.planettype)];
+	/* Begin asynchronous atlas loading before the mission resource work below. */
+	sf_web_runtime_set_world_resources(mission.planettype, mission.location,
+					   mission.variation, mission.skyfile);
 #endif
 
 	// Load in polygon map file
 	
+#if defined(SF_WEB_PORT)
+	if (sf_web_runtime_load_mission_polygon_map(mission.location, mission.variation,
+						    (uint8_t *)poly_map) != 1)
+		return (0);
+#else
 	if (load_fileat(*poly_map, "%sMaps/%s/%s/P_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 		return (0);
+#endif
+
+#if defined(SF_WEB_PORT)
+	/*
+	 * World CELs are browser atlas assets. Await their current selection for
+	 * every mission so a same-world map or sky transition cannot render before
+	 * its atlas images have decoded.
+	 */
+	if (sf_web_runtime_load_world_materials(mission.planettype) != 1)
+		return (0);
+#endif
 
 	// Only load in graphics and planet data if planet type is different from last time
 	
@@ -137,40 +143,60 @@ char		graphics_asset [sizeof(mission.planettype)];
 		{
 		strcpy (cache_planet, mission.planettype);
 		
+#if defined(SF_WEB_PORT)
+		sf_armcell_initialise_world_texture_indices(cel_list32, 256u);
+#else
 		if (load_fileat(cel_list32, "%s%s.32",CEL_ROOT,mission.planettype) == NULL)
 			return (0);
+#endif
 		
 #if defined(SF_WEB_PORT)
-		sf_web_graphics_asset_id(graphics_asset, sizeof(graphics_asset),
-					 mission.planettype);
 		memset(graphics_data, 0, sizeof(graphics_data));
-		if (load_fileat(graphics_data, "%s%s",GRF_ROOT,graphics_asset) == NULL)
+		if (sf_web_runtime_load_world_graphics(mission.planettype,
+						      (uint8_t *)graphics_data,
+						      sizeof(graphics_data)) != 1)
 #else
 		if (load_fileat(graphics_data, "%s%s",GRF_ROOT,mission.planettype) == NULL)
 #endif
 			return (0);
 
+#if defined(SF_WEB_PORT)
+		if (sf_web_runtime_load_world_metadata(mission.planettype,
+						       (uint8_t *)&planet_info,
+						       sizeof(planet_info)) != 1)
+#else
 		if (load_fileat(&planet_info, "%s%s.info",INF_ROOT,mission.planettype) == NULL)
+#endif
 			return (0);
 		
+#if defined(SF_WEB_PORT)
+		if (sf_web_runtime_load_texture_animations(mission.planettype,
+							   (uint8_t *)animate_poly,
+							   sizeof(animate_poly)) != 1)
+#else
 		if (load_fileat(animate_poly, "%s%s.anim",ANIM_ROOT,mission.planettype) == NULL)
+#endif
 			return (0);
 			
 		// Only load in these files and initialise if we are NOT in a space mission
 		
 		if (planet_info.space_mission == 0)
 			{		
+#if !defined(SF_WEB_PORT)
 			if (load_fileat(cel_list16, "%s%s.16",CEL_ROOT,mission.planettype) == NULL)
 				return (0);
+#endif
 #if defined(SF_WEB_PORT)
 			sf_web_world_renderer_invalidate_terrain_materials();
 #endif
 	
+#if !defined(SF_WEB_PORT)
 			if (load_fileat(cels4x4, "%s%s.4",CEL_ROOT,mission.planettype) == NULL)
 				return (0);	
 
 			if (load_fileat(cel_codedpalette, "%s%s.pal",PAL_ROOT,mission.planettype) == NULL)
 				return (0);
+#endif
 	
 			armburn_initialise (&planet_info);									// Initialise new planet info
 			}
@@ -198,16 +224,18 @@ char		graphics_asset [sizeof(mission.planettype)];
 		
 		// Load in map for mission (Spritemap 'S_Map' and HeightMap 'H_Map')
 	
+#if defined(SF_WEB_PORT)
+		if (sf_web_runtime_load_mission_maps(mission.location, mission.variation,
+						     (uint8_t *)height_map,
+						     (uint8_t *)sprite_map) != 1)
+			return (0);
+		sf_web_world_renderer_invalidate_terrain_tiles();
+		sf_web_world_renderer_invalidate_terrain_height_map();
+#else
 		if (load_fileat(*sprite_map, "%sMaps/%s/%s/S_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
-#if defined(SF_WEB_PORT)
-		sf_web_world_renderer_invalidate_terrain_tiles();
-#endif
-
 		if (load_fileat(*height_map, "%sMaps/%s/%s/H_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
-#if defined(SF_WEB_PORT)
-		sf_web_world_renderer_invalidate_terrain_height_map();
 #endif
 
 		// Only load in sky file if it is different from last time
@@ -215,14 +243,21 @@ char		graphics_asset [sizeof(mission.planettype)];
 		if (strcmp (mission.skyfile, cache_sky) != 0)
 			{
 			strcpy (cache_sky, mission.skyfile);
+#if defined(SF_WEB_PORT)
+			if (sf_web_runtime_load_sky(mission.skyfile, (uint8_t *)skyfile,
+						    sizeof(skyfile)) != 1)
+#else
 			if (load_fileat(skyfile, "%s%s",SKY_ROOT,mission.skyfile) == NULL)
+#endif
 				return (0);
 			}
 		
-		// Gerenate maps
+		// Generate legacy CEL maps for the original 3DO rasterizer.
+#if !defined(SF_WEB_PORT)
 		arm_generatemaps (&cel_quad, *sprite_map);
+#endif
 		}
-		
+
 	return (1);
 }
 	
@@ -230,7 +265,7 @@ char		graphics_asset [sizeof(mission.planettype)];
 
 long load_gamedata (long load_spec)
 
-// Purpose : Loads in the cosine / tangent data tables etc at game start.
+// Purpose : Loads game configuration and palette data at game start.
 // Accepts : (0) - Just load in configuration file, (1) - Load in all files, including configuration file
 // Returns : 0 if failed, 1 if successful
 
@@ -239,21 +274,25 @@ long load_gamedata (long load_spec)
 	if (load_spec & DATA_CONFIGURE)
 		{
 		memset (&configuration, 0, sizeof (game_configuration));
+#if defined(SF_WEB_PORT)
+		if (sf_web_runtime_load_default_configuration((uint8_t *)&configuration,
+							      sizeof(configuration)) != 1)
+#else
 		if (load_fileat (&configuration, "%sCONFIG",DAT_ROOT)==NULL)		// Load in default game configuration
+#endif
 			return (0);
 		}
 		
 	if (load_spec & DATA_FILES)
 		{
-		if (load_fileat (cosine_table, "%sCosine",DAT_ROOT)==NULL)			// Load cosine table
-		return (0);
-
-		if (load_fileat (tangent_table, "%sTangent",DAT_ROOT)==NULL)		// Load tangent table
-			return (0);
-	
-		if (load_fileat (cel_palette, "%sMonochrome.pal",PAL_ROOT)==NULL)	// Load in palette sprite block for monochrome cels
-			return (0);
-		}
+#if defined(SF_WEB_PORT)
+			if (sf_web_runtime_load_monochrome_palette((uint8_t *)cel_palette,
+								  1024u) != 1)
+#else
+			if (load_fileat (cel_palette, "%sMonochrome.pal",PAL_ROOT)==NULL)	// Load in palette sprite block for monochrome cels
+#endif
+				return (0);
+			}
 	
 	return (1);
 }
@@ -270,6 +309,9 @@ long load_gamecels (char *filename)
 
 static	char cache_loadgamecel [24]="";
 char	cel_gamefile [24];
+#if defined(SF_WEB_PORT)
+uint32_t game_cel_capacity;
+#endif
 
 	// Loading in filename or planettype ?
 	
@@ -287,8 +329,27 @@ char	cel_gamefile [24];
 		// NOTE : WAIT HERE FOR MUSIC BUFFER FILL TO STOP GLITCHES IN PLAYBACK
 		music_maketime ();
 		
+#if defined(SF_WEB_PORT)
+		game_cel_capacity = 1024u * CEL_MAXGAME;
+		if (cel_quad.cel_game == map512)
+			game_cel_capacity = 1024u * 192u;
+		if (strcmp(cel_gamefile, "Alphabet") == 0)
+			{
+			sf_armcell_set_alphabet_active(1);
+			sf_web_runtime_set_game_cels(cel_gamefile);
+			return (1);
+			}
+		sf_armcell_set_alphabet_active(0);
+		if (sf_web_runtime_load_game_cels(cel_gamefile,
+						 (uint8_t *)cel_quad.cel_game,
+						 game_cel_capacity) != 1)
+#else
 		if (load_fileat(cel_quad.cel_game, "%sGame.%s", CEL_ROOT, cel_gamefile) ==NULL)
+#endif
 			return (0);
+#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_game_cels(cel_gamefile);
+#endif
 		}
 	return (1);
 }
@@ -303,20 +364,47 @@ void load_backdrop (char* backdrop_name, long load_over)
 
 {
 char	backdrop_file [48];
+char	backdrop_asset [24];
 
 	if (backdrop_name == NULL)
-		sprintf (backdrop_file, "%s%sMenu%d", RESOURCES_ROOT, IMG_ROOT, arm_random() & 7);	// Get random menu file ?
+		{
+		sprintf(backdrop_asset, "Menu%d", arm_random() & 7);
+		sprintf(backdrop_file, "%s%s%s", RESOURCES_ROOT, IMG_ROOT, backdrop_asset);
+		}
 	else
-		sprintf (backdrop_file, "%s%s%s", RESOURCES_ROOT, IMG_ROOT, backdrop_name);			// Or get passed image file ?
+		{
+		strcpy(backdrop_asset, backdrop_name);
+		sprintf(backdrop_file, "%s%s%s", RESOURCES_ROOT, IMG_ROOT, backdrop_asset);
+		}
+
+#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_backdrop_name(backdrop_asset);
+#endif
 	
 	// WAIT FOR MUSIC BUFFER FILL TO STOP GLITCHES, THEN LOAD FILE
 	
 	music_maketime ();
 	
 	if (load_over == 0)
+#if defined(SF_WEB_PORT)
+		{
+		backdrop = NULL;
+		if (sf_web_runtime_load_backdrop(backdrop_asset) != 1)
+			printf("Unable to load browser backdrop '%s'\n", backdrop_asset);
+		}
+#else
 		backdrop = LoadImage (backdrop_file, NULL, NULL, screen);							// Load in backdrop & allocate buffer
+#endif
 	else
+		{
+#if defined(SF_WEB_PORT)
+		backdrop = NULL;
+		if (sf_web_runtime_load_backdrop(backdrop_asset) != 1)
+			printf("Unable to load browser backdrop '%s'\n", backdrop_asset);
+#else
 		load_fileat (backdrop, backdrop_file);												// Or load raw image straight in ?
+#endif
+		}
 }
 
 /**************************************/

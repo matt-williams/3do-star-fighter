@@ -611,9 +611,9 @@ long y_size ;
 long z_size ;
 
 // Calc start pos offsets
-x_exp = (cosine_table [ x_rot ] * sine_table [ y_rot ]) ;
-y_exp = (sine_table [ x_rot ] * sine_table [ y_rot ]) ;
-z_exp = sine_table [ y_rot ] << 12 ;
+x_exp = (sf_cos_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+y_exp = (sf_sin_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+z_exp = sf_sin_q12( y_rot ) << 12 ;
 
 
 // Calc size of explosion line 
@@ -688,9 +688,9 @@ for (loop = 0 ; loop <=counter ; loop += 1)
 	// Add some explosion smoke around the centre
 	for (loop_2 = 0 ; loop_2 < 4 ; loop_2 += 1)
 	{
-		x_exp = (cosine_table [ x_rot ] * sine_table [ y_rot ]) ;
-		y_exp = (sine_table [ x_rot ] * sine_table [ y_rot ]) ;
-		z_exp = sine_table [ y_rot ] << 12 ;
+		x_exp = (sf_cos_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+		y_exp = (sf_sin_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+		z_exp = sf_sin_q12( y_rot ) << 12 ;
 
 		if ( size == 0 )
 		{
@@ -1798,9 +1798,9 @@ for ( loop = 0 ; loop <= coll_data_header->counter ; loop +=1 )
 					// Add some explosion smoke around the centre
 					for (loop_2 = 0 ; loop_2 < 2 ; loop_2 += 1)
 					{
-						x_exp = (cosine_table [ x_rot ] * sine_table [ y_rot ]) ;
-						y_exp = (sine_table [ x_rot ] * sine_table [ y_rot ]) ;
-						z_exp = sine_table [ y_rot ] << 12 ;
+						x_exp = (sf_cos_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+						y_exp = (sf_sin_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+						z_exp = sf_sin_q12( y_rot ) << 12 ;
 	
 						if ( size == 0 )
 						{
@@ -2043,9 +2043,9 @@ for ( loop = 0 ; loop <= coll_data_header->counter ; loop +=1 )
 					// Add some explosion smoke around the centre
 					for (loop_2 = 0 ; loop_2 < 2 ; loop_2 += 1)
 					{
-						x_exp = (cosine_table [ x_rot ] * sine_table [ y_rot ]) ;
-						y_exp = (sine_table [ x_rot ] * sine_table [ y_rot ]) ;
-						z_exp = sine_table [ y_rot ] << 12 ;
+						x_exp = (sf_cos_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+						y_exp = (sf_sin_q12( x_rot ) * sf_sin_q12( y_rot )) ;
+						z_exp = sf_sin_q12( y_rot ) << 12 ;
 	
 						if ( size == 0 )
 						{

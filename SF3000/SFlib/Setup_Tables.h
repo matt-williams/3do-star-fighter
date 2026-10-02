@@ -1,4 +1,5 @@
 
+#include "../WebPort/sf_web_math.h"
 // THIS WILL CHANGE ALL THE MISSION SAM RATINGS
 
 // SET THE SAM RATE - E.G.	1024 IS NORMAL
@@ -30,7 +31,6 @@
 #define COLL_DOWN_RIGHT	254
 #define COLL_RIGHT		255
 
-extern long cosine_table [ 2048 ];
 extern long pex_table [ 16384 ];
 extern long pex_table_near [ 2048 ] ;
 extern long rotated_coords [ 3200 ] [ 3 ];
@@ -64,7 +64,6 @@ extern game_status status ;
 
 extern long star_coords [ 128 ] [ 4 ] ;
 
-extern long *sine_table ;
 
 extern ship_stack *players_ship ;
 

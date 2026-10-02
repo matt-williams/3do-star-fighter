@@ -1,10 +1,19 @@
 #include "sf3000_webport_renderer.h"
 #include "sf_web_world_renderer.h"
 #include "sf_web_fixed_step.h"
+#include "sf_web_math.h"
+#include "../SFlib/Ship_Struct.h"
+
+#include <float.h>
+#include <math.h>
 
 #define SF3000_WEBPORT_CLIP_DISTANCE 1280
 #define SF3000_WEBPORT_SHIP_HEADER_BYTES 12
 #define SF3000_WEBPORT_FLUFFY_CLOUD 58
+#define SF3000_WEBPORT_FLUFFY_TREE 62
+#define SF3000_WEBPORT_CLOUD_ATLAS_SLOT 20
+#define SF3000_WEBPORT_TREE_ATLAS_SLOT 24
+#define SF3000_WEBPORT_TARGET_LINE_WIDTH 2
 
 long camera_x_rotation;
 long camera_y_rotation;
@@ -42,7 +51,6 @@ long silly_y;
 long are_we_in_space_or_wot;
 
 static sf3000_webport_pointer_resolver pointer_resolver;
-static const int32_t *cosine_data;
 static const int32_t *perspective_data;
 static int32_t *graphic_rotated_data;
 static int32_t *graphic_screen_data;
@@ -77,6 +85,12 @@ static long air_to_ground_render_scan;
 static long air_to_air_render_scan;
 static long collision_box_render_colour_adder;
 static int32_t static_graphic_radar_phase;
+static double air_to_ground_selection_angle;
+static double air_to_air_selection_angle;
+static uint64_t air_to_ground_selection_distance;
+static uint64_t air_to_air_selection_distance;
+
+extern ship_stack *players_ship;
 
 static void *sf3000_webport_pointer(uint32_t address)
 {
@@ -101,18 +115,12 @@ void sf3000_webport_set_pointer_resolver(
 
 static int32_t sf3000_webport_cosine(int32_t angle)
 {
-	if (cosine_data == NULL) {
-		return 0;
-	}
-	return cosine_data[(uint32_t)angle & 1023U];
+	return (int32_t)sf_cos_q12((long)angle);
 }
 
 static int32_t sf3000_webport_sine(int32_t angle)
 {
-	if (cosine_data == NULL) {
-		return 0;
-	}
-	return cosine_data[768 + ((uint32_t)angle & 1023U)];
+	return (int32_t)sf_sin_q12((long)angle);
 }
 
 static void sf3000_webport_rotate_x(sf3000_webport_vec3 *point,
@@ -569,6 +577,9 @@ static void sf3000_webport_render_fluffy(const uint8_t *link)
 	sf3000_webport_vec3 point;
 	sf3000_webport_celdata *quad = graphic_cel_quad;
 	int32_t type = link[16];
+	int32_t sprite;
+	int32_t atlas_slot;
+	uint32_t atlas_transform = 0u;
 	int32_t scale;
 	int32_t corner;
 	int32_t sprite_scale;
@@ -592,11 +603,18 @@ static void sf3000_webport_render_fluffy(const uint8_t *link)
 		sprite_scale = sf3000_webport_lsl32(
 			sf3000_webport_add32(scale, sf3000_webport_asr32(scale, 1)), 2);
 		shade = 17;
+		sprite = type - 252 + SF3000_WEBPORT_FLUFFY_TREE;
+		atlas_slot = type - 252 + SF3000_WEBPORT_TREE_ATLAS_SLOT;
 	} else {
 		corner = 3 * 1024;
 		sprite_scale = sf3000_webport_lsl32(
 			sf3000_webport_add32(scale, sf3000_webport_asr32(scale, 1)), 3);
 		shade = 4;
+		sprite = type - 248 + SF3000_WEBPORT_FLUFFY_CLOUD;
+		atlas_slot = type - 248 + SF3000_WEBPORT_CLOUD_ATLAS_SLOT;
+		atlas_transform = (((uint32_t)point.x * UINT32_C(0x9e3779b9)) ^
+			((uint32_t)point.y * UINT32_C(0x85ebca6b)) ^
+			((uint32_t)point.z * UINT32_C(0xc2b2ae35))) >> 29;
 	}
 	quad->x_pos0 = sf3000_webport_long(sf3000_webport_asr32(
 		sf3000_webport_mul32(sf3000_webport_sub32(point.x, corner), scale),
@@ -606,14 +624,15 @@ static void sf3000_webport_render_fluffy(const uint8_t *link)
 		16));
 	quad->shade = sf3000_webport_long(shade);
 	command_count = sf_web_renderer_command_count();
-	arm_addgamecel(quad,
-		       sf3000_webport_long(type - 248 +
-					    SF3000_WEBPORT_FLUFFY_CLOUD),
+	arm_addgamecel(quad, sf3000_webport_long(sprite),
 		       sf3000_webport_long(sprite_scale),
 		       sf3000_webport_long(sprite_scale));
 	if (render_world_geometry != 0 &&
 	    sf_web_renderer_command_count() != command_count)
-		sf_web_world_renderer_append_last_billboard(point.y);
+		sf_web_world_renderer_append_last_precise_particle_billboard(
+			sf3000_webport_sub32(point.x, corner), point.y,
+			sf3000_webport_sub32(point.z, corner), (uint32_t)atlas_slot,
+			atlas_transform);
 }
 
 static void sf3000_webport_render_links(const uint8_t *links)
@@ -629,12 +648,12 @@ static void sf3000_webport_render_links(const uint8_t *links)
 	for (index = 0; index <= count; ++index) {
 		const uint8_t *link = links + 4 + ((size_t)index * 20);
 		sf3000_webport_vec3 points3d[4];
-		sf3000_webport_vec3 world_points3d[4];
 		int32_t points[8];
 		int32_t node[4];
 		int32_t point_index;
 		int all_in_front = 1;
 		int any_beyond_clip = 0;
+		int world_geometry = render_world_geometry != 0;
 		int32_t shade;
 		uint32_t command_count;
 
@@ -656,21 +675,24 @@ static void sf3000_webport_render_links(const uint8_t *links)
 				graphic_rotated_data[(size_t)node[point_index] * 4 + 1];
 			points3d[point_index].z =
 				graphic_rotated_data[(size_t)node[point_index] * 4 + 2];
-			if (points3d[point_index].y <
-			    SF3000_WEBPORT_CLIP_DISTANCE) {
-				all_in_front = 0;
-			}
-			if (points3d[point_index].y >
-			    SF3000_WEBPORT_CLIP_DISTANCE) {
-				any_beyond_clip = 1;
+			if (!world_geometry) {
+				if (points3d[point_index].y <
+				    SF3000_WEBPORT_CLIP_DISTANCE) {
+					all_in_front = 0;
+				}
+				if (points3d[point_index].y >
+				    SF3000_WEBPORT_CLIP_DISTANCE) {
+					any_beyond_clip = 1;
+				}
 			}
 		}
 		if (point_index != 4) {
 			continue;
 		}
-		memcpy(world_points3d, points3d, sizeof(world_points3d));
 
-		if (all_in_front) {
+		if (world_geometry) {
+			memset(points, 0, sizeof(points));
+		} else if (all_in_front) {
 			for (point_index = 0; point_index < 4; ++point_index) {
 				points[point_index * 2] =
 					graphic_screen_data[(size_t)node[point_index] * 2];
@@ -688,8 +710,9 @@ static void sf3000_webport_render_links(const uint8_t *links)
 			continue;
 		}
 
-		if (sf3000_webport_vector_check(points) < 0 ||
-		    sf3000_webport_outside_quad(points)) {
+		if (!world_geometry &&
+		    (sf3000_webport_vector_check(points) < 0 ||
+		    sf3000_webport_outside_quad(points))) {
 			continue;
 		}
 
@@ -712,18 +735,19 @@ static void sf3000_webport_render_links(const uint8_t *links)
 			arm_setpolycel32palette(graphic_cel_quad,
 						 sf3000_webport_long(bit_palette));
 		}
-		if (render_world_geometry != 0 &&
+		if (world_geometry &&
 		    sf_web_renderer_command_count() != command_count) {
 			int32_t view_x[4];
 			int32_t view_y[4];
 			int32_t view_z[4];
 
 			for (point_index = 0; point_index < 4; ++point_index) {
-				view_x[point_index] = world_points3d[point_index].x;
-				view_y[point_index] = world_points3d[point_index].y;
-				view_z[point_index] = world_points3d[point_index].z;
+				view_x[point_index] = points3d[point_index].x;
+				view_y[point_index] = points3d[point_index].y;
+				view_z[point_index] = points3d[point_index].z;
 			}
-			sf_web_world_renderer_append_last_quad(view_x, view_y, view_z);
+			sf_web_world_renderer_append_last_model_quad(view_x, view_y,
+								     view_z);
 		}
 	}
 }
@@ -903,9 +927,9 @@ static void sf3000_webport_draw_line(int32_t x0, int32_t y0, int32_t x1,
 	}
 	if (sf3000_webport_abs32(sf3000_webport_sub32(x0, x1)) >
 	    sf3000_webport_abs32(sf3000_webport_sub32(y0, y1))) {
-		vertical = 1;
+		vertical = SF3000_WEBPORT_TARGET_LINE_WIDTH;
 	} else {
-		horizontal = 1;
+		horizontal = SF3000_WEBPORT_TARGET_LINE_WIDTH;
 	}
 	points[0] = x0;
 	points[1] = y0;
@@ -1064,6 +1088,82 @@ static void sf3000_webport_plot_static_internal(
 	render_world_geometry = 0;
 }
 
+static int32_t sf3000_webport_target_bounds_radius(int32_t clip_size)
+{
+	int32_t radius = sf3000_webport_asr32(clip_size, 12);
+
+	return radius < 0 ? sf3000_webport_sub32(0, radius) : radius;
+}
+
+static int sf3000_webport_target_in_aim_cone(
+	const sf3000_webport_vec3 *point, uint32_t horizontal_shift,
+	uint32_t vertical_shift)
+{
+	int64_t depth;
+
+	if (point == NULL) {
+		return 0;
+	}
+
+	depth = point->y;
+	if (depth < 0) {
+		return 0;
+	}
+	if (depth < ((int64_t)sf3000_webport_abs32(point->x) <<
+		     horizontal_shift) ||
+	    depth < ((int64_t)sf3000_webport_abs32(point->z) <<
+		     vertical_shift)) {
+		return 0;
+	}
+	return 1;
+}
+
+static double sf3000_webport_target_selection_angle(
+	const sf3000_webport_vec3 *point, int32_t bounds_radius)
+{
+	double horizontal_distance = hypot((double)point->x, (double)point->z);
+	double centre_distance = hypot(horizontal_distance, (double)point->y);
+	double centre_angle = atan2(horizontal_distance, (double)point->y);
+	double radius_angle;
+
+	if (centre_distance == 0.0) {
+		return 0.0;
+	}
+	radius_angle = asin(fmin((double)bounds_radius / centre_distance, 1.0));
+	return centre_angle > radius_angle ? centre_angle - radius_angle : 0.0;
+}
+
+static uint64_t sf3000_webport_target_player_distance_squared(
+	int32_t x, int32_t y, int32_t z)
+{
+	int32_t player_x = players_ship != NULL ?
+		sf3000_webport_i32(players_ship->x_pos) :
+		sf3000_webport_i32(camera_x_position);
+	int32_t player_y = players_ship != NULL ?
+		sf3000_webport_i32(players_ship->y_pos) :
+		sf3000_webport_i32(camera_y_position);
+	int32_t player_z = players_ship != NULL ?
+		sf3000_webport_i32(players_ship->z_pos) :
+		sf3000_webport_i32(camera_z_position);
+	int64_t delta_x = sf3000_webport_asr32(
+		sf3000_webport_sub32(x, player_x), 12);
+	int64_t delta_y = sf3000_webport_asr32(
+		sf3000_webport_sub32(y, player_y), 12);
+	int64_t delta_z = sf3000_webport_asr32(
+		sf3000_webport_sub32(z, player_z), 12);
+
+	return (uint64_t)(delta_x * delta_x + delta_y * delta_y +
+			  delta_z * delta_z);
+}
+
+static int sf3000_webport_target_is_preferred(
+	double angle, uint64_t player_distance, double best_angle,
+	uint64_t best_player_distance)
+{
+	return angle < best_angle ||
+	       (angle == best_angle && player_distance < best_player_distance);
+}
+
 void sf3000_webport_begin_target_selection(void)
 {
 	/*
@@ -1082,6 +1182,23 @@ void sf3000_webport_begin_target_selection(void)
 	air_to_air_x = 1<<30;
 	air_to_air_y = 1<<30;
 	air_to_air_z = 1<<30;
+	air_to_ground_selection_angle = DBL_MAX;
+	air_to_air_selection_angle = DBL_MAX;
+	air_to_ground_selection_distance = UINT64_MAX;
+	air_to_air_selection_distance = UINT64_MAX;
+}
+
+int sf3000_webport_target_selection_prefers_air(void)
+{
+	if (air_to_air_scan_temp == (long)NULL) {
+		return 0;
+	}
+	if (air_to_ground_scan_temp == (long)NULL) {
+		return 1;
+	}
+	return air_to_air_selection_angle < air_to_ground_selection_angle ||
+	       (air_to_air_selection_angle == air_to_ground_selection_angle &&
+		air_to_air_selection_distance < air_to_ground_selection_distance);
 }
 
 void sf3000_webport_consider_static_target(void *grid_reference)
@@ -1095,6 +1212,9 @@ void sf3000_webport_consider_static_target(void *grid_reference)
 	int32_t y;
 	int32_t z;
 	int32_t clipped_depth;
+	int32_t bounds_radius;
+	double selection_angle;
+	uint64_t player_distance;
 	const uint8_t *details;
 	sf3000_webport_vec3 point;
 
@@ -1119,6 +1239,7 @@ void sf3000_webport_consider_static_target(void *grid_reference)
 	z = sf3000_webport_lsl32(height, 21);
 	x = sf3000_webport_lsl32(x_grid, 25);
 	y = sf3000_webport_lsl32(y_grid, 25);
+	player_distance = sf3000_webport_target_player_distance_squared(x, y, z);
 	x = sf3000_webport_sub32(x, sf3000_webport_i32(camera_x_position));
 	y = sf3000_webport_sub32(y, sf3000_webport_i32(camera_y_position));
 	z = sf3000_webport_sub32(sf3000_webport_i32(camera_z_position), z);
@@ -1126,8 +1247,10 @@ void sf3000_webport_consider_static_target(void *grid_reference)
 	point.y = sf3000_webport_asr32(y, 12);
 	point.z = sf3000_webport_asr32(z, 12);
 	sf3000_webport_rotate_camera(&point);
+	bounds_radius = sf3000_webport_target_bounds_radius(
+		sf3000_webport_read_i32(details, 0));
 	clipped_depth = sf3000_webport_add32(
-		point.y, sf3000_webport_asr32(sf3000_webport_read_i32(details, 0), 12));
+		point.y, bounds_radius);
 	if (clipped_depth < 0 || sf3000_webport_abs32(point.x) > clipped_depth ||
 	    sf3000_webport_abs32(point.z) > clipped_depth) {
 		return;
@@ -1137,14 +1260,22 @@ void sf3000_webport_consider_static_target(void *grid_reference)
 	     sf3000_webport_i32(atg_selected) != 0) ||
 	    (sf3000_webport_i32(are_we_in_space_or_wot) != 0 &&
 	     sf3000_webport_i32(ata_selected) != 0)) {
-		int32_t horizontal = sf3000_webport_abs32(point.x);
-		int32_t vertical = sf3000_webport_abs32(point.z);
-
-		if (point.y >= sf3000_webport_lsl32(horizontal, 2) &&
-		    point.y >= sf3000_webport_lsl32(vertical, 1) &&
-		    horizontal <= sf3000_webport_i32(air_to_ground_x)) {
-			air_to_ground_x = sf3000_webport_long(horizontal);
+		if (sf3000_webport_target_in_aim_cone(&point, 2u, 1u)) {
+			selection_angle = sf3000_webport_target_selection_angle(
+				&point, bounds_radius);
+			if (!sf3000_webport_target_is_preferred(
+				    selection_angle, player_distance,
+				    air_to_ground_selection_angle,
+				    air_to_ground_selection_distance)) {
+				return;
+			}
+			air_to_ground_x = sf3000_webport_long(
+				(int32_t)(selection_angle * 1048576.0));
+			air_to_ground_y = sf3000_webport_long(point.y);
+			air_to_ground_z = sf3000_webport_long(point.z);
 			air_to_ground_scan_temp = sf3000_webport_long(grid);
+			air_to_ground_selection_angle = selection_angle;
+			air_to_ground_selection_distance = player_distance;
 		}
 	}
 }
@@ -1158,8 +1289,9 @@ void sf3000_webport_consider_ship_target(void *ship)
 	int32_t type;
 	int32_t category;
 	int32_t clip_size;
-	int32_t horizontal;
-	int32_t vertical;
+	int32_t bounds_radius;
+	double selection_angle;
+	uint64_t player_distance;
 
 	if (ship == NULL || ships_data == NULL) {
 		return;
@@ -1171,6 +1303,11 @@ void sf3000_webport_consider_ship_target(void *ship)
 		details = ships_data + ((size_t)type * 64);
 		clip_size = sf3000_webport_read_i32(details, 0);
 	}
+	bounds_radius = sf3000_webport_target_bounds_radius(clip_size);
+	player_distance = sf3000_webport_target_player_distance_squared(
+		sf3000_webport_read_i32(data, 0),
+		sf3000_webport_read_i32(data, 4),
+		sf3000_webport_read_i32(data, 8));
 	point.x = sf3000_webport_asr32(
 		sf3000_webport_sub32(sf3000_webport_read_i32(data, 0),
 				     sf3000_webport_i32(camera_x_position)), 12);
@@ -1181,8 +1318,7 @@ void sf3000_webport_consider_ship_target(void *ship)
 		sf3000_webport_sub32(sf3000_webport_i32(camera_z_position),
 				     sf3000_webport_read_i32(data, 8)), 12);
 	sf3000_webport_rotate_camera(&point);
-	clip_size = sf3000_webport_add32(
-		point.y, sf3000_webport_asr32(clip_size, 12));
+	clip_size = sf3000_webport_add32(point.y, bounds_radius);
 	if (clip_size < 0 || sf3000_webport_abs32(point.x) > clip_size ||
 	    sf3000_webport_abs32(point.z) > clip_size) {
 		return;
@@ -1193,17 +1329,24 @@ void sf3000_webport_consider_ship_target(void *ship)
 	    (sf3000_webport_i32(ata_selected) == 0 || category == 7)) {
 		return;
 	}
-	horizontal = sf3000_webport_abs32(point.x);
-	vertical = sf3000_webport_abs32(point.z);
-	if (horizontal <= sf3000_webport_i32(air_to_air_x) &&
-	    point.y >= sf3000_webport_lsl32(horizontal, 2) &&
-	    point.y >= sf3000_webport_lsl32(vertical, 2) &&
+	if (sf3000_webport_target_in_aim_cone(&point, 2u, 2u) &&
 	    type < 256 && category != 0 && category != 3 && category != 6) {
-		air_to_air_x = sf3000_webport_long(horizontal);
+		selection_angle = sf3000_webport_target_selection_angle(
+			&point, bounds_radius);
+		if (!sf3000_webport_target_is_preferred(
+			    selection_angle, player_distance,
+			    air_to_air_selection_angle,
+			    air_to_air_selection_distance)) {
+			return;
+		}
+		air_to_air_x = sf3000_webport_long(
+			(int32_t)(selection_angle * 1048576.0));
 		air_to_air_y = sf3000_webport_long(point.y);
 		air_to_air_z = sf3000_webport_long(point.z);
 		air_to_air_scan_temp =
 			(long)(intptr_t)(data - SF3000_WEBPORT_SHIP_HEADER_BYTES);
+		air_to_air_selection_angle = selection_angle;
+		air_to_air_selection_distance = player_distance;
 	}
 }
 
@@ -1523,8 +1666,14 @@ static void sf3000_webport_plot_star(const int32_t *star, int space)
 	graphic_cel_quad->shade = sf3000_webport_long(shade);
 	command_count = sf_web_renderer_command_count();
 	arm_addgamecel(graphic_cel_quad, sf3000_webport_long(type), 1024, 1024);
-	if (sf_web_renderer_command_count() != command_count)
-		sf_web_world_renderer_append_last_billboard(point.y);
+	if (sf_web_renderer_command_count() != command_count) {
+		if (type >= 0 && type <= 3) {
+			sf_web_world_renderer_append_last_sky_particle_billboard(
+				(uint32_t)type);
+		} else {
+			sf_web_world_renderer_append_last_billboard(point.y);
+		}
+	}
 }
 
 void plot_stars(void)
@@ -1569,7 +1718,8 @@ void sf3000_webport_advance_world_animation_state(void)
 			static_graphic_radar_phase, 1024);
 	}
 
-	if (!sf_web_fixed_step_is_reference_tick() || star_data == NULL) {
+	if (!sf_web_fixed_step_is_reference_tick() || star_data == NULL ||
+	    sf3000_webport_i32(are_we_in_space_or_wot) == 0) {
 		return;
 	}
 	for (index = 0; index < 128; ++index) {
@@ -1712,7 +1862,6 @@ void machine_code_constants(void *constants)
 	if (data == NULL) {
 		return;
 	}
-	cosine_data = data[0];
 	perspective_data = data[1];
 	landscape_heights = data[3];
 	graphic_cel_quad = data[5];

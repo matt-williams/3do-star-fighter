@@ -2,7 +2,7 @@
 #ifndef __SHIP_SET_H
 #define __SHIP_SET_H
 
-#include "SF_ArmLink.h"
+#include "SF_ARMLink.h"
 #include "SF_Mission.h"
 
 #define MAX_SHIPS 64

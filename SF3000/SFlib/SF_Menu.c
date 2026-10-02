@@ -24,6 +24,10 @@
 
 #include <string.h>
 
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
+
 
 /***************************************************************************************************/
 /*											MENU DEFINITIONS									   */
@@ -1914,6 +1918,53 @@ long	load_success = 0;
 		}
 	
 	menus [LOAD_MENU].items [slot_toload].command = load_success;
+}
+
+/**************************************/
+
+void	menu_seed_developer_saves (void)
+
+// Purpose : Seeds browser-only saves which unlock each mission in one pyramid
+// Accepts : Nothing
+// Returns : Nothing
+
+{
+#if defined(SF_WEB_PORT)
+static const char *save_names[] = {"DEV-T", "DEV-E", "DEV-M", "DEV-H"};
+static const char *storage_names[] = {
+	"SF#DEV-T", "SF#DEV-E", "SF#DEV-M", "SF#DEV-H"
+};
+gamefile developer_save;
+long level;
+long pyramid_index;
+long mission_index;
+
+	memset(&developer_save, 0, sizeof(developer_save));
+	developer_save.savefile_version = GAMEFILE_VERSION;
+	memcpy(&developer_save.savefile_performance, &player_performance,
+	       sizeof(performance_data));
+	memcpy(&developer_save.savefile_status, &status, sizeof(game_status));
+	memcpy(&developer_save.savefile_cameras[0], &camera[1], sizeof(camera_data));
+	memcpy(&developer_save.savefile_cameras[1], &camera[2], sizeof(camera_data));
+
+	for (pyramid_index = 0; pyramid_index < 4; ++pyramid_index)
+		{
+		developer_save.savefile_pyramids[pyramid_index].sub_levels = 4;
+		developer_save.savefile_pyramids[pyramid_index].y_level = 4;
+		developer_save.savefile_pyramids[pyramid_index].x_level = 0;
+		for (mission_index = 0; mission_index < MAX_MISSIONS; ++mission_index)
+			developer_save.savefile_pyramids[pyramid_index].mission[mission_index] =
+				MISSION_UNFINISHED;
+		}
+
+	for (level = 0; level < 4; ++level)
+		{
+		developer_save.savefile_level = level;
+		if (sf_web_runtime_nvram_size(storage_names[level]) < 0)
+			nvram_save((char *)save_names[level], GAMEFILE_PREFIX,
+				   (char *)&developer_save, sizeof(developer_save));
+		}
+#endif
 }
 
 /**************************************/

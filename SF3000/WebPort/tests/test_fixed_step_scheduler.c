@@ -57,9 +57,11 @@ static void test_simulation_steps_scale_every_legacy_delta_exactly(void)
     unsigned int reference_ticks = 0;
 
     sf_web_fixed_step_simulation_reset();
+    assert(sf_web_fixed_step_tick() == 0u);
     assert(sf_web_fixed_step_scale_legacy_delta(17) == 17);
     for (tick = 0; tick < SF_WEB_FIXED_STEPS_PER_REFERENCE_UPDATE; ++tick) {
         sf_web_fixed_step_begin_simulation_step();
+        assert(sf_web_fixed_step_tick() == tick + 1u);
         assert(sf_web_fixed_step_scale_legacy_delta(17) ==
             expected_positive_deltas[tick]);
         assert(sf_web_fixed_step_scale_legacy_delta(-17) ==
@@ -71,6 +73,8 @@ static void test_simulation_steps_scale_every_legacy_delta_exactly(void)
     assert(positive_total == 17);
     assert(negative_total == -17);
     assert(reference_ticks == 1u);
+    assert(sf_web_fixed_step_deadline_reached(
+        sf_web_fixed_step_deadline_after(0u)));
 }
 
 static void test_countdowns_expire_on_the_reference_step(void)

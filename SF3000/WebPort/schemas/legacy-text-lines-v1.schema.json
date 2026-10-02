@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trapexit.github.io/3do-star-fighter/schemas/legacy-text-lines-v1.schema.json",
+  "title": "Star Fighter sequential text resource v1",
+  "description": "Array position is the line number consumed by the legacy text parser.",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 128,
+  "items": {
+    "type": "string",
+    "pattern": "^[\\x20-\\x7E]*$"
+  }
+}

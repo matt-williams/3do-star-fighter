@@ -52,8 +52,9 @@ void sf_web_world_renderer_reset(void)
 	sf_web_terrain_frame.active = 0;
 }
 
-int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
-	const int32_t view_y[4], const int32_t view_z[4])
+static int32_t sf_web_world_renderer_append_last_quad_with_encoding(
+	const int32_t view_x[4], const int32_t view_y[4], const int32_t view_z[4],
+	uint32_t encoding)
 {
 	SFWebRenderQuad *material;
 	SFWebWorldQuad *command;
@@ -66,14 +67,30 @@ int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
 	if (material == NULL)
 		return -1;
 
-	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD;
+	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD | encoding;
 	command = &sf_web_world_commands[sf_web_world_command_count];
 	command->material = *material;
-	memcpy(command->view_x, view_x, sizeof(command->view_x));
-	memcpy(command->view_y, view_y, sizeof(command->view_y));
-	memcpy(command->view_z, view_z, sizeof(command->view_z));
+	for (uint32_t point = 0; point < 4u; ++point) {
+		command->view_x[point] = (float)view_x[point];
+		command->view_y[point] = (float)view_y[point];
+		command->view_z[point] = (float)view_z[point];
+	}
 	++sf_web_world_command_count;
 	return (int32_t)(sf_web_world_command_count - 1);
+}
+
+int32_t sf_web_world_renderer_append_last_quad(const int32_t view_x[4],
+	const int32_t view_y[4], const int32_t view_z[4])
+{
+	return sf_web_world_renderer_append_last_quad_with_encoding(
+		view_x, view_y, view_z, 0);
+}
+
+int32_t sf_web_world_renderer_append_last_model_quad(const int32_t view_x[4],
+	const int32_t view_y[4], const int32_t view_z[4])
+{
+	return sf_web_world_renderer_append_last_quad_with_encoding(
+		view_x, view_y, view_z, SF_WEB_RENDER_ENCODING_WORLD_MODEL);
 }
 
 int32_t sf_web_world_renderer_append_last_billboard(int32_t view_depth)
@@ -83,6 +100,97 @@ int32_t sf_web_world_renderer_append_last_billboard(int32_t view_depth)
 	};
 
 	return sf_web_world_renderer_append_last_projected_quad(view_depths);
+}
+
+int32_t sf_web_world_renderer_append_last_particle_billboard(
+	int32_t view_depth, uint32_t atlas_slot)
+{
+	return sf_web_world_renderer_append_last_particle_billboard_transformed(
+		view_depth, atlas_slot, 0u);
+}
+
+int32_t sf_web_world_renderer_append_last_particle_billboard_transformed(
+	int32_t view_depth, uint32_t atlas_slot, uint32_t atlas_transform)
+{
+	SFWebRenderQuad *material = sf_web_renderer_last_command();
+
+	if (material == NULL || atlas_slot > UINT8_MAX || atlas_transform > 7u)
+		return -1;
+
+	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD_PARTICLE;
+	material->shade = (int32_t)(((uint32_t)material->shade &
+		~(SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_MASK |
+		  SF_WEB_RENDER_PARTICLE_ATLAS_TRANSFORM_MASK)) |
+		(atlas_slot << SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT) |
+		(atlas_transform <<
+		 SF_WEB_RENDER_PARTICLE_ATLAS_TRANSFORM_SHIFT));
+	return sf_web_world_renderer_append_last_billboard(view_depth);
+}
+
+int32_t sf_web_world_renderer_append_last_precise_particle_billboard(
+	int32_t view_x, int32_t view_y, int32_t view_z, uint32_t atlas_slot,
+	uint32_t atlas_transform)
+{
+	SFWebRenderQuad *material;
+	SFWebWorldQuad *command;
+	float width;
+	float height;
+
+	if (sf_web_world_command_count >= SF_WEB_WORLD_COMMAND_CAPACITY)
+		return -1;
+
+	material = sf_web_renderer_last_command();
+	if (material == NULL || atlas_slot > UINT8_MAX || atlas_transform > 7u ||
+		view_y <= 0)
+		return -1;
+
+	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD_PARTICLE |
+		SF_WEB_RENDER_ENCODING_WORLD_BILLBOARD |
+		SF_WEB_RENDER_ENCODING_WORLD;
+	material->shade = (int32_t)(((uint32_t)material->shade &
+		~(SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_MASK |
+		  SF_WEB_RENDER_PARTICLE_ATLAS_TRANSFORM_MASK)) |
+		(atlas_slot << SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT) |
+		(atlas_transform <<
+		 SF_WEB_RENDER_PARTICLE_ATLAS_TRANSFORM_SHIFT));
+
+	width = (float)(material->x[1] - material->x[0]) * (float)view_y /
+		(float)SF_WEB_LEGACY_PROJECTION_FOCAL_LENGTH;
+	height = (float)(material->y[3] - material->y[0]) * (float)view_y /
+		(float)SF_WEB_LEGACY_PROJECTION_FOCAL_LENGTH;
+	command = &sf_web_world_commands[sf_web_world_command_count];
+	command->material = *material;
+	command->view_x[0] = (float)view_x;
+	command->view_y[0] = (float)view_y;
+	command->view_z[0] = (float)view_z;
+	command->view_x[1] = (float)view_x + width;
+	command->view_y[1] = (float)view_y;
+	command->view_z[1] = (float)view_z;
+	command->view_x[2] = (float)view_x + width;
+	command->view_y[2] = (float)view_y;
+	command->view_z[2] = (float)view_z + height;
+	command->view_x[3] = (float)view_x;
+	command->view_y[3] = (float)view_y;
+	command->view_z[3] = (float)view_z + height;
+	++sf_web_world_command_count;
+	return (int32_t)(sf_web_world_command_count - 1);
+}
+
+int32_t sf_web_world_renderer_append_last_sky_particle_billboard(
+	uint32_t atlas_slot)
+{
+	SFWebRenderQuad *material = sf_web_renderer_last_command();
+
+	if (material == NULL || atlas_slot > UINT8_MAX)
+		return -1;
+
+	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD_SKY |
+		SF_WEB_RENDER_ENCODING_WORLD_PARTICLE;
+	material->shade = (material->shade &
+		(int32_t)~SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_MASK) |
+		(int32_t)(atlas_slot << SF_WEB_RENDER_PARTICLE_ATLAS_SLOT_SHIFT);
+	return sf_web_world_renderer_append_last_billboard(
+		SF_WEB_WORLD_FAR_DEPTH);
 }
 
 int32_t sf_web_world_renderer_append_last_projected_quad(
@@ -96,6 +204,8 @@ int32_t sf_web_world_renderer_append_last_projected_quad(
 
 	if (material == NULL || view_depth == NULL)
 		return -1;
+
+	material->encoding |= SF_WEB_RENDER_ENCODING_WORLD_BILLBOARD;
 
 	for (point = 0; point < 4; ++point)
 	{

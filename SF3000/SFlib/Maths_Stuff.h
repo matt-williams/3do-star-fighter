@@ -1,4 +1,6 @@
 
+#include "../WebPort/sf_web_math.h"
+
 extern void rotate_2d_node(void*);
 extern void rotate_node_from_c(void*);
 extern void oppo_rotate_node_from_c(void*);

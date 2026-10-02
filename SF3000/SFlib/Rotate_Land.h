@@ -1,8 +1,7 @@
 
+#include "../WebPort/sf_web_math.h"
 /* Setup data tables for quick reference look up */
-extern long cosine_table [ 2048 ] ;
 extern long pex_table [ 16384 ] ;
-extern long *sine_table ;
 extern char polymap [ 128 ] [ 128 ] ;
 extern long quick_height_table [ 256 ] [ 4 ] ;
 

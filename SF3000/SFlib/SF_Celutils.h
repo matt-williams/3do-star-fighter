@@ -1,4 +1,5 @@
 //	File : Cel_Utils header file
+#include "../WebPort/sf_web_math.h"
 
 #ifndef __SF_CELUTILS
 #define __SF_CELUTILS
@@ -144,8 +145,6 @@ extern	char			*map32;
 extern	char			cache_lookup [64*64 *2];
 extern	char			cache_free [CEL_MAXCREATION];
 extern	ScreenContext*	screen;
-extern	long cosine_table	[ 2048 ] ;
-extern	long *sine_table ;
 
 // Function Prototypes
 

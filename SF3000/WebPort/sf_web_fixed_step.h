@@ -48,6 +48,9 @@ uint64_t sf_web_fixed_step_rate_advance(SFWebFixedStepRate *rate,
  */
 void sf_web_fixed_step_simulation_reset(void);
 void sf_web_fixed_step_begin_simulation_step(void);
+uint64_t sf_web_fixed_step_tick(void);
+uint64_t sf_web_fixed_step_deadline_after(uint64_t ticks);
+int sf_web_fixed_step_deadline_reached(uint64_t deadline);
 long sf_web_fixed_step_scale_legacy_delta(long legacy_delta);
 int sf_web_fixed_step_is_reference_tick(void);
 

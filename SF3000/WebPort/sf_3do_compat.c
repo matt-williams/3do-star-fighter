@@ -64,38 +64,6 @@ KernelBaseStruct *KernelBase = &sf3do_kernel_base;
 static char **sf3do_queued_text;
 static size_t sf3do_queued_text_count;
 static size_t sf3do_queued_text_capacity;
-static ScreenContext *sf3do_screen_context;
-
-static int32 sf3do_screen_bank_for_item(Item item)
-{
-    int32 index;
-
-    if (sf3do_screen_context == NULL) {
-        return -1;
-    }
-    for (index = 0; index < sf3do_screen_context->sc_nScreens; ++index) {
-        if (sf3do_screen_context->sc_BitmapItems[index] == item) {
-            return index;
-        }
-    }
-    return -1;
-}
-
-static int32 sf3do_screen_bank_for_buffer(const void *buffer)
-{
-    int32 index;
-
-    if (sf3do_screen_context == NULL) {
-        return -1;
-    }
-    for (index = 0; index < sf3do_screen_context->sc_nScreens; ++index) {
-        if (sf3do_screen_context->sc_Bitmaps[index] != NULL &&
-            sf3do_screen_context->sc_Bitmaps[index]->bm_Buffer == buffer) {
-            return index;
-        }
-    }
-    return -1;
-}
 
 static void sf3do_fill_vram(void *destination, uint32 value, size_t bytes)
 {
@@ -1197,10 +1165,14 @@ int32 OpenGraphics(ScreenContext *screen_context, int32 screens)
     }
 
     memset(screen_context, 0, sizeof(*screen_context));
-    sf3do_screen_context = screen_context;
     screen_context->sc_nScreens = screens;
+#if defined(SF_WEB_PORT)
+    /* WebGL presents directly; bitmap handles exist only for 3DO API compatibility. */
+    screen_context->sc_nFrameBufferPages = 0;
+#else
     screen_context->sc_nFrameBufferPages =
         (int32)((SF3DO_FRAMEBUFFER_BYTES + SF3DO_BLOCK_SIZE - 1u) / SF3DO_BLOCK_SIZE);
+#endif
     for (index = 0; index < screens; ++index) {
         screen_context->sc_Screens[index] = (Screen *)calloc(1u, sizeof(Screen));
         screen_context->sc_Bitmaps[index] = (Bitmap *)calloc(1u, sizeof(Bitmap));
@@ -1209,12 +1181,14 @@ int32 OpenGraphics(ScreenContext *screen_context, int32 screens)
             CloseGraphics(screen_context);
             return 0;
         }
+#if !defined(SF_WEB_PORT)
         screen_context->sc_Bitmaps[index]->bm_Buffer =
             calloc(1u, SF3DO_FRAMEBUFFER_BYTES);
         if (screen_context->sc_Bitmaps[index]->bm_Buffer == NULL) {
             CloseGraphics(screen_context);
             return 0;
         }
+#endif
         screen_context->sc_Bitmaps[index]->bm_Width = 320;
         screen_context->sc_Bitmaps[index]->bm_Height = 240;
         screen_context->sc_Bitmaps[index]->bm_BytesPerRow = 640;
@@ -1237,9 +1211,6 @@ void CloseGraphics(ScreenContext *screen_context)
             free(screen_context->sc_Bitmaps[index]);
         }
         free(screen_context->sc_Screens[index]);
-    }
-    if (sf3do_screen_context == screen_context) {
-        sf3do_screen_context = NULL;
     }
     memset(screen_context, 0, sizeof(*screen_context));
 }
@@ -1300,53 +1271,33 @@ void SetCEControl(Item bitmap, uint32 control, uint32 mask)
 void CopyVRAMPages(Item io_req, void *destination, const void *source,
                    int32 pages, int32 flags)
 {
-    int32 bank;
-
     (void)io_req;
     (void)flags;
     if (destination != NULL && source != NULL && pages > 0) {
         memcpy(destination, source, (size_t)pages * SF3DO_BLOCK_SIZE);
-        bank = sf3do_screen_bank_for_buffer(destination);
-        if (bank >= 0) {
-            sf_web_runtime_copy_vram((uint32)bank, source);
-        }
     }
 }
 
 void SetVRAMPages(Item io_req, void *destination, uint32 value,
                   int32 pages, int32 flags)
 {
-    int32 bank;
-
     (void)io_req;
     (void)flags;
     if (destination == NULL || pages <= 0) {
         return;
     }
     sf3do_fill_vram(destination, value, (size_t)pages * SF3DO_BLOCK_SIZE);
-    bank = sf3do_screen_bank_for_buffer(destination);
-    if (bank >= 0) {
-        sf_web_runtime_clear_bank((uint32)bank, value);
-    }
 }
 
 void DrawCels(Item bitmap, CCB *ccb)
 {
     size_t count = 0u;
 
+    (void)bitmap;
     while (ccb != NULL && count < 256u) {
-        int32 target_bank = sf3do_screen_bank_for_item(bitmap);
-        int32 source_bank = sf3do_screen_bank_for_buffer(ccb->ccb_SourcePtr);
         TextCel *text_cel = (TextCel *)ccb->ccb_SourcePtr;
 
-        if ((ccb->ccb_Flags & CCB_SKIP) == 0 && target_bank >= 0 &&
-            source_bank >= 0) {
-            sf_web_runtime_queue_screen_cel(
-               (uint32)target_bank, (uint32)source_bank, ccb->ccb_XPos,
-               ccb->ccb_YPos, ccb->ccb_HDX, ccb->ccb_VDY, ccb->ccb_PIXC,
-               ccb->ccb_Flags
-            );
-        } else if ((ccb->ccb_Flags & CCB_SKIP) == 0 &&
+        if ((ccb->ccb_Flags & CCB_SKIP) == 0 &&
             text_cel != NULL && text_cel->tc_CCB == ccb &&
             text_cel->tc_RenderText != NULL &&
             ((const char *)text_cel->tc_RenderText)[0] != '\0' &&
@@ -1408,16 +1359,9 @@ void SetFGPen(GrafCon *graf_con, uint32 color)
 
 void FillRect(Item bitmap, const GrafCon *graf_con, const Rect *rectangle)
 {
-    int32 bank;
-
+    (void)bitmap;
     if (graf_con == NULL || rectangle == NULL) {
         return;
-    }
-    bank = sf3do_screen_bank_for_item(bitmap);
-    if (bank >= 0) {
-        sf_web_runtime_fill_rect((uint32)bank, (uint32)graf_con->gc_FGPen,
-                                 rectangle->rect_XLeft, rectangle->rect_YTop,
-                                 rectangle->rect_XRight, rectangle->rect_YBottom);
     }
 }
 
@@ -1431,6 +1375,47 @@ void FadeFromBlack(ScreenContext *screen_context, int32 frames)
 {
     (void)screen_context;
     sf_web_runtime_fade_from_black(frames);
+}
+
+FontDescriptor *LoadFontData(uint8 *data, uint32 size)
+{
+    FontDescriptor *font;
+    uint32 char_count;
+
+    if (data == NULL || size < 84u ||
+        sf3do_read_be32(data) != UINT32_C(0x464f4e54) ||
+        sf3do_read_be32(data + 4) != size ||
+        sf3do_read_be32(data + 24) != 5u) {
+        if (data != NULL) {
+            FreeMem(data, size);
+        }
+        return NULL;
+    }
+    font = (FontDescriptor *)calloc(1u, sizeof(*font));
+    if (font == NULL) {
+        FreeMem(data, size);
+        return NULL;
+    }
+    font->fd_Data = data;
+    font->fd_Size = size;
+    font->fd_FontFlags = sf3do_read_be32(data + 12);
+    font->fd_CharHeight = sf3do_read_be32(data + 16);
+    font->fd_FirstChar = sf3do_read_be32(data + 28);
+    font->fd_LastChar = sf3do_read_be32(data + 32);
+    font->fd_CharExtra = sf3do_read_be32(data + 36);
+    font->fd_Leading = sf3do_read_be32(data + 48);
+    font->fd_CharInfoOffset = sf3do_read_be32(data + 52);
+    font->fd_CharDataOffset = sf3do_read_be32(data + 60);
+    char_count = font->fd_LastChar - font->fd_FirstChar + 1u;
+    if (font->fd_CharHeight == 0u || font->fd_FirstChar > font->fd_LastChar ||
+        font->fd_CharInfoOffset > font->fd_Size ||
+        char_count > (font->fd_Size - font->fd_CharInfoOffset) / 4u ||
+        font->fd_CharDataOffset > font->fd_Size) {
+        FreeMem(data, font->fd_Size);
+        free(font);
+        return NULL;
+    }
+    return font;
 }
 
 FontDescriptor *LoadFont(const char *path, uint32 mem_type)
@@ -1463,35 +1448,14 @@ FontDescriptor *LoadFont(const char *path, uint32 mem_type)
                                  (int32)size, 0);
     (void)DeleteIOReq(io_request);
     CloseBlockFile(&block_file);
-    if (result != 0 || sf3do_read_be32(data) != UINT32_C(0x464f4e54) ||
-        sf3do_read_be32(data + 4) != size ||
-        sf3do_read_be32(data + 24) != 5u) {
+    if (result != 0) {
         FreeMem(data, size);
         return NULL;
     }
-    font = (FontDescriptor *)calloc(1u, sizeof(*font));
-    if (font == NULL) {
-        FreeMem(data, size);
-        return NULL;
+    font = LoadFontData(data, size);
+    if (font != NULL) {
+        sf_web_runtime_set_text_font(font->fd_Data, font->fd_Size);
     }
-    font->fd_Data = data;
-    font->fd_Size = size;
-    font->fd_FontFlags = sf3do_read_be32(data + 12);
-    font->fd_CharHeight = sf3do_read_be32(data + 16);
-    font->fd_FirstChar = sf3do_read_be32(data + 28);
-    font->fd_LastChar = sf3do_read_be32(data + 32);
-    font->fd_CharExtra = sf3do_read_be32(data + 36);
-    font->fd_Leading = sf3do_read_be32(data + 48);
-    font->fd_CharInfoOffset = sf3do_read_be32(data + 52);
-    font->fd_CharDataOffset = sf3do_read_be32(data + 60);
-    if (font->fd_CharHeight == 0u || font->fd_FirstChar > font->fd_LastChar ||
-        font->fd_CharInfoOffset > font->fd_Size ||
-        font->fd_CharDataOffset > font->fd_Size) {
-        FreeMem(data, font->fd_Size);
-        free(font);
-        return NULL;
-    }
-    sf_web_runtime_set_text_font(font->fd_Data, font->fd_Size);
     return font;
 }
 

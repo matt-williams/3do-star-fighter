@@ -47,7 +47,7 @@ switch ( type )
 	case MEGA_BOMB :
 		mega_bomb_control( weapon );
 	break ;
-	
+
 	case MINE :
 		mine_control( weapon );
 	break ;
@@ -90,7 +90,7 @@ atg = armlink_sorttolist( &ships , ship->x_pos ) ;
 if (atg != NULL)
 	{
 
-	memset( (void*) ( ((char*) atg) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+	memset( (void*) ( ((char*) atg) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 	x_grid = (( (long) ship->target)&127) ;
 	y_grid = (( (long) ship->target)>>7) ;
@@ -99,7 +99,7 @@ if (atg != NULL)
 	aim_height = ((height_map [ y_grid<<1 ] [ x_grid<<1 ])-17)<<21 ;
 	if (aim_height<0) aim_height =0 ;
 	aim_height += ((details+type)->missile_aim) ;
-	
+
 	atg->x_pos = ship->x_pos ;
 	atg->y_pos = ship->y_pos ;
 	atg->z_pos = ship->z_pos ;
@@ -121,11 +121,11 @@ if (atg != NULL)
 	atg->what_hit_me = 0 ;
 	atg->who_hit_me = 0 ;
 	atg->special_data = NULL ;
-	
+
 	atg->collision_size = (1<<22) ;
-	
+
 	control_recheckcamera( atg ) ;
-	
+
 	}
 
 
@@ -157,7 +157,7 @@ else
 	target.y_aim = aim_at->y_pos ;
 	if ( (aim_at->type>>4) == CAR )
 	{
-		target.z_aim = aim_at->z_pos+((1<<23)+(1<<22)) ;	
+		target.z_aim = aim_at->z_pos+((1<<23)+(1<<22)) ;
 	}
 	else
 	{
@@ -205,18 +205,18 @@ ata->speed += SF_SIMULATION_DELTA(48) ;
 ata->speed += SF_SIMULATION_DELTA(-((ata->speed)>>7)) ;
 
 ata->x_vel =	-(
-				(( sine_table [ (ata->x_rot)>>10 ] * 
-				cosine_table [ (ata->y_rot)>>10 ] )>>12)
+				(( sf_sin_q12( (ata->x_rot)>>10 ) *
+				sf_cos_q12( (ata->y_rot)>>10 ) )>>12)
 				* (ata->speed)
 				) ;
 
 ata->y_vel =	-(
-				(( cosine_table [ (ata->x_rot)>>10 ] * 
-				cosine_table [ (ata->y_rot)>>10 ] )>>12)
+				(( sf_cos_q12( (ata->x_rot)>>10 ) *
+				sf_cos_q12( (ata->y_rot)>>10 ) )>>12)
 				* (ata->speed)
 				) ;
 
-ata->z_vel =	( sine_table [ (ata->y_rot)>>10 ] * (ata->speed) ) ;
+ata->z_vel =	( sf_sin_q12( (ata->y_rot)>>10 ) * (ata->speed) ) ;
 
 // add velocity onto x ,y ,z positions
 ata->x_pos += SF_SIMULATION_DELTA(ata->x_vel) ;
@@ -233,7 +233,7 @@ coll_check = check_collision( 	ata->x_pos ,
 
 if (coll_check != 0 && coll_check != ata->who_owns_me )
 	{
-		if (coll_check>0) 
+		if (coll_check>0)
 		{
 			static_explode( coll_check , 64 ) ;
 		}
@@ -241,13 +241,13 @@ if (coll_check != 0 && coll_check != ata->who_owns_me )
 		{
 			dent_ground( ata->x_pos , ata->y_pos , 12 ) ;
 		}
-		
+
 		// Reverse velocity on impact
 		ata->x_vel = -ata->x_vel ;
 		ata->y_vel = -ata->y_vel ;
 		ata->z_vel = -ata->z_vel ;
 		ata->speed = -ata->speed ;
-		
+
 		ata->shields = 0 ;
 	}
 
@@ -274,17 +274,17 @@ ship->counter = 8 ;
 ata = armlink_sorttolist( &ships , ship->x_pos ) ;
 if (ata != NULL)
 	{
-	
-	memset( (void*) ( ((char*) ata) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
-	
+
+	memset( (void*) ( ((char*) ata) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
+
 	ata->x_pos = ship->x_pos ;
 	ata->y_pos = ship->y_pos ;
 	ata->z_pos = ship->z_pos ;
-	
+
 	ata->x_rot = ((ship->x_rot) + (16*((arm_random()&2047)-1024)) )&ROT_LIMIT ;
 	ata->y_rot = ((ship->y_rot) + (16*((arm_random()&2047)-1024)) )&ROT_LIMIT ;
 	ata->z_rot = ship->z_rot ;
-	
+
 	ata->x_vel = ship->x_vel ;
 	ata->y_vel = ship->y_vel ;
 	ata->z_vel = ship->z_vel ;
@@ -296,9 +296,9 @@ if (ata != NULL)
 	ata->what_hit_me = 0 ;
 	ata->who_hit_me = 0 ;
 	ata->special_data = NULL ;
-	
+
 	ata->collision_size = (1<<22) ;
-	
+
 	control_recheckcamera( ata );
 	}
 
@@ -318,8 +318,8 @@ ship_stack *sam ;
 sam = armlink_sorttolist( &ships , x_pos ) ;
 if (sam != NULL)
 	{
-	
-	memset( (void*) ( ((char*) sam) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+
+	memset( (void*) ( ((char*) sam) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 	sam->x_pos = x_pos ;
 	sam->y_pos = y_pos ;
@@ -338,9 +338,9 @@ if (sam != NULL)
 	sam->what_hit_me = 0 ;
 	sam->who_hit_me = 0 ;
 	sam->special_data = NULL ;
-	
+
 	sam->collision_size = (1<<22) ;
-	
+
 	control_recheckcamera( sam );
 	}
 
@@ -374,7 +374,7 @@ if (which_graphics_set != SPACE_GRAPHICS)
 
 	//Nose down
 	mega_bomb->y_rot = ( (mega_bomb->y_rot) +
-		SF_SIMULATION_DELTA(-cosine_table [ (mega_bomb->y_rot)>>10 ]))&ROT_LIMIT ;
+		SF_SIMULATION_DELTA(-sf_cos_q12( (mega_bomb->y_rot)>>10 )))&ROT_LIMIT ;
 }
 
 coll_check = check_collision( 	mega_bomb->x_pos ,
@@ -383,7 +383,7 @@ coll_check = check_collision( 	mega_bomb->x_pos ,
 
 if (coll_check != 0)
 	{
-		if (coll_check>0) 
+		if (coll_check>0)
 		{
 			static_explode( coll_check , 255 ) ;
 		}
@@ -391,7 +391,7 @@ if (coll_check != 0)
 		{
 			dent_ground( mega_bomb->x_pos , mega_bomb->y_pos , 20 ) ;
 		}
-		
+
 		mega_bomb->shields = 0 ;
 	}
 
@@ -401,8 +401,8 @@ if (mega_bomb->what_hit_me != 0) missile_collision( mega_bomb ) ;
 
 }
 
-void add_mega_bomb ( ship_stack *ship )	
-			
+void add_mega_bomb ( ship_stack *ship )
+
 {
 
 ship_stack *mega_bomb ;
@@ -412,8 +412,8 @@ ship->counter = 16 ;
 mega_bomb = armlink_sorttolist( &ships , ship->x_pos ) ;
 if (mega_bomb != NULL)
 	{
-	
-	memset( (void*) ( ((char*) mega_bomb) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+
+	memset( (void*) ( ((char*) mega_bomb) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 	mega_bomb->x_pos = ship->x_pos ;
 	mega_bomb->y_pos = ship->y_pos ;
@@ -430,9 +430,9 @@ if (mega_bomb != NULL)
 	mega_bomb->what_hit_me = 0 ;
 	mega_bomb->who_hit_me = 0 ;
 	mega_bomb->special_data = NULL ;
-	
+
 	mega_bomb->collision_size = (1<<22) ;
-	
+
 	control_recheckcamera( mega_bomb );
 	}
 
@@ -483,7 +483,7 @@ coll_check = check_collision( 	mine->x_pos ,
 
 if (coll_check != 0)
 	{
-		if (coll_check>0) 
+		if (coll_check>0)
 		{
 			static_explode( coll_check , 255 ) ;
 		}
@@ -491,7 +491,7 @@ if (coll_check != 0)
 		{
 			dent_ground( mine->x_pos , mine->y_pos , 20 ) ;
 		}
-		
+
 		mine->shields = 0 ;
 	}
 
@@ -513,7 +513,7 @@ mine = armlink_sorttolist( &ships , ship->x_pos ) ;
 if (mine != NULL)
 	{
 
-	memset( (void*) ( ((char*) mine) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+	memset( (void*) ( ((char*) mine) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 	mine->x_pos = ship->x_pos ;
 	mine->y_pos = ship->y_pos ;
@@ -531,9 +531,9 @@ if (mine != NULL)
 	mine->who_hit_me = 0 ;
 	mine->special_data = NULL ;
 	mine->target = ship->target ;
-	
+
 	mine->collision_size = (1<<22) ;
-	
+
 	// Any missiles targetting the ship that launched this mine now target the mine
 	temp_ship=(ships.info).start_address ;
 	while ((temp_ship->header).status==1)
@@ -544,7 +544,7 @@ if (mine != NULL)
 		}
 		temp_ship=(temp_ship->header).next_address ;
 	}
-	
+
 	control_recheckcamera( mine ) ;
 	}
 
@@ -635,8 +635,8 @@ if (SF_SIMULATION_REFERENCE_TICK() && ship->fire_request == WEAPON_LASER
 	{
 		laser_type = LASER_POWER_4 ;
 	}
-	
-	
+
+
 	add_laser( 	(pod->x_pos) ,//+(temp_data[0]<<12) ,
 				(pod->y_pos) ,//-(temp_data[1]<<12) ,
 				(pod->z_pos) ,//+(temp_data[2]<<12) ,
@@ -662,10 +662,10 @@ if (SF_SIMULATION_REFERENCE_TICK() && ship->thrust_control != 0)
 
 // check for collisions with ground objects n' ground
 coll_check = check_collision ( pod->x_pos , pod->y_pos , pod->z_pos ) ;
-	
+
 if (coll_check != 0 && coll_check != ship->who_owns_me )
 	{
-	
+
 	// Is it a collision with a static object
 	// If so damage the object based on the speed of the collision
 	if (coll_check > 0)
@@ -676,10 +676,10 @@ if (coll_check != 0 && coll_check != ship->who_owns_me )
 	{
 		dent_ground( pod->x_pos , pod->y_pos , 8 ) ;
 	}
-	
+
 	//Damage the pod based on the impact speed
 	pod->shields -= ((pod->speed)>>2) ;
-	
+
 	}
 
 // If the ship that owns this pod dies then so does the pod
@@ -717,23 +717,23 @@ if ( pod_number >=0 )
 	pod = armlink_sorttolist( &ships , ship->x_pos ) ;
 	if (pod != NULL)
 		{
-		
-		memset( (void*) ( ((char*) pod) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ; 
+
+		memset( (void*) ( ((char*) pod) + (sizeof(link_header)) ) , 0 , (sizeof(ship_stack))-(sizeof(link_header)) ) ;
 
 		pod->type = WING_POD ;
 		pod->shields = 120 ;
 		pod->who_owns_me = (long) ship ;
 		pod->goto_y = 0 ;
-		
+
 		pod->collision_size = 1<<24 ;
 		pod->counter = 0 ;
 		pod->ref = pod_number ;
 		pod->what_hit_me = 0 ;
 		pod->who_hit_me = 0 ;
 		pod->special_data = NULL ;
-		
+
 		pod->collision_size = (1<<22) ;
-		
+
 		ship->ref = ((ship->ref)|pod_number) ;
 
 		}

@@ -6,6 +6,9 @@
 #include "SF_Font.h"
 #include "SF_Allocation.h"
 #include "SF_Screenutils.h"
+#if defined(__EMSCRIPTEN__)
+#include "sf_web_runtime.h"
+#endif
 
 // Global variables
 
@@ -23,6 +26,25 @@ long font_loadin(void)
 
 {
 
+#if defined(__EMSCRIPTEN__)
+uint8	*font_data;
+int32	font_size;
+
+	font_data = (uint8 *)AllocMem(84u + 256u * 4u, MEMTYPE_ANY);
+	if (font_data == NULL)
+		return (0);
+	font_size = sf_web_runtime_load_message_font_metrics(font_data,
+												 84u + 256u * 4u);
+	if (font_size <= 0)
+		{
+		FreeMem(font_data, 84u + 256u * 4u);
+		return (0);
+		}
+	*font_list = LoadFontData(font_data, (uint32)font_size);
+	if (*font_list == NULL)
+		return (0);
+	return (1);
+#else
 char	font_file [128];
 char	*font_files [] = 	{
 							"Message",
@@ -42,6 +64,7 @@ char	*font_files [] = 	{
 		}
 	font_handles-=1;
 	return (1);
+#endif
 }
 
 /**************************************/
