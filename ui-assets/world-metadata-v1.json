@@ -1,0 +1,109 @@
+{
+  "schema": "world-metadata-v1",
+  "worlds": {
+    "Chemical": {
+      "comet_rate": 0,
+      "explosion1_data1": 2139128194,
+      "explosion1_data2": 2610732446,
+      "explosion2_data1": 2206500230,
+      "explosion2_data2": 2610732446,
+      "explosion_heightcheck": 0,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Death": {
+      "comet_rate": 0,
+      "explosion1_data1": 1078018627,
+      "explosion1_data2": 1145390663,
+      "explosion2_data1": 1953855095,
+      "explosion2_data2": 2021227131,
+      "explosion_heightcheck": 0,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Earth": {
+      "comet_rate": 0,
+      "explosion1_data1": 2880220590,
+      "explosion1_data2": 3267609797,
+      "explosion2_data1": 2947592626,
+      "explosion2_data2": 4294967295,
+      "explosion_heightcheck": 1,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Earth2": {
+      "comet_rate": 0,
+      "explosion1_data1": 2880220590,
+      "explosion1_data2": 3267609797,
+      "explosion2_data1": 2947592626,
+      "explosion2_data2": 4294967295,
+      "explosion_heightcheck": 1,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Ice": {
+      "comet_rate": 800,
+      "explosion1_data1": 1111704645,
+      "explosion1_data2": 1246448717,
+      "explosion2_data1": 1179076681,
+      "explosion2_data2": 1246448717,
+      "explosion_heightcheck": 0,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Plastic": {
+      "comet_rate": 200,
+      "explosion1_data1": 523190095,
+      "explosion1_data2": 4294967295,
+      "explosion2_data1": 523190095,
+      "explosion2_data2": 4294967295,
+      "explosion_heightcheck": 0,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    },
+    "Space": {
+      "comet_rate": 0,
+      "explosion1_data1": 1078018627,
+      "explosion1_data2": 1145390663,
+      "explosion2_data1": 1953855095,
+      "explosion2_data2": 2021227131,
+      "explosion_heightcheck": 0,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 1
+    },
+    "Warrior": {
+      "comet_rate": 128,
+      "explosion1_data1": 2880220590,
+      "explosion1_data2": 3301295815,
+      "explosion2_data1": 2947592626,
+      "explosion2_data2": 4294967295,
+      "explosion_heightcheck": 1,
+      "reserved": [
+        0,
+        0
+      ],
+      "space_mission": 0
+    }
+  }
+}

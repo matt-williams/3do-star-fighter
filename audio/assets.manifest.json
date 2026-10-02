@@ -1,0 +1,281 @@
+{
+  "asset_count": 14,
+  "assets": [
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 20416,
+          "loop_end": 19986,
+          "loop_start": 4354,
+          "mime": "audio/wav",
+          "path": "samples/Alarm.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "751521522a0add2703559487e75ce1880a3770d8908c297b29128f0ceca0bb81",
+          "size": 20460,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "12fba537e9d105407e0e8f6b12e36f29fc69faf5d752a898c9584e85869bb84c",
+      "source_path": "SF_Resources/Samples/Alarm.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 9824,
+          "loop_end": 9536,
+          "loop_start": 3776,
+          "mime": "audio/wav",
+          "path": "samples/BeamLaser.wav",
+          "sample_rate": 5000,
+          "sample_size": 8,
+          "sha256": "bc533947af26fb19cf00796183b1e199b6670db2f3bf0be038fdcaf420e79e12",
+          "size": 9868,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "a32cfeb17107186516e5575d42d9b2fc1e5b2f051670548a0dfef40be06ae0bd",
+      "source_path": "SF_Resources/Samples/BeamLaser.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 2384,
+          "mime": "audio/wav",
+          "path": "samples/Beep.wav",
+          "sample_rate": 22050,
+          "sample_size": 8,
+          "sha256": "d85731ce9303159c7bdd44918012ab27092cf03288e07ce3ae2c4818148698f1",
+          "size": 2428,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "93be1db58b5ceddfe00ae8d962a99df1d6c4013c637212295069a9c4449fa00a",
+      "source_path": "SF_Resources/Samples/Beep.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 19456,
+          "mime": "audio/wav",
+          "path": "samples/Chime.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "8aec5d45ced69944216d6946008cc6e5f86474e4664a8da62d3db3c65710e601",
+          "size": 19500,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "258491c1619f3e3bd74821385b42ecabbd1d7427d1b39ca343061f695b16fdff",
+      "source_path": "SF_Resources/Samples/Chime.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 4096,
+          "mime": "audio/wav",
+          "path": "samples/Click.wav",
+          "sample_rate": 11000,
+          "sample_size": 8,
+          "sha256": "4e720fad065b8bb63132c4cb8516a0eb5d3c5c3780e78f56967872872ebe85e8",
+          "size": 4140,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "0d85ebb24460886db802f6faf574f56e81ff39e139fc677e5baad36b960bb732",
+      "source_path": "SF_Resources/Samples/Click.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 18944,
+          "loop_end": 18657,
+          "loop_start": 199,
+          "mime": "audio/wav",
+          "path": "samples/Engine.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "db2a892e7bce01b96e43668a764f7027b239e52b5c0419167c1e7af91ad6f4f0",
+          "size": 18988,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "1b703c48313f9b3925f014eefd775127e5e89ab0ab54909d70b7ea3424752d44",
+      "source_path": "SF_Resources/Samples/Engine.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 29696,
+          "mime": "audio/wav",
+          "path": "samples/Explosion.wav",
+          "sample_rate": 11000,
+          "sample_size": 8,
+          "sha256": "0f68df0feb38a2175980784c76df24b3fc4139d56e95fd2c098d664a5c7bc1c4",
+          "size": 29740,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "34c33ef6e80bbd7554467a1d2ffc2cf51eb402c2070a83828c02da414b236264",
+      "source_path": "SF_Resources/Samples/Explosion.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 7168,
+          "mime": "audio/wav",
+          "path": "samples/Incoming.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "e13e0008c5081a3fc938073cc741929b3ebbd379c4bd6991fd35279bdb6c42ce",
+          "size": 7212,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "aa3b5a31773d99b3e237bd6e61613881075751ce1b40afc903303141209946af",
+      "source_path": "SF_Resources/Samples/Incoming.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 3072,
+          "mime": "audio/wav",
+          "path": "samples/Laser.wav",
+          "sample_rate": 11000,
+          "sample_size": 8,
+          "sha256": "297deeb59354e02d38a8f9fade390a575b22e4c93709f6fed3cb289caf2e1d3f",
+          "size": 3116,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "6294be84cfcb8cc881ebd700631af678afc1eb85828af89979d64cba935c47e9",
+      "source_path": "SF_Resources/Samples/Laser.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 5120,
+          "mime": "audio/wav",
+          "path": "samples/LockOn.wav",
+          "sample_rate": 11025,
+          "sample_size": 16,
+          "sha256": "b45fde877fcfa6672fd5f9746829a25454597bc8c0c7c0debf025084a47c0023",
+          "size": 10284,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "f028ba73d131d56b56fe9861baa8d321012b6b0efdda18898631c9a722463e86",
+      "source_path": "SF_Resources/Samples/LockOn.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 15360,
+          "mime": "audio/wav",
+          "path": "samples/Missile.wav",
+          "sample_rate": 11000,
+          "sample_size": 8,
+          "sha256": "880e5f22f174e414ae0248b34aef303b51cdc7ff242f03abb6a8954ba824bda8",
+          "size": 15404,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "d8ffd68f434e1f9a1e8664f50681eae75bd3161e53e8623421da5742fffc2436",
+      "source_path": "SF_Resources/Samples/Missile.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 12288,
+          "mime": "audio/wav",
+          "path": "samples/PickUp.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "ae86cdbc390d6df3a2146463c7f139116863f789f4a743046f62f7cb1f6f3e0b",
+          "size": 12332,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "9d0a3188784938c82c49818e7b508b504693bb7ec12db6245a31c775a007f929",
+      "source_path": "SF_Resources/Samples/PickUp.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 7008,
+          "mime": "audio/wav",
+          "path": "samples/Thud.wav",
+          "sample_rate": 11000,
+          "sample_size": 8,
+          "sha256": "8a20420d7272756d9320fd8a517f896666527cc9f366dea2594108bdaf49b722",
+          "size": 7052,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "4c89f6c30b8a5088cf2e38042be9ec87a807577ec3d61aa17af8837a0cf22413",
+      "source_path": "SF_Resources/Samples/Thud.aiff"
+    },
+    {
+      "outputs": [
+        {
+          "channels": 1,
+          "emitted": true,
+          "frames": 21782,
+          "loop_end": 21312,
+          "loop_start": 419,
+          "mime": "audio/wav",
+          "path": "samples/Wind.wav",
+          "sample_rate": 11025,
+          "sample_size": 8,
+          "sha256": "6971f8f771b6c86807ac7d5ea153d8aec9afb08f8efb4505e809db22b88df08f",
+          "size": 21826,
+          "source_compression": "NONE",
+          "type": "pcm-wav"
+        }
+      ],
+      "sha256": "090e1a004703dd74ffb73424f61535a0916ae473bff76f3cc540ddad79238bf9",
+      "source_path": "SF_Resources/Samples/Wind.aiff"
+    }
+  ],
+  "generator": "tools/convert_assets.py --sound-effects-only",
+  "schema_version": 1
+}

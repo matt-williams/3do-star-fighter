@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Star Fighter Web Port</title>
+  <style>
+    html, body { height: 100%; margin: 0; width: 100%; }
+    body { background: #000; overflow: hidden; }
+    main { inset: 0; position: fixed; }
+    canvas { display: block; height: 100vh; image-rendering: pixelated; inset: 0; position: absolute; width: 100vw; }
+    #status {
+      background: rgb(0 0 0 / 75%);
+      bottom: 1rem;
+      color: #ddd;
+      font: 14px system-ui, sans-serif;
+      left: 50%;
+      margin: 0;
+      max-width: calc(100% - 2rem);
+      padding: 0.4rem 0.75rem;
+      pointer-events: none;
+      position: absolute;
+      text-align: center;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <canvas id="screen" width="320" height="240" aria-label="Star Fighter display"></canvas>
+    <p id="status">Loading Star Fighter...</p>
+  </main>
+  <script type="module">
+    import { createStarFighterRuntime } from "./runtime.js";
+
+    const canvas = document.getElementById("screen");
+    const status = document.getElementById("status");
+    globalThis.SF3000WebPort = createStarFighterRuntime(canvas, status);
+    globalThis.Module = {
+      canvas,
+      onRuntimeInitialized() {
+        globalThis.SF3000WebPort.attachModule(globalThis.Module);
+      }
+    };
+    const script = document.createElement("script");
+    script.src = "./starfighter.js";
+    script.onerror = () => {
+      status.textContent = "Browser build is unavailable.";
+    };
+    document.body.append(script);
+  </script>
+</body>
+</html>

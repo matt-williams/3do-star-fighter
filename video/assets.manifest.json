@@ -1,0 +1,217 @@
+{
+  "asset_count": 10,
+  "assets": [
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 294000,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 159,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Failure.mp4",
+          "sha256": "6001cd0d92cb9326207bbba8f48ea0905b9558463215bdfedffd28eb057f8647",
+          "size": 541891,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "2a5476debce7f86453e32fa44102209f020bf6d64496ed3beeb9dcdecd980d76",
+      "source_path": "SF_Resources/Video/Failure"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 8232735,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 4479,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Intro.mp4",
+          "sha256": "f5ebaa083fc9f4c0caa761dadc10233d55a44c1d8b9e4e34eab6367ef5227a90",
+          "size": 19827698,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "5266d4893f563f8e58e0687c50e769c5fd56292bbf54f078a1ad3d78c3caca16",
+      "source_path": "SF_Resources/Video/Intro"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 235520,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 30,
+          "frames": 143,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Krisalis.mp4",
+          "sha256": "d7b1be524a60881dd1d08042b5bdb60472bbad09166de5ab9736341ce8385614",
+          "size": 346073,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "4e069b937a442021f7e114dcc3c83f564c0745b92bfc62c8200fa82fd4891d47",
+      "source_path": "SF_Resources/Video/Krisalis"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 1981560,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 1078,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Outro.mp4",
+          "sha256": "7eee6cb31300f1c9ae85baccc828cd371b0dbb0c7cb570e29077c3072a4e04a1",
+          "size": 4215217,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "923c15a550103aec2df31c6bb4f622e5012d952048dae4a5a3ddc50c209dbe11",
+      "source_path": "SF_Resources/Video/Outro"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 335160,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 181,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/StarLogo.mp4",
+          "sha256": "b7c187342780f5da687bf9825b6567e4cf92d8893be22e38dbc13f392a97343a",
+          "size": 1256763,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "5096042f85593c7c1676992dcd9f66ab9132ccadb0465ea2b8e9b0ae81ada2ff",
+      "source_path": "SF_Resources/Video/StarLogo"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 302820,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 161,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Victory0.mp4",
+          "sha256": "cf0b1d559ace0446955a263bd093a63c7481f105ff55181c4728a381183e5fa0",
+          "size": 669082,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "a43152fe2c5f6b683d8b2412a45745741f2a82f086bb761bfd9f02adf400bce8",
+      "source_path": "SF_Resources/Video/Victory0"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 269745,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 145,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/Victory1.mp4",
+          "sha256": "641127ce558a965cbf3d0d20483eb15b6c277cd31b9d39063d0ca583c9944605",
+          "size": 535447,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "afd40f3aedc1b031aa6c9dee4d490b8f3b00b1701c53d1d2766b9953132e43a8",
+      "source_path": "SF_Resources/Video/Victory1"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 269745,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 146,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/into1.mp4",
+          "sha256": "6bce6a7806fb9254fd9a482146df060fd9545fdfaeed0952459c1c6acf346c61",
+          "size": 540821,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "f11b3259f3d0b15ab26e8e66450443df5de2b6f2af5de9a0a752edcea9813ca3",
+      "source_path": "SF_Resources/Video/into1"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 384405,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 207,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/into2.mp4",
+          "sha256": "eeb08c10834e53e452193797e07a4290313f7a89d4c9045a9bd4c7f16d28bd5e",
+          "size": 553286,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "b4f39991c3c53b3f86f7f55499911a467d7fec73635d1bfb7b5b6ee839bc6003",
+      "source_path": "SF_Resources/Video/into2"
+    },
+    {
+      "outputs": [
+        {
+          "audio_channels": 2,
+          "audio_frames": 343245,
+          "audio_sample_rate": 22050,
+          "emitted": true,
+          "frame_rate": 12,
+          "frames": 187,
+          "height": 200,
+          "mime": "video/mp4; codecs=\"avc1.42E01E, mp4a.40.2\"",
+          "path": "video/into3.mp4",
+          "sha256": "16cffe0cb5c3d2ae7b17f7bd038ab3338e734669e4cb0d1ac8cddd7fef14252c",
+          "size": 566227,
+          "type": "h264-aac-mp4",
+          "width": 320
+        }
+      ],
+      "sha256": "60a5185e4ef2d9c5ef90857d66b70745e2c30314007b432ce4bcdb6c59fdd8c1",
+      "source_path": "SF_Resources/Video/into3"
+    }
+  ],
+  "generator": "tools/convert_assets.py --cinematics-only",
+  "schema_version": 1
+}

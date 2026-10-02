@@ -1,0 +1,1527 @@
+{
+  "asset_count": 76,
+  "assets": [
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 13220784,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/DeathBS.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "509a452116838f488db7871a35be3e687484d4d1a8e31ff9d8471965d62e61dd",
+          "size": 3524972,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "be4bf9efb7784852498dafe785de2a5882982a87add560552e8c390d50dca816",
+      "source_path": "SF_Resources/Music/DeathBS.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 14121092,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/Floating.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "2a004b5516f2a2b2fb6f068b3b992cf6681502e1b1fc2cce9d754e7cf01ade18",
+          "size": 4405001,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "36440275734b4ff669be11a7722fbe6f0fea187cd698fda32c0f0bd2846932df",
+      "source_path": "SF_Resources/Music/Floating.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 14256844,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/Freefall.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "22165238d7e2f6d84925f48ae9717a6aeec5873729d903af98bdc728b89da899",
+          "size": 3879695,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "2217bee0a0783b009813526ea15d93bd7333b0b60a5f7f678e13f4aa39bd3afe",
+      "source_path": "SF_Resources/Music/Freefall.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 10752516,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/Higher.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "7965a820eb41ccafa3c564c9e8d1c747d1149cd25baea91c547a9be7f26d6f2d",
+          "size": 3302156,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "c3e5de737a606f29f098e1f81a65cd7215ee88feab1c04f1cf565c5941d2e115",
+      "source_path": "SF_Resources/Music/Higher.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 9220992,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/PlanetMa.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "6c4ad5baca47f1b8919959159d09eb74d17d279ece2373f03b54a91e41562555",
+          "size": 2616579,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "d247861eeb434b047bc44cb6eabb5940d872e126cc72e395ab69530a93c8417d",
+      "source_path": "SF_Resources/Music/PlanetMa.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 6697220,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/Star1.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "95cb8f2fa6be75f99ece07aeac9d90a5346e27b954c156a97192aa2273d4f6e8",
+          "size": 1923051,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "1ca749da2a8e686a164d768e29f0c23681159ed6aca0afc1360e67ba8b26aff7",
+      "source_path": "SF_Resources/Music/Star1.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 7315716,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/StarHed.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f9e12dbbc3333d1ed03182becf02a54b76b6a068731c897e01583378aa7596b9",
+          "size": 2136984,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "74304ec1bc8082483fbc04900c6b71f6d843d447838bf35fab55fd3f18156633",
+      "source_path": "SF_Resources/Music/StarHed.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "96k",
+          "channels": 2,
+          "emitted": true,
+          "frames": 12587796,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "music/obie130.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "cbe0a85d1d92f17923501affef5d27a10b6772d1269f09b4aca214775d834dbe",
+          "size": 3293841,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "6ccd7d99232014467ea8eed6b3321e67c22a237beaf919e24db5ad3a398e995c",
+      "source_path": "SF_Resources/Music/obie130.aifc"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 160768,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/Congratulations.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "7d83caef7f87cb8f91f529556cb922c5278303ff347850a0e31d6363caf87b70",
+          "size": 18568,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "f07396edcdd1527caded88e5875e3a917392fbf631d0023f358a621161c7e282",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/Congratulations.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 890624,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/DiveBombers.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "250b7f594a0e7d9608c7bde39d6bcfaf1796a092ed787ece2919c5da7eead012",
+          "size": 102326,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "9781a5707a7190f54527eacdef046c46ab1063d965355f24a83db6f5ed5d2310",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/DiveBombers.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 82816,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/FailedMission.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "cd341585406695ef2c058ad329e0f820b5f8933e6e1fbaa4c598f69f72568f10",
+          "size": 9715,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "c8f7769cde2b39ab20e78bae7d06873362ef8bdd9b4aa3cb21f8464157683ae0",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/FailedMission.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 890624,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/Grounded.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "64306aa1b87ec699938821cef21c837ea394ff7d23b0a67ec6313079533d7e1c",
+          "size": 101182,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "c4236603605eab4f1aec64e5c9aa1b3539aab53ba7297050f03a6bb77537dcc0",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/Grounded.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 83456,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/Incomplete.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "9a9a7721c05efeef4b8b9e87625b09760f480747825b1d8a79bd371f491f3cf6",
+          "size": 9326,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "3ca765f6a87b0646c802992fc794b223890b27bf6e451ee7951b9cc9f1220096",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/Incomplete.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1487104,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/MisileDelivery.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "607a2b4ddd373d546b12f764982126e695a54b1ee72124a3c75083b8cfa3e9b3",
+          "size": 168279,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "316cdb84d9a1cd1271389a542b3fc0d8485d12a159bc83e9bc7a91de6bf08e8b",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/MisileDelivery.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1332992,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/ShipGraveyard.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "96a490ad9a442afeb87bfb16cbb03e30c35fea73e8bc47a5b5b2465e0a967377",
+          "size": 150030,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "32c5e09e5045f6a6fdf958b16ccbdc4046bd2957feb8d2dc4c61316273f7da64",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/ShipGraveyard.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1084672,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/Additional~20Missions~20~2B~20General/SupplyLine.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "13bec2320f81b7192c0877e509f15bdd8f81819e78e5dad7dc92fd2d0b9c70ed",
+          "size": 123644,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "7ce0c67cfd8a9f2ad86e0ff37d4aee5dad5f2d4ca6199d94d0fb74494b6a53ea",
+      "source_path": "SF_Resources/Voices/Additional Missions + General/SupplyLine.AIFC"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1718272,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_1.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "eb160b250bd5f1bc5376c0d0cfc63aba6fe2626f3419eebac69f54833439c70c",
+          "size": 192177,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "3a59f4c5dddcdc537dd50a12c7e23ab6a1db0748f29102e5dd0216b33c84e7ff",
+      "source_path": "SF_Resources/Voices/E/miss_1"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1409920,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_10.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "fadcf5ce2c4d59096b2704037579faf85dc77b667bd8da5fdb29b512191f8477",
+          "size": 156264,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "af33aa6419f7563b98987c3ca2efeb84f162e23e336a629f334181d465e0de99",
+      "source_path": "SF_Resources/Voices/E/miss_10"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1912064,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_11.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f9cc459d55c4d3749ab356a2ea04f35f41332cad8554a485883ca37749cfa93b",
+          "size": 213306,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "4258fa7a8e5ceac1da973e0b379fa43fa5d88ceec5a2435d2fb762cd76305716",
+      "source_path": "SF_Resources/Voices/E/miss_11"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1860480,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_12.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "a9b60af92ffd2164fe4784f1e4274b29261b1b802db595c67dd38898e1096d0b",
+          "size": 209340,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "15d2d9e8ae7fd485049414b0168d54c0ca43b18e1bad917486010f108592d8f5",
+      "source_path": "SF_Resources/Voices/E/miss_12"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2052608,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_13.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "583e4886e38b47311033039f1f187ff44bc32e94895e4a3462eae9aa215afc79",
+          "size": 231895,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "18776639c9c5bed3b1d16b1c8a207577f6c347e4f3b9fc5be1df2f757715a345",
+      "source_path": "SF_Resources/Voices/E/miss_13"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 966528,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_14.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "d0c8f73a0c62d6aa77e7904959b7c04523be9e7bbf5c506d014b35cd697759d0",
+          "size": 108252,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "58cc08f365ce946b868a3b70bef4475c810ac0c9cd306a58c14a42e3166cd95a",
+      "source_path": "SF_Resources/Voices/E/miss_14"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1228800,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_15.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "5dc392bb47b55e3fb35c5d9ea5cf1143edba7e4149cdb76c942f51a520236091",
+          "size": 137657,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "f33728bd5524f8ceb834e8675c5d84984ae4fc32f9a9c21f156821d844d45b9b",
+      "source_path": "SF_Resources/Voices/E/miss_15"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1368960,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_2.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "aba17a6d8ce031295540c8c84500e73c87b2265c0110e6b87594fb9e4dc1f2bf",
+          "size": 153778,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "294804221ee5c1837d6373dbcb3af4df3f6e72bd53a9dbc10a81b93829b882e4",
+      "source_path": "SF_Resources/Voices/E/miss_2"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1169792,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_3.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "da4916a63c19285274f20c164f3c7b66f7c126601c724fed34bd888d064fdd58",
+          "size": 132110,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "037f03825067b05a6a4b3f5bbf51b28915300d1b2d3cd00ab32b74f30abdcdc2",
+      "source_path": "SF_Resources/Voices/E/miss_3"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1906944,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_4.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "bb154308dbad2d60eed0dae73fdbe2a9480743ce0887091725165574ece2a222",
+          "size": 211889,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "46fb8cb63923ef20697772b85bd2f7785a436104940a64dd529627fd0c2a0fbe",
+      "source_path": "SF_Resources/Voices/E/miss_4"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2396544,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_5.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "377830ece0379ef0a6d90307f2da445eb2d598a73560b6e2be3625f52fe67d91",
+          "size": 271152,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b904e6a403e970e074506998676901b153055076e98f5a9a224fbb9858d4712c",
+      "source_path": "SF_Resources/Voices/E/miss_5"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1683712,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_6.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "6bfb6cbf91eb35a6b9a991e9c4f485444686ddc3e8a3f93b602e751c296fecb1",
+          "size": 189748,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "77bf607b80cb528846e70bfaa096d11a6659c8f84f64a9916ee2482127089e67",
+      "source_path": "SF_Resources/Voices/E/miss_6"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1360256,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_7.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "44cbee408874949b29f7f945cd5a675075f40280226fe7cf485c90b4cc43a47a",
+          "size": 152150,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "662f0e749e0f4fae0696ebc8c5fcf36ee2cde23887ae4d0ef95662d385b5313a",
+      "source_path": "SF_Resources/Voices/E/miss_7"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1635968,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_8.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "0c7545ea98d3eab81f2f4ac055048cdced1ba16af8f8817b8641922ead030f02",
+          "size": 186709,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "0a9b80ad60547d8a40e127d0de50083723858d4eec0a15e5a39c3a3da5dde002",
+      "source_path": "SF_Resources/Voices/E/miss_8"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1752192,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/E/miss_9.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "4313fe172211a16c5b20baff02070d9f2f9a81b0712e216c29fe366baf4ccea8",
+          "size": 199697,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "8b112687daac5098843c0b690b60093d45096ad2eb8306052604c2b4b2ce64c2",
+      "source_path": "SF_Resources/Voices/E/miss_9"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1441792,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_1.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "b1d8431d501547d84440d7ad456b34710ac1da434f55ac4376dbe3f7bf8a0dc4",
+          "size": 161828,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "327d5e8cffe09d114c8440d1fd9b2530ea469a21b07a133537749ec6b1c20a2c",
+      "source_path": "SF_Resources/Voices/H/miss_1"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2941440,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_10.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "8a097a22ea8578b793035ce79d80bb20286b8c0f4c2dbf78ad636a4d9c79fd2f",
+          "size": 331359,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "051afd1261b313e3c8d46191a1be646c3507812ed9f6ff4e3995b2b9316814ef",
+      "source_path": "SF_Resources/Voices/H/miss_10"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1360256,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_11.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "11d0e7884dfd49aba465602bd244d3cc511af5cd0997d5cf743ed75e088b51a5",
+          "size": 153885,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "0d30ef0920f382bb0dfde209c7caf889b486a44824f14b82e5d84910c6db2c22",
+      "source_path": "SF_Resources/Voices/H/miss_11"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1833344,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_12.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "bbec5d98f5d328f0756037d47554c52b2e9227a33ee7f1633d19e57226202934",
+          "size": 204372,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "70f695cc44180840c46b433a9520ec7bad9576cab07e37bde7f3e66f0112eddb",
+      "source_path": "SF_Resources/Voices/H/miss_12"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1966720,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_13.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f619ce089138bf9f0be0b2811f51028daefef4d3cbeb0800938f2bf125990286",
+          "size": 221368,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "f8b22624aaa96446d9f589d1d1192c27d45d6470b3ca8d31a05c2f766b68ad17",
+      "source_path": "SF_Resources/Voices/H/miss_13"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1761920,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_14.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "c6747b71d7853d9a5f8f0f3d7cb15d2103ee0041a223a42a18a23967801d8296",
+          "size": 200358,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "2cab8c57fa8150962c52ff339cbf6611a961b84a47c963caac3accdcc7b09984",
+      "source_path": "SF_Resources/Voices/H/miss_14"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1080960,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_15.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "5e3501e2b798fb96860437d24db3f471dc29b1cc9e4e36b791a15e340936d691",
+          "size": 121611,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "6b603ee0ed167da673a51b1742e7d0808928d77bdde9faf6b6f8d60df8359c75",
+      "source_path": "SF_Resources/Voices/H/miss_15"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1859328,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_2.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f39dbf25850e0d6746287218a4a84f5371536983a7f3b896ffb0c062a28a2716",
+          "size": 209385,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "340bbf2f5e9cdd5aab95f4fd793b4ad8378ef7f45012687ea3ca1d3d6a9ae008",
+      "source_path": "SF_Resources/Voices/H/miss_2"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2123392,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_3.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "8b3209a22e26e4cb1999b39e62631f08c1e100550c7cc00e4a26974d2a6d54e7",
+          "size": 240733,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b5b0a22ae0239b69deea7b96e3ea95faeb88cdefed28972b0bd63a510ff7d2f3",
+      "source_path": "SF_Resources/Voices/H/miss_3"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1824256,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_4.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "88df578983873561aa376179c980e91312029ba24d47019f386b9cdf1a3ab705",
+          "size": 204793,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "56f00f9355f90b5ad529a4ee141e6885efef0b51a47bc49d682cd6ee996a8c02",
+      "source_path": "SF_Resources/Voices/H/miss_4"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 741376,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_5.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "ba153cbf52b26c083e2374e9b6064fbc999f48d72546e34b5e48cabc05a0e9ba",
+          "size": 84431,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "a600c589a2ef65532d26b09c78bea0c7b3ce599302af0ee8a756a1afa2b691c2",
+      "source_path": "SF_Resources/Voices/H/miss_5"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2289280,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_6.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "bedd4d3005e6bedb3375b8037cffc9e5cc2242e8870a7a6cb25985ee6473019d",
+          "size": 261892,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "e5dd6d68d432e94bd2c5fe86c405bac2812655cc848f5d836375e0b5522361f1",
+      "source_path": "SF_Resources/Voices/H/miss_6"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2149888,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_7.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "2e1118b3b7dd5b1943db85ff6bb6393ab2ebbdb24819b59640aeeda730849192",
+          "size": 243640,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "a0b830650dfaf04951bef27fd49d3512bc73fe4e00f9fe879125c2c231d48762",
+      "source_path": "SF_Resources/Voices/H/miss_7"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 954496,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_8.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "7ab453d7db9eb20c23a2d2ee3d06752d54ff4c3d240e991241b0aac81115f152",
+          "size": 110253,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "a98b7514430b4a47b16b20c7c5db7428d50115dba69d1768dff70b52e81137d9",
+      "source_path": "SF_Resources/Voices/H/miss_8"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1429504,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/H/miss_9.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "95ef672786dd85dc87d808d8bbfbb26bef8633d116c3f7683f3f322d836322c2",
+          "size": 163870,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "c00b6c187e700028f69d05ec0219b4385ecfd6f91bef3d55f750761d7a58371b",
+      "source_path": "SF_Resources/Voices/H/miss_9"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2265088,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_1.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "51c4affdcb6d7e0a02ef465cb0ea84a535e3616e6d711e5c8d5fb406e1a8ae7d",
+          "size": 256478,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "115f6be508838bb04c0eb7de3e409a63eae96a3e1b3571d51189b289656a5912",
+      "source_path": "SF_Resources/Voices/M/miss_1"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2039040,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_10.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "303cc89b2bec1307e8a7f8f1eaf94014284b51e7837344443e56efa856c5d39b",
+          "size": 229567,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "3c4fa73b201c35522e5189c38540f692dfc12897cdcd45f54b91b5db1132f929",
+      "source_path": "SF_Resources/Voices/M/miss_10"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1339520,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_11.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "d07f0cbfc08857397382ef21be4306dcde04f9c7f0ce18fd00c6fdab9a554f2b",
+          "size": 149926,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "d76f156ac722f95daf93fad88891ce2b27ce9ae30f1f81116b85a8209f9f509a",
+      "source_path": "SF_Resources/Voices/M/miss_11"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1396992,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_12.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f0d91934197bb57f110a12d97035931514dc05512944e31944a2fc933ddff207",
+          "size": 156353,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "4796f75ff9a4dad738af0187c5981c731c91fd53acb475fbe35d2777e5665dfe",
+      "source_path": "SF_Resources/Voices/M/miss_12"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1124352,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_13.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "84c45957483fdbe6dfe7a7acd51607fbe1d2622598370dce864cf8d333187e46",
+          "size": 125826,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "c08a95314fb9c33781d3dcff0adfd5c2f4acdc73ea2e79116c5d21bb287072d9",
+      "source_path": "SF_Resources/Voices/M/miss_13"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1264256,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_14.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "1aa6d30f9d435dc81870af27c5f6b6a6db3dd69b0ef9a598bd0f9143cb7563fa",
+          "size": 141498,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "19f6f5013bd7fa1ac8d0cb90e4d6e0cd3736a6912edde0ee5a75ed1af1799002",
+      "source_path": "SF_Resources/Voices/M/miss_14"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1381632,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_15.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "5a87e2837862503a514380ec38f263396c858b0e699fc765ef1eed8606a70156",
+          "size": 155384,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "ed334de494ab50864fc48cc958e21d40c2f8bdeb8cf4252c8b1110e2fd9d6011",
+      "source_path": "SF_Resources/Voices/M/miss_15"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1591936,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_2.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "70ca19207e8490fa530cf2ef28fdc1caa9ade6fe6560464b04f828b6cdf7d653",
+          "size": 179630,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "330b21e5e4736ddf1b73e332813f22f1b06fa648169b37caa1ec2f8536e98135",
+      "source_path": "SF_Resources/Voices/M/miss_2"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1733248,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_3.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "beb1c2cbce97ca237f0a9f2e0c4887faa9538f3401c7ced6236f2fa85e07ac8e",
+          "size": 194781,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "42d23bdb69dd80ff8ef194b478cb96863fb6d4dc6a5ab76676be3bf471cb19df",
+      "source_path": "SF_Resources/Voices/M/miss_3"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1590016,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_4.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "1323f8dc11a3b9a4efbde66a8107102106b8b58aa0119eb810bfccc0017693ea",
+          "size": 176637,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "98feb70a805c6979e6bfabd392bc824053ac1b96d49a1e4ea3fbacc57d8a2dee",
+      "source_path": "SF_Resources/Voices/M/miss_4"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1290880,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_5.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f00bdf8882141d662d451cbc75dec7a3de192ebf698906e66b2719087b8a8438",
+          "size": 145244,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b6acb2404b76c352ae81145d2c361cbf3d8aab0c8bc49d2315b92ec3eaa11dbe",
+      "source_path": "SF_Resources/Voices/M/miss_5"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2093824,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_6.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "2b34a7fb5ba3f1d6b4b566ca093cabb555a993883571255f78b0d0e479dcfa4a",
+          "size": 228539,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b9ee2630f7d08990051c4bb9cd0def2d96288cb27d317b51f63cd964734f3aa6",
+      "source_path": "SF_Resources/Voices/M/miss_6"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1732480,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_7.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "b4d4045912d7cb5ba6ab03a32443d3d1ac5e0ef0c33fc5d844ba3e12f289d267",
+          "size": 194803,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "8ecbb887ac32ae28ad22a2195e944d76b528bde746671e18fc0ccff675a6c87b",
+      "source_path": "SF_Resources/Voices/M/miss_7"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1438336,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_8.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f79de343e7976fe76f8add0afd0017082fec8fc16c12fa046de510802f210f57",
+          "size": 163081,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "4d573ebc79afb9af6c0e4f73de6e296051a6a5237c1e3d289f23bfc550a09fcd",
+      "source_path": "SF_Resources/Voices/M/miss_8"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 997760,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/M/miss_9.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "a512ae2bce06d6e191c5eb16206ed2532cc11d73dfbc40efba4217df7e01bdd5",
+          "size": 112244,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "06048adbd874280eb0aacd6a39058c4835df883fefda428446519054934c456b",
+      "source_path": "SF_Resources/Voices/M/miss_9"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2163456,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_1.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "6213b5f670a221b0176a3df9be991fa5898a3ea209b21acfb917033ccceb52c2",
+          "size": 235434,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b03551a65691a6fa145cdbc9ddb9eed278dcdacc90388f09499ab5a9ce090533",
+      "source_path": "SF_Resources/Voices/T/miss_1"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1418240,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_10.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "5e05716bc32860958bfa5a8aa57a864a9e662c63896a38e138badb8e77f0d267",
+          "size": 158888,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "1a37a73842218d3b51712272db2d2035979127551f569a1cdac621d45aa58e31",
+      "source_path": "SF_Resources/Voices/T/miss_10"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1548288,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_11.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "96b5d0808f90425350cb9c881bf6bcbefa671bfb4a6d762832cb3b8cc0f6da72",
+          "size": 175639,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b57305048d09e90aa6993169f44c5187f6764510273f3255ae6f34d377d9054c",
+      "source_path": "SF_Resources/Voices/T/miss_11"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1495552,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_12.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "cb2186958b242478da33f02d148787807cb1bb92ae8601e3ee07e1e1c93fc332",
+          "size": 168760,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "922ac9c1c77fe1d632c3675e0c4c1d8c8429f5ed5ab030ecdff837819322871b",
+      "source_path": "SF_Resources/Voices/T/miss_12"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2171520,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_13.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "79de3e330d1b6adb49af8ec14c402b13f4143cde355110efaee2d34ba2674f41",
+          "size": 242828,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "b6afc6f3c833d24b8b19c67b045213e855a1bb22993322a9ddda6c54ef4d9d78",
+      "source_path": "SF_Resources/Voices/T/miss_13"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1084672,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_14.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "90b30daafc6d0164f0b4d0d5e10b6569f58b797cbc3690b10f2ce625bc21fe83",
+          "size": 123644,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "7ce0c67cfd8a9f2ad86e0ff37d4aee5dad5f2d4ca6199d94d0fb74494b6a53ea",
+      "source_path": "SF_Resources/Voices/T/miss_14"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2353280,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_15.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "dd5f858ffe1678865998619006aa61448907b3a2906abca7203a89c2ed29cc50",
+          "size": 265476,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "253ac880ceb9489de84541adb52c9a5d36cb8360e9ef0f209829c8db8ba7603b",
+      "source_path": "SF_Resources/Voices/T/miss_15"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1320576,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_2.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "758f4263d2e0878719c378264f3d803ef19c8d64e29184169e65c402207eee6a",
+          "size": 143762,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "2b2d15e188e62adccedc9114c68aca29cb97db167ab6f5dcf1f4c57173eb9606",
+      "source_path": "SF_Resources/Voices/T/miss_2"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1806976,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_3.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "81fc0eae9b2d6fa3202d62c107e6848c3d67a296fb64decf5d367432a2d52a23",
+          "size": 193720,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "bdbd31928992754a6b8cf175475e4712bffb407236826509e3dec3fe5248166b",
+      "source_path": "SF_Resources/Voices/T/miss_3"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1236864,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_4.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "f84cd3fb98dcbc95863a2377df7177620ec968034eab42f20d64b5a8d43b3d44",
+          "size": 134559,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "3e6967727c67b59362caefccc9e05f784ff0d0ae5f44b0c7d0f3b6cf1d1cef79",
+      "source_path": "SF_Resources/Voices/T/miss_4"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1236352,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_5.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "7dd76d2e477982c677e12d6935b144f49db45231c08fd9de73ad29b1b85fe411",
+          "size": 134573,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "26d9cdcf79f5c7f9eeeb906d0eee7f3996bc5118f781a7b7a9c103e8fadde139",
+      "source_path": "SF_Resources/Voices/T/miss_5"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 2401280,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_6.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "8bea21d66453a8593515223ca5af11dccad21d468e8e5306070b24e48024cf14",
+          "size": 258244,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "6d104307288f91cd8b9bae383cbe39457a269f71399c9945ada7837429caad0a",
+      "source_path": "SF_Resources/Voices/T/miss_6"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1512960,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_7.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "afb4481e3ba8fd8a8322a6ef75e2a223be0c754115c530a279c92ee9748b49e6",
+          "size": 168276,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "158e38914f620a9f09657a3f32ac0fa29a5146c391de51e9d0cbd4ff95ef7998",
+      "source_path": "SF_Resources/Voices/T/miss_7"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1253760,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_8.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "0536e85be558590de7f481f7cb4e09b3e82524bc4f7a6885c3905d5a85913400",
+          "size": 141150,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "2ba1828163461be4b36a58f0fdec1e73cb4087b21549cb57cde8bff1840db34a",
+      "source_path": "SF_Resources/Voices/T/miss_8"
+    },
+    {
+      "outputs": [
+        {
+          "bitrate": "40k",
+          "channels": 1,
+          "emitted": true,
+          "frames": 1124096,
+          "mime": "audio/ogg; codecs=opus",
+          "path": "voices/T/miss_9.opus",
+          "sample_rate": 44100,
+          "sample_size": 16,
+          "sha256": "3383f96871cfce3db0beafeada64e4046e3f1e27a89f5c9daae8436eaf077ed6",
+          "size": 126150,
+          "source_compression": "SDX2",
+          "type": "opus"
+        }
+      ],
+      "sha256": "919a80e18305ca0fddcee70d42fcd514a5fda3bf6284fe51d32faac8cbf84305",
+      "source_path": "SF_Resources/Voices/T/miss_9"
+    }
+  ],
+  "generator": "tools/convert_assets.py --streamed-media-only",
+  "schema_version": 1
+}

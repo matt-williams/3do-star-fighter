@@ -1,0 +1,205 @@
+{
+  "animations": [
+    {
+      "enabled": false,
+      "frame_count": 10,
+      "frame_interval": 0,
+      "initial_countdown": 0,
+      "initial_frame": 0,
+      "loop_frame": 4,
+      "sprites": [
+        {
+          "destination": 0,
+          "frames": [
+            32,
+            34,
+            36,
+            38,
+            0,
+            2,
+            4,
+            6,
+            4,
+            2
+          ]
+        },
+        {
+          "destination": 1,
+          "frames": [
+            33,
+            35,
+            37,
+            39,
+            1,
+            3,
+            5,
+            7,
+            5,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "frame_count": 4,
+      "frame_interval": 1,
+      "initial_countdown": 0,
+      "initial_frame": 0,
+      "loop_frame": 0,
+      "sprites": [
+        {
+          "destination": 2,
+          "frames": [
+            0,
+            2,
+            4,
+            6
+          ]
+        },
+        {
+          "destination": 3,
+          "frames": [
+            1,
+            3,
+            5,
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "frame_count": 8,
+      "frame_interval": 1,
+      "initial_countdown": 0,
+      "initial_frame": 0,
+      "loop_frame": 0,
+      "sprites": [
+        {
+          "destination": 144,
+          "frames": [
+            144,
+            144,
+            144,
+            144,
+            144,
+            144,
+            144,
+            10
+          ]
+        },
+        {
+          "destination": 145,
+          "frames": [
+            145,
+            145,
+            145,
+            145,
+            145,
+            145,
+            10,
+            145
+          ]
+        },
+        {
+          "destination": 146,
+          "frames": [
+            146,
+            146,
+            146,
+            146,
+            146,
+            10,
+            146,
+            146
+          ]
+        },
+        {
+          "destination": 147,
+          "frames": [
+            147,
+            147,
+            147,
+            147,
+            10,
+            147,
+            147,
+            147
+          ]
+        },
+        {
+          "destination": 148,
+          "frames": [
+            148,
+            148,
+            148,
+            10,
+            148,
+            148,
+            148,
+            148
+          ]
+        },
+        {
+          "destination": 149,
+          "frames": [
+            149,
+            149,
+            10,
+            149,
+            149,
+            149,
+            149,
+            149
+          ]
+        },
+        {
+          "destination": 150,
+          "frames": [
+            150,
+            10,
+            150,
+            150,
+            150,
+            150,
+            150,
+            150
+          ]
+        },
+        {
+          "destination": 151,
+          "frames": [
+            10,
+            151,
+            151,
+            151,
+            151,
+            151,
+            151,
+            151
+          ]
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "frame_count": 3,
+      "frame_interval": 1,
+      "initial_countdown": 0,
+      "initial_frame": 0,
+      "loop_frame": 0,
+      "sprites": [
+        {
+          "destination": 227,
+          "frames": [
+            227,
+            228,
+            229
+          ]
+        }
+      ]
+    }
+  ],
+  "schema": "texture-animation-v1"
+}
