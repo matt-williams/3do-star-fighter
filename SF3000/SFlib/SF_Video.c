@@ -1,6 +1,43 @@
 //	File : SF_Video
 //	Video playing routines (just simple interface for platform swapping)
 
+#if defined(SF_WEB_PORT)
+
+#include "SF_Io.h"
+#include "SF_Music.h"
+#include "SF_ScreenUtils.h"
+#include "SF_Sound.h"
+#include "sf_web_runtime.h"
+
+typedef void *PlayerPtr;
+
+long video_play (char *video_file)
+{
+	long status;
+
+	music_pause ();
+	sound_terminate ();
+	screen_clear (0, 0, 0, SCR_UPDATE);
+	screen_clear (0, 0, 0, SCR_DISPLAY);
+	io_resetvideocounter (-1);
+
+	status = sf_web_runtime_video_play(video_file);
+
+	io_resetvideocounter (MAX_WAITBEFOREVIDEO);
+	sound_initialise ();
+	music_resume ();
+
+	return (status);
+}
+
+long video_internal_interrupt (PlayerPtr ctx)
+{
+	(void) ctx;
+	return (sf_web_runtime_control_pad_state() == 0 ? 0 : 1);
+}
+
+#else
+
 #include "SF_Video.h"
 #include "SF_Allocation.h"
 #include "SF_Io.h"
@@ -73,3 +110,5 @@ long	joybits;
 	joybits = controlpad_read();		// Read joypad
 	return ((joybits == 0) ? 0 : 1);	// Return Continue / Terminate flag
 }
+
+#endif

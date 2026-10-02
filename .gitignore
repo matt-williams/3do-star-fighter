@@ -1,0 +1,11 @@
+# Generated browser resources and Emscripten output.
+web-assets/
+asset-conversion-check/
+SF3000/WebPort/web/starfighter.data
+SF3000/WebPort/web/starfighter.js
+SF3000/WebPort/web/starfighter.wasm
+SF3000/WebPort/web/starfighter.wasm.map
+SF3000/WebPort/web/audio/
+SF3000/WebPort/web/media/
+SF3000/WebPort/web/video/
+__pycache__/

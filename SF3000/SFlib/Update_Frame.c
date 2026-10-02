@@ -716,4 +716,3 @@ add_bit(	camera_x_position + ( ( arm_random() & ((64<<24)-1) ) - (32<<24) ) ,
 }
 
 }
-

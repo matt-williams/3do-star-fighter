@@ -15,6 +15,7 @@
 #include "Ship_Control.h"
 #include "Ship_Command.h"
 #include "Plot_Graphic.h"
+#include "SF_ARMUtils.h"
 
 #include "test_prog.h"
 
@@ -292,4 +293,3 @@ add_smoke( 	(damaged_ship->x_pos) + ( ( (arm_random()&255) - 128 )<<13 ) + damag
 			0 ) ;
 
 }
-

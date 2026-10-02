@@ -3,6 +3,11 @@
 #ifndef __SF_MUSIC
 #define __SF_MUSIC
 
+#if defined(SF_WEB_PORT)
+#include <stdint.h>
+typedef int32_t Item;
+typedef int32_t int32;
+#endif
 
 // Definitions
 
@@ -43,4 +48,3 @@ void music_loadin (long);						// INTERNAL - Load in music
 extern	Item	parent_taskref;					// Task ref of parent
 
 #endif
-

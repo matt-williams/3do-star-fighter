@@ -10,6 +10,7 @@
 #include "SF_Palette.h"
 #include "Sound_Control.h"
 #include "SF_ArmUtils.h"
+#include "SF_War.h"
 
 #define FIND_OBJECT_POSITION \
 x_pos = (unsigned) x_grid<<25 ;\

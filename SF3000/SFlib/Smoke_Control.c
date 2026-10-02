@@ -418,4 +418,3 @@ if (ship->misc_counter < 31 ) ship->misc_counter += 1 ;
 }
 
 
-

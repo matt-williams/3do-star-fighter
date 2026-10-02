@@ -7,6 +7,9 @@
 #include "SF_Screenutils.h"
 #include "SF_ARMSky.h"
 #include "SF_ARMCell.h"
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
 
 
 // Defines
@@ -54,7 +57,9 @@ void screen_update (long updateflags)
 // Accepts : Update flags
 // Returns : nothing
 
+#if !defined(SF_WEB_PORT)
 long			temp_cels;
+#endif
 
 // WAIT FOR FRAME DELAY ?
 
@@ -65,11 +70,13 @@ long			temp_cels;
 						
 	if ((updateflags & S_CEL) && (cel_quad.temp_cels >0))
 		{
+#if !defined(SF_WEB_PORT)
 		temp_cels=cel_quad.temp_cels-1;
 		
 		(*(cel_plotlist + temp_cels))->ccb_Flags |= CCB_LAST;
 		DrawCels(screen->sc_BitmapItems[screen->sc_curScreen], *cel_plotlist);
 		(*(cel_plotlist + temp_cels))->ccb_Flags &= ~CCB_LAST;
+#endif
 		}
 
 // DRAW MENU ?
@@ -93,6 +100,10 @@ long			temp_cels;
 		{
 		if (screen_swaptype != 0)
 			screen_swap (screen_swaptype);								// Do pre-flip screenswap ?
+
+#if defined(SF_WEB_PORT)
+		sf_web_runtime_present((uint32_t)screen->sc_curScreen);
+#endif
 				
 		DisplayScreen(screen->sc_Screens[screen->sc_curScreen],0);		// Swap screen
 		screen->sc_curScreen=1-screen->sc_curScreen;					// Swap screen
@@ -111,6 +122,12 @@ long			temp_cels;
 		
 	if (updateflags & S_WAITFRAME)
 		WaitVBLDefer(VBLIOReq, 1);
+
+#if defined(SF_WEB_PORT)
+	if ((updateflags & S_BANK) &&
+		(updateflags & (S_WAIT | S_WAITFRAME | S_WAITSPACE)) == 0)
+		sf_web_runtime_wait_vbl(1);
+#endif
 }
 
 
@@ -123,7 +140,9 @@ void	screen_intercept (void)
 // Accepts : Nothing
 // Returns : Nothing
 
+#if !defined(SF_WEB_PORT)
 long	temp_cels;
+#endif
 
 	// WAIT FOR DELAY
 	
@@ -134,11 +153,13 @@ long	temp_cels;
 	if (cel_quad.temp_cels >0)
 		{
 
+#if !defined(SF_WEB_PORT)
 		temp_cels=cel_quad.temp_cels-1;
 		
 		(*(cel_plotlist + temp_cels))->ccb_Flags |= CCB_LAST;
 		DrawCels(screen->sc_BitmapItems[screen->sc_curScreen], *cel_plotlist);
 		(*(cel_plotlist + temp_cels))->ccb_Flags &= ~CCB_LAST;
+#endif
 		
 		cel_quad.temp_cels =0;
 		}
@@ -168,6 +189,7 @@ GrafCon GCon;
 		FillRect(screen->sc_BitmapItems[screen->sc_curScreen ], &GCon, &rectangle );
 	else
 		FillRect(screen->sc_BitmapItems[1-screen->sc_curScreen], &GCon, &rectangle );
+
 }
 
 /**************************************/
@@ -342,5 +364,3 @@ CCB		screen_fade;
 							
 	DrawCels(screen->sc_BitmapItems[screen->sc_curScreen], &screen_fade);
 }
-
-

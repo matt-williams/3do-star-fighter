@@ -8,6 +8,9 @@
 #include "SF_ARMCell.h"
 #include "SF_ARMAnim.h"
 #include "SF_ARMUtils.h"
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
 #include "varargs.h"
 #include "types.h"
 #include "blockfile.h"
@@ -16,6 +19,67 @@
 
 long	file_return;
 ubyte*	backdrop;
+
+#if defined(SF_WEB_PORT)
+
+_Static_assert(sizeof(long) == 4u,
+			   "The browser port requires 32-bit legacy long values");
+_Static_assert(sizeof(mission_data) == 4924u,
+			   "mission_data must match the 3DO file layout");
+_Static_assert(sizeof(game_configuration) == 556u,
+			   "game_configuration must match the 3DO file layout");
+_Static_assert(sizeof(planet_data) == 24u,
+			   "planet_data must match the 3DO file layout");
+_Static_assert(sizeof(performance_data) == 76u,
+			   "performance_data must match the 3DO file layout");
+_Static_assert(sizeof(ship_sdb) == 44u,
+			   "ship_sdb must match the 3DO file layout");
+_Static_assert(sizeof(flight_path) == 260u,
+			   "flight_path must match the 3DO file layout");
+
+static void sf_web_uppercase_asset_id(char *value, size_t capacity)
+{
+	size_t character;
+
+	for (character = 0; character < capacity && value[character] != '\0';
+		 ++character)
+		if (value[character] >= 'a' && value[character] <= 'z')
+			value[character] = (char)(value[character] - ('a' - 'A'));
+}
+
+static void sf_web_graphics_asset_id(char *destination, size_t capacity,
+				     const char *source)
+{
+	if (capacity == 0)
+		return;
+	strncpy(destination, source, capacity - 1);
+	destination[capacity - 1] = '\0';
+	sf_web_uppercase_asset_id(destination, capacity);
+}
+
+static long sf_web_validate_normalized_mission(const mission_data *loaded_mission)
+{
+	long path;
+
+	if (loaded_mission->groundcount < 0 || loaded_mission->groundcount > 128 ||
+		loaded_mission->flightpath_count < 0 ||
+		loaded_mission->flightpath_count > 8 ||
+		loaded_mission->special_ships < 0 ||
+		loaded_mission->special_ships > 32) {
+		printf("Invalid normalized mission record counts\n");
+		return 0;
+	}
+	for (path = 0; path < loaded_mission->flightpath_count; ++path)
+		if (loaded_mission->flight_paths[path].flight_points < 0 ||
+			loaded_mission->flight_paths[path].flight_points > 64) {
+			printf("Invalid normalized mission flight-path count\n");
+			return 0;
+		}
+
+	return 1;
+}
+
+#endif
 
 
 /**************************************/
@@ -33,8 +97,13 @@ long load_mission(long load_level, long load_mission)
 	
 	// Load in mission file
 	
-	if (load_fileat(&mission, "%s%c/Miss_%d",MIS_ROOT,decode_level(load_level),load_mission) == NULL)
+	if (load_fileat(&mission, "%s%c/MISS_%d",MIS_ROOT,decode_level(load_level),load_mission) == NULL)
 		return (0);
+
+#if defined(SF_WEB_PORT)
+	if (!sf_web_validate_normalized_mission(&mission))
+		return (0);
+#endif
 			
 	return (1);
 }
@@ -52,10 +121,13 @@ static	long	cache_loadlevel=-1;
 static	long	cache_loadmission=-1;
 static	char	cache_planet [16] = "";
 static	char	cache_sky [16] = "";
+#if defined(SF_WEB_PORT)
+char		graphics_asset [sizeof(mission.planettype)];
+#endif
 
 	// Load in polygon map file
 	
-	if (load_fileat(*poly_map, "%sMaps/%s/%s/P_Map",MIS_ROOT,mission.location, mission.variation) == NULL)
+	if (load_fileat(*poly_map, "%sMaps/%s/%s/P_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 		return (0);
 
 	// Only load in graphics and planet data if planet type is different from last time
@@ -67,7 +139,14 @@ static	char	cache_sky [16] = "";
 		if (load_fileat(cel_list32, "%s%s.32",CEL_ROOT,mission.planettype) == NULL)
 			return (0);
 		
+#if defined(SF_WEB_PORT)
+		sf_web_graphics_asset_id(graphics_asset, sizeof(graphics_asset),
+					 mission.planettype);
+		memset(graphics_data, 0, sizeof(graphics_data));
+		if (load_fileat(graphics_data, "%s%s",GRF_ROOT,graphics_asset) == NULL)
+#else
 		if (load_fileat(graphics_data, "%s%s",GRF_ROOT,mission.planettype) == NULL)
+#endif
 			return (0);
 
 		if (load_fileat(&planet_info, "%s%s.info",INF_ROOT,mission.planettype) == NULL)
@@ -115,10 +194,10 @@ static	char	cache_sky [16] = "";
 		
 		// Load in map for mission (Spritemap 'S_Map' and HeightMap 'H_Map')
 	
-		if (load_fileat(*sprite_map, "%sMaps/%s/%s/S_Map",MIS_ROOT,mission.location, mission.variation) == NULL)
+		if (load_fileat(*sprite_map, "%sMaps/%s/%s/S_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
 
-		if (load_fileat(*height_map, "%sMaps/%s/%s/H_Map",MIS_ROOT,mission.location, mission.variation) == NULL)
+		if (load_fileat(*height_map, "%sMaps/%s/%s/H_MAP",MIS_ROOT,mission.location, mission.variation) == NULL)
 			return (0);
 
 		// Only load in sky file if it is different from last time
@@ -150,7 +229,7 @@ long load_gamedata (long load_spec)
 	if (load_spec & DATA_CONFIGURE)
 		{
 		memset (&configuration, 0, sizeof (game_configuration));
-		if (load_fileat (&configuration, "%sConfig",DAT_ROOT)==NULL)		// Load in default game configuration
+		if (load_fileat (&configuration, "%sCONFIG",DAT_ROOT)==NULL)		// Load in default game configuration
 			return (0);
 		}
 		
@@ -268,7 +347,10 @@ ioreqItem 		= 0;
 	vsprintf(full_filename,fmt,variable_args)
 	va_end(variable_args);
 
-	sprintf (directory_filename, "%s%s", RESOURCES_ROOT, full_filename);
+	if (strncmp(full_filename, RESOURCES_ROOT, strlen(RESOURCES_ROOT)) == 0)
+		strcpy(directory_filename, full_filename);
+	else
+		sprintf(directory_filename, "%s%s", RESOURCES_ROOT, full_filename);
 	
 	// OPEN THE FILE TO LOAD								
 	
@@ -327,6 +409,10 @@ ioreqItem 		= 0;
 	if (ioreqItem > 0)			// Close IOREQ
 		DeleteIOReq(ioreqItem);
 	CloseBlockFile(&thefile);	// Close File
+
+#if defined(SF_WEB_PORT)
+	sf_web_runtime_reset_textures();
+#endif
 		
 	return (buffer);			// Return with load address, success !
 	
@@ -340,4 +426,3 @@ ERROR_EXIT :
 	
 	return (0);					// Return ZERO for error
 }
-

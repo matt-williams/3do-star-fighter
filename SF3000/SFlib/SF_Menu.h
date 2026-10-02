@@ -82,7 +82,7 @@ typedef struct	gamefile									// Save file structure
 				camera_data			savefile_cameras [2];	// Players camera settings
 				}	gamefile;
 				
-typedef	void	(*MenuFunction) ();
+typedef	void	(*MenuFunction) (long);
 
 typedef struct	menu_info
 				{
@@ -228,7 +228,7 @@ void	menu_setcontrol (long);				// Sets new control method
 void	menu_setupstick (long);				// Set up stick boundaries
 void	menu_setflightc (long);				// Set buttons for game controls
 void	menu_updateflightc (long);			// Update setflightcontrols menu
-void	menu_saveflightc (void);			// Save config file & move up
+void	menu_saveflightc (long);			// Save config file & move up
 long	menu_endflightc (long);				// Check for clashes in controls
 
 // Get User Name functions

@@ -37,7 +37,7 @@ char	**message_pointerlist [4] =	{	game_message_pointers,			// List of pointer a
 										mission_message_pointers,
 										mission_title_pointers};
 										
-char	languages [3] [] = {		"English",							// Names of languages supported
+char	languages [3] [8] = {		"English",							// Names of languages supported
 									"French",
 									"German"	};
 		
@@ -494,7 +494,7 @@ long	message_initialisemissionfiles (long language_id, long load_level, long loa
 	// Load in mission text file
 
 	if (load_level != -1)
-		load_fileat(messages_missiontext, "%s%s/%c/Brief_%d",TEXT_ROOT, languages [language_id], decode_level(load_level),load_mission);
+		load_fileat(messages_missiontext, "%s%s/%c/BRIEF_%d",TEXT_ROOT, languages [language_id], decode_level(load_level),load_mission);
 	else
 		load_fileat(messages_missiontext, "%s%s/Credits",TEXT_ROOT, languages [language_id]);
 	
@@ -547,6 +547,8 @@ long	text_linecount = 0;
 				text_ptr+=1;
 		while (*text_ptr != 0x0d);
 		*(text_ptr++) = 0;
+		if (*text_ptr == 0x0a)
+			text_ptr+=1;
 		}
 	
 	return (text_linecount);

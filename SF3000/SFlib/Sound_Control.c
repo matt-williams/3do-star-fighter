@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 #include "SF_Sound.h"
 #include "Plot_Graphic.h"
 #include "Sound_Control.h"
@@ -395,4 +397,3 @@ if ( sound_big_ship == NULL && sound_channel_big_ship != -1 )
 
 
 }
-

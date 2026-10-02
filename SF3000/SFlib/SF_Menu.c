@@ -88,6 +88,7 @@ char			user_savefilename [16];
 long			menu_setfixedcamera;
 long			menu_countdown = 0;
 menu_info		menu_status = {NO_MENU,0,0,0,0};
+static void menu_enter_callback(long current_menu);
 menu			menus [MAX_MENUS] =
 			
 	{
@@ -425,7 +426,7 @@ menu			menus [MAX_MENUS] =
 		{BASECEL_CONTROL_TICK,	32,	ITEM_PR,	ITEM_TE,	0,	ITEM_OK,	0,	menu_setcontrol,	0,					0,	0,	WHITE_15, 	{MMNU15 + 1}},
 		{BASECEL_CONTROL_TICK,	32,	ITEM_PR,	ITEM_TE,	1,	ITEM_OK,	0,	menu_setcontrol,	1,					0,	0,	WHITE_15, 	{MMNU15 + 2}},
 		{-1,					-1,	-1,			ITEM_TN,	3,	ITEM_OK,	0,	menu_setupstick,	0,					0,	0,	YELLOW_15,	{MMNU15 + 3}},
-		{-1,					-1,	-1,			ITEM_TN,	4,	ITEM_OK,	0,	menu_enter,			FLIGHTCONTROL_MENU,	0,	0,	YELLOW_15,	{MMNU15 + 4}},
+		{-1,					-1,	-1,			ITEM_TN,	4,	ITEM_OK,	0,	menu_enter_callback,	FLIGHTCONTROL_MENU,	0,	0,	YELLOW_15,	{MMNU15 + 4}},
 		{-1,					-1,	-1,			ITEM_TN,	8,	ITEM_OK,	0,	menu_moveup,		0,					0,	0,	BLUE_15,	{MMNU15 + 5}}
 			}
 		},
@@ -610,7 +611,15 @@ long	cel_base;
 
 /**************************************/
 
-void	menu_enter (long current_menu, long reset_to_top)	
+static void menu_enter_callback(long current_menu)
+
+{
+	menu_enter(current_menu, 1);
+}
+
+/**************************************/
+
+void	menu_enter (long current_menu, long reset_to_top)
 
 // Purpose : Setup menu parameters & text when we enter a new menu (or close all menus)
 // Accepts : New menu to enter (-1 to close all), and whether to reset cursor position to top (1 = yes)
@@ -2141,13 +2150,14 @@ void	menu_updateflightc (long keypad)
 
 /**************************************/
 
-void	menu_saveflightc (void)
+void	menu_saveflightc (long nothing)
 
 // Purpose : Saves config file and moves up a menu
 // Accepts : Nothing
 // Returns : Nothing
 
 {
+	(void)nothing;
 	control_saveconfigure();
 	menu_moveup (0);
 }
@@ -2594,4 +2604,3 @@ long	keypad;
 	screen_setswap (1);											// Set screen swap
 	cel_quad.temp_cels=0;										// Reset plotting data
 }
-

@@ -9,6 +9,8 @@
 #include "SF_Io.h"
 #include "Maths_Stuff.h"
 #include "SF_ArmSky.h"
+#include "SF_ARMCell.h"
+#include "Plot_Land.h"
 #include "Sound_Control.h"
 #include "Update_Frame.h"
 #include "SF_War.h"
@@ -658,6 +660,5 @@ machine_code_land_plot() ;
 	
 // Exit with a big bunch of polys drawn on t' screen
 }
-
 
 

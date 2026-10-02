@@ -8,6 +8,9 @@
 #include "SF_Palette.h"
 #include "SF_ARMCell.h"
 #include "SF_ScreenUtils.h"
+#if defined(SF_WEB_PORT)
+#include "../WebPort/sf_web_runtime.h"
+#endif
 #include <string.h>
 
 //	Definitions
@@ -38,6 +41,10 @@ long cel_initialise(void)
 
 long 	cel_loop;
 CCB*	cel_temp;
+
+#if defined(SF_WEB_PORT)
+	sf_web_runtime_initialise();
+#endif
 
 // Allocate memory for fixed game cels, 32x32 and 16x16 landscape / polygon cels and creation cels
 

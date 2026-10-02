@@ -438,4 +438,3 @@ ship->what_hit_me = 0 ;
 
 }
 
-

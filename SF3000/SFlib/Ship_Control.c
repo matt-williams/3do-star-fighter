@@ -1612,7 +1612,7 @@ ship_stack*  add_ship ( long x_pos , long y_pos , long z_pos ,
 
 ship_stack *ship ;
 
-static test_the_fucking_fighters = 0 ;
+static long test_the_fucking_fighters = 0 ;
 
 
 //if (type!=(PLAYERS_SHIP<<4)) return( NULL ) ;

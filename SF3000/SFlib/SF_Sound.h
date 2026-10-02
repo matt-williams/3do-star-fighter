@@ -5,7 +5,12 @@
 
 // Includes
 
+#if defined(SF_WEB_PORT)
+#include <stdint.h>
+typedef int32_t Item;
+#else
 #include "types.h"
+#endif
 
 // Structure definitions
 
@@ -69,4 +74,3 @@ void	sound_setmastervolume (long);					// Set new master volume setting
 void	sound_switchonoroff (long);						// Switch sample player on / off
 
 #endif
-

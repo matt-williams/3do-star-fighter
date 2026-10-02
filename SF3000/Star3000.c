@@ -50,6 +50,9 @@
 #include "SFlib/Misc_Struct.h"
 #include "SFlib/Maths_Stuff.h"
 #include "SFlib/Global_2.h"
+#if defined(SF_WEB_PORT)
+#include "WebPort/sf_web_runtime.h"
+#endif
 
 #include <timerutils.h>									// System routines
 #include <string.h>
@@ -197,20 +200,41 @@ int main()
 long	selection,
 		config_version;
 
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Initializing Star Fighter...");
+	#endif
 	game_initialise ();											// Initialise basic system resources
 		
 	// Load in Configuration file
 	
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Loading game configuration...");
+	#endif
 	load_gamedata (DATA_CONFIGURE);								// Load in config file of CD
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Loading saved configuration...");
+	#endif
 	config_version = configuration.version;						// Get current version of config file
 	
 	configure_waiting = nvram_load ("StarFighter.Config", "SFC:", (char*) &configuration, sizeof (game_configuration));
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Applying game configuration...");
+	#endif
 	
 	if (configure_waiting == 0 || config_version != configuration.version)		// No file or out of date one ?
 		load_gamedata (DATA_CONFIGURE);											// NO - load default configure from CD
 		
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Configuring controls...");
+	#endif
 	control_setupfromconfigure ();								// Setup game from configuration file
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Preparing the menu...");
+	#endif
 	game_intro ();												// Do initial intro
+	#if defined(SF_WEB_PORT)
+	sf_web_runtime_set_status("Running - arrows/WASD move, Z/X/C act, Enter starts");
+	#endif
 
 	// TO INITIALISE CHEATS - DO IT HERE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	
@@ -1124,15 +1148,31 @@ void game_initialise (void)
 	parent_taskref = KernelBase ->kb_CurrentTask->t.n_Item;		// Put item ref# of game task in global variable
 	
 	if ( InitEventUtility(1, 0, LC_Observer) < 0)				// INITIALISE EVENT MANAGER
+		{
+		#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_status("Unable to initialize browser input.");
+		#endif
 		game_end();
+		}
 	
 	if (OpenAudioFolio () < 0)									// INITIALISE AUDIO FOLIO
+		{
+		#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_status("Unable to initialize the audio compatibility layer.");
+		#endif
 		game_end();
+		}
 			
 // INITIALISE SCREEN
 
 	screen->sc_nScreens = 2;									// Get 2 screenbanks
-	if (!OpenGraphics(screen,2))	game_end();					// If failed, quit game
+	if (!OpenGraphics(screen,2))								// If failed, quit game
+		{
+		#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_status("Unable to allocate the browser screen banks.");
+		#endif
+		game_end();
+		}
 	screen->sc_curScreen=0 ;									// Set current screen to 0
 	EnableVAVG( screen->sc_Screens[0] );						// Enable sub-pixel averaging	
 	EnableVAVG( screen->sc_Screens[1] );
@@ -1149,8 +1189,20 @@ void game_initialise (void)
 
 // INITIALISE SOUND, CELS, FONTS, JOYSTICK READER, LOAD GAME DATA
 	
-	if (cel_initialise() == 0) game_end();						// Init Cel Memory Areas
-	if (font_loadin() ==0) game_end();							// Load in fonts
+	if (cel_initialise() == 0)									// Init Cel Memory Areas
+		{
+		#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_status("Unable to allocate CEL rendering memory.");
+		#endif
+		game_end();
+		}
+	if (font_loadin() ==0)										// Load in fonts
+		{
+		#if defined(SF_WEB_PORT)
+		sf_web_runtime_set_status("Unable to load Fonts/Message from the browser assets.");
+		#endif
+		game_end();
+		}
 	sound_loadsamples();										// Load in all samples
 	sound_initialise();											// Initialise sample player
 	joystick_initialise();										// Initialise joystick reader
@@ -1198,7 +1250,7 @@ void game_intro (void)
 	
 	// LOAD IN BACKDROP IMAGE
 
-	load_backdrop ("Fednet", 0);					// Load in backdrop picture
+	load_backdrop ("FedNet", 0);					// Load in backdrop picture
 	
 	screen_base (S_IMAGE);							// Print it
 	FadeToBlack(screen, 30);

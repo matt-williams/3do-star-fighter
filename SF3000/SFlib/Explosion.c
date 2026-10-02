@@ -19,6 +19,7 @@
 #include "SF_ArmUtils.h"
 #include "Weapons.h"
 #include "String.h"
+#include "Collision.h"
 
 void static_explode( long grid_pos , long damage )
 {
@@ -2144,8 +2145,6 @@ if (section_randy_crystals == 0)
 }
 
 }
-
-
 
 
 

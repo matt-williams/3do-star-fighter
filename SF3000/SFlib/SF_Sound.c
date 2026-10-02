@@ -1,6 +1,82 @@
 // File : SF_Sound
 // Sound Player Routines
 
+#if defined(SF_WEB_PORT)
+
+#include "SF_Sound.h"
+#include "sf_web_runtime.h"
+
+long	SAMPLER_INITIALISED = 0,
+		SAMPLES_LOADED = 0,
+		SAMPLE_MASTERVOL = 128,
+		SAMPLE_MASTERSWITCH = 1;
+
+void sound_loadsamples (void)
+{
+	sf_web_runtime_sound_loadsamples();
+	SAMPLES_LOADED = 14;
+}
+
+void sound_unloadsamples (void)
+{
+	sf_web_runtime_sound_unloadsamples();
+	SAMPLER_INITIALISED = 0;
+	SAMPLES_LOADED = 0;
+}
+
+void sound_initialise (void)
+{
+	sf_web_runtime_sound_initialise();
+	SAMPLER_INITIALISED = 1;
+}
+
+void sound_terminate (void)
+{
+	sf_web_runtime_sound_terminate();
+	SAMPLER_INITIALISED = 0;
+}
+
+long sound_playsample (long sample, long pitch, long volume, long stereo_pos)
+{
+	if (SAMPLE_MASTERSWITCH == 0 || SAMPLER_INITIALISED == 0) {
+		return (-1);
+	}
+	return (long)sf_web_runtime_sound_play((int32_t)sample, (int32_t)pitch,
+		(int32_t)volume, (int32_t)stereo_pos);
+}
+
+long sound_stopsample (long channel_number)
+{
+	sf_web_runtime_sound_stop((int32_t)channel_number);
+	return (-1);
+}
+
+long sound_pitchbend (long channel_number, long pitch_bend)
+{
+	return (long)sf_web_runtime_sound_pitchbend((int32_t)channel_number,
+		(int32_t)pitch_bend);
+}
+
+void sound_alter (long channel_number, long new_volume, long new_stereoposition)
+{
+	sf_web_runtime_sound_alter((int32_t)channel_number, (int32_t)new_volume,
+		(int32_t)new_stereoposition);
+}
+
+void sound_setmastervolume (long new_mastervolume)
+{
+	SAMPLE_MASTERVOL = new_mastervolume;
+	sf_web_runtime_sound_set_master_volume((int32_t)new_mastervolume);
+}
+
+void sound_switchonoroff (long new_switchstatus)
+{
+	SAMPLE_MASTERSWITCH = new_switchstatus;
+	sf_web_runtime_sound_set_enabled((int32_t)new_switchstatus);
+}
+
+#else
+
 #include "SF_Sound.h"
 #include "SF_Allocation.h"
 #include "Audio.h"
@@ -414,3 +490,5 @@ void	sound_switchonoroff (long new_switchstatus)
 {
 	SAMPLE_MASTERSWITCH = new_switchstatus;
 }
+
+#endif

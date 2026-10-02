@@ -3,6 +3,11 @@
 #ifndef __SF_ARMCELL
 #define __SF_ARMCELL
 
+#if defined(SF_WEB_PORT)
+
+#include "../WebPort/SF_ARMCell_portable.h"
+
+#else
 
 // Definitions
 
@@ -32,5 +37,7 @@ extern void arm_addcelfrom128map (void*, long, long, long);	// Add a sub-cel fro
 extern void arm_addcelfrom32map (void*, long, long, long);	// Add a sub-cel from the 32x32 map
 
 extern void arm_setcel_hw (void*, long, long);				// Alter last added game cels height / width
+
+#endif
 
 #endif

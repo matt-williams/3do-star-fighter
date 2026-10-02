@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Star Fighter Web Port</title>
+  <style>
+    body { background: #000; margin: 0; min-height: 100vh; display: grid; place-items: center; }
+    main { color: #ddd; font: 14px system-ui, sans-serif; text-align: center; }
+    .display { margin: auto; position: relative; width: min(100vw, 960px); }
+    canvas { display: block; image-rendering: pixelated; width: 100%; height: auto; }
+    p { margin: 0.75rem 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="display">
+      <canvas id="screen" width="320" height="240" aria-label="Star Fighter display"></canvas>
+    </div>
+    <p id="status">Loading Star Fighter...</p>
+  </main>
+  <script type="module">
+    import { createStarFighterRuntime } from "./runtime.js";
+
+    const canvas = document.getElementById("screen");
+    const status = document.getElementById("status");
+    globalThis.SF3000WebPort = createStarFighterRuntime(canvas, status);
+    globalThis.Module = {
+      canvas,
+      onRuntimeInitialized() {
+        globalThis.SF3000WebPort.attachModule(globalThis.Module);
+      }
+    };
+    const script = document.createElement("script");
+    script.src = "./starfighter.js";
+    script.onerror = () => {
+      status.textContent = "Browser build is unavailable.";
+    };
+    document.body.append(script);
+  </script>
+</body>
+</html>

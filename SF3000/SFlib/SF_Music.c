@@ -14,6 +14,137 @@
 
 /**************************************/
 
+#if defined(SF_WEB_PORT)
+
+#include <stdarg.h>
+#include <stdio.h>
+
+#include "SF_Music.h"
+#include "sf_web_runtime.h"
+
+char MUSIC_PROGRAM[MUSIC_PLAYLISTLENGTH];
+char MUSIC_PROGRAMLENGTH;
+
+long music_initialise (long sampleinstrumenttoplay)
+{
+	(void) sampleinstrumenttoplay;
+	sf_web_runtime_music_initialise();
+	return (1);
+}
+
+void music_terminate (void)
+{
+	sf_web_runtime_music_terminate();
+}
+
+void music_resetplaylist (void)
+{
+	MUSIC_PROGRAMLENGTH = 0;
+	sf_web_runtime_music_reset_playlist();
+}
+
+void music_addtoplaylist (long track_to_add)
+{
+	long loop;
+
+	for (loop = 0; loop < MUSIC_PROGRAMLENGTH; loop++)
+	{
+		if (MUSIC_PROGRAM[loop] == track_to_add)
+			return;
+	}
+
+	if (MUSIC_PROGRAMLENGTH < MUSIC_PLAYLISTLENGTH)
+	{
+		MUSIC_PROGRAM[MUSIC_PROGRAMLENGTH++] = (char)track_to_add;
+		sf_web_runtime_music_add_track((int32_t)track_to_add);
+	}
+}
+
+void music_takefromplaylist (long track_to_takeout)
+{
+	long loop;
+
+	for (loop = 0; loop < MUSIC_PROGRAMLENGTH; loop++)
+	{
+		if (MUSIC_PROGRAM[loop] == track_to_takeout)
+		{
+			for (; loop + 1 < MUSIC_PROGRAMLENGTH; loop++)
+				MUSIC_PROGRAM[loop] = MUSIC_PROGRAM[loop + 1];
+
+			MUSIC_PROGRAMLENGTH--;
+			sf_web_runtime_music_take_track((int32_t)track_to_takeout);
+			break;
+		}
+	}
+}
+
+void music_play (long music_setormove, long music_trackval, long trackstoplay)
+{
+	sf_web_runtime_music_play((int32_t)music_setormove, (int32_t)music_trackval,
+		(int32_t)trackstoplay);
+}
+
+void music_stop (void)
+{
+	sf_web_runtime_music_stop();
+}
+
+void music_pause (void)
+{
+	sf_web_runtime_music_pause();
+}
+
+void music_resume (void)
+{
+	sf_web_runtime_music_resume();
+}
+
+void music_maketime (void)
+{
+}
+
+void music_setmastervolume (long new_volume)
+{
+	sf_web_runtime_music_set_master_volume((int32_t)new_volume);
+}
+
+long music_query (void)
+{
+	return (long)sf_web_runtime_music_query();
+}
+
+void music_playvoice (char *fmt,...)
+{
+	char path[128];
+	va_list variable_args;
+
+	va_start(variable_args, fmt);
+	vsnprintf(path, sizeof(path), fmt, variable_args);
+	va_end(variable_args);
+	sf_web_runtime_music_play_voice(path);
+}
+
+void music_thread (void)
+{
+}
+
+void music_command (int32 command)
+{
+	(void) command;
+}
+
+void music_trackgetnext (long track_mover)
+{
+	(void) track_mover;
+}
+
+void music_loadin (long play_voiceover)
+{
+	(void) play_voiceover;
+}
+
+#else
+
 #include "types.h"
 #include "audio.h"
 #include "debug3do.h"
@@ -689,3 +820,5 @@ long	result;
 		}
 
 }
+
+#endif

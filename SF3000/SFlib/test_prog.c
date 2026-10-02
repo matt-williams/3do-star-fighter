@@ -17,6 +17,7 @@
 #include "Plot_Graphic.h"
 #include "Collision.h"
 #include "Graphics_Set.h"
+#include "SF_ARMUtils.h"
 
 #include "SF_Status.h"
 #include "SF_Message.h"
@@ -1046,7 +1047,6 @@ if ( ship->fire_request != WEAPON_NOTHING )
 }
 
 }
-
 
 
 

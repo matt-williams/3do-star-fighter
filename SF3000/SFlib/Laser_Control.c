@@ -13,6 +13,7 @@
 #include "Sound_Control.h"
 #include "SF_ArmUtils.h"
 #include "SF_Sound.h"
+#include "Bonus_Control.h"
 
 void laser_update(void)
 
@@ -518,4 +519,3 @@ add_laser( 	(ship->x_pos) + node_data.x_pos ,
 			LASER_TYPE_SMALL_SHIP ) ;
 
 }
-

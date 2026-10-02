@@ -684,4 +684,3 @@ planet_2_z_pos = -(sine_table [ (32+((arm_random())&63)) ]<<2) ;
 
 /* Exit with cosine + perspective table setup + temp test hills */	
 }
-
